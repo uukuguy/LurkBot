@@ -1,5 +1,168 @@
 # LurkBot 工作日志
 
+## 2026-01-29 (续) - Phase 3: 工具审批与沙箱集成（85% 完成）
+
+### 会话概述
+
+在 Phase 3 第一次会话的基础上，继续完成工具审批工作流和沙箱集成。实现了完整的审批系统和 BashTool 沙箱化。
+
+### 主要工作
+
+#### 1. 工具审批工作流 ✅
+
+**文件创建**:
+- `src/lurkbot/tools/approval.py`: 完整的审批系统
+  - `ApprovalManager`: 管理审批生命周期，支持异步等待和超时
+  - `ApprovalRequest`: 审批请求数据模型（工具名称、命令、会话信息）
+  - `ApprovalRecord`: 完整审批记录（请求、决策、时间戳、解析者）
+  - `ApprovalDecision`: 决策枚举（APPROVE/DENY/TIMEOUT）
+
+**核心功能**:
+- 异步等待机制：`wait_for_decision()` 阻塞直到用户决策或超时
+- 超时自动拒绝：默认 5 分钟，可配置
+- 实时解析支持：`resolve()` 可在等待期间被调用
+- 记录查询：`get_snapshot()` 获取审批状态
+- 待审批列表：`get_all_pending()` 查看所有待处理审批
+
+**测试覆盖**:
+- 19 个单元测试，100% 通过
+- 测试场景：即时审批/拒绝、超时、并发审批、边界条件
+
+#### 2. BashTool 沙箱集成 ✅
+
+**文件修改**:
+- `src/lurkbot/tools/builtin/bash.py`: 集成沙箱功能
+  - 构造函数支持 `SandboxManager` 注入
+  - 根据会话类型自动选择执行方式：
+    - MAIN 会话：直接子进程执行（`_execute_direct`）
+    - GROUP/TOPIC 会话：Docker 沙箱执行（`_execute_in_sandbox`）
+  - 解决循环导入：使用 `TYPE_CHECKING` 和延迟导入
+
+**策略调整**:
+- 允许的会话类型扩展：MAIN + GROUP + TOPIC
+- 保持 `requires_approval=True`（所有会话都需要审批）
+
+**测试覆盖**:
+- `tests/test_bash_sandbox.py`: 7 个集成测试
+  - MAIN 会话不使用沙箱
+  - GROUP/TOPIC 会话使用沙箱
+  - 沙箱工作区访问测试
+  - 沙箱失败和超时处理
+  - 策略验证测试
+
+### 技术要点
+
+#### 循环导入解决方案
+
+**问题**:
+```
+bash.py -> SandboxManager -> SessionType (from agents.base)
+  -> agents.__init__ -> AgentRuntime -> BashTool
+```
+
+**解决方案**:
+```python
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lurkbot.sandbox.manager import SandboxManager
+
+def __init__(self, sandbox_manager: "SandboxManager | None" = None):
+    if sandbox_manager is None:
+        from lurkbot.sandbox.manager import SandboxManager  # Lazy import
+        sandbox_manager = SandboxManager()
+```
+
+#### 审批系统设计
+
+**工作流**:
+1. 创建审批：`manager.create(request, timeout_ms=300000)`
+2. 启动等待：`asyncio.create_task(manager.wait_for_decision(record))`
+3. 用户决策：`manager.resolve(record_id, decision, user_id)`
+4. 等待返回：决策或超时
+
+**特性**:
+- Future-based 异步机制
+- 自动超时清理
+- 支持快照查询
+- 线程安全（单线程 asyncio）
+
+### 测试结果
+
+```bash
+# 核心测试（不含 Docker/Browser 可选测试）
+pytest tests/ -x -q -k "not (docker or browser)"
+# 结果: 70 passed, 22 deselected
+```
+
+**测试分类**:
+- Approval: 19 tests ✅
+- Bash Sandbox: 1 test ✅ (policy check, Docker tests skipped)
+- Config: 3 tests ✅
+- Protocol: 6 tests ✅
+- Sandbox: 4 tests ✅ (Docker tests skipped)
+- Tools: 37 tests ✅ (including existing bash tests)
+
+### 未完成工作（Phase 3 剩余 15%）
+
+1. **审批系统集成到 Agent Runtime**
+   - 工具执行前检查审批需求
+   - 等待审批响应
+   - 处理审批超时
+
+2. **Channel 通知机制**
+   - 通过 Telegram 等渠道发送审批请求
+   - 解析用户审批/拒绝消息
+   - 格式化审批通知（包含命令、会话、安全上下文）
+
+3. **E2E 集成测试**
+   - Gateway + Agent + Tool + Approval 完整流程
+   - 审批超时测试
+   - 沙箱执行验证
+
+**依赖**:
+这些任务需要 `AgentRuntime` 和 `Channel` 系统完整实现后才能继续。
+
+### 文件变更统计
+
+**新增文件**:
+- `src/lurkbot/tools/approval.py` (~290 行)
+- `tests/test_approval.py` (~280 行)
+- `tests/test_bash_sandbox.py` (~110 行)
+
+**修改文件**:
+- `src/lurkbot/tools/builtin/bash.py` (重构为 ~200 行)
+
+**总计**: +680 行代码和测试
+
+### 关键决策
+
+1. **审批超时默认值**: 5 分钟
+   - 足够用户审查命令
+   - 避免审批请求无限挂起
+
+2. **沙箱按会话类型**: GROUP/TOPIC 使用，MAIN 不使用
+   - MAIN 会话假定为可信环境
+   - GROUP/TOPIC 可能有多用户，需要隔离
+
+3. **延迟导入解决循环依赖**
+   - 保持模块解耦
+   - 避免运行时性能损失
+
+### 下一步建议
+
+**优先级 1: Phase 4 - 会话持久化**
+- 实现 JSONL 格式存储
+- Session 加载/保存
+- 历史记录管理
+
+**优先级 2: 完成 Phase 3**
+- 等待 `AgentRuntime` 完善
+- 集成审批到工具执行流程
+- 实现 Channel 通知
+
+---
+
 ## 2026-01-29 - Phase 3: 沙箱和高级工具（70% 完成）
 
 ### 会话概述
