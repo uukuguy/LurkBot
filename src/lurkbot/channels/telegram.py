@@ -41,7 +41,7 @@ class TelegramChannel(Channel):
 
         self._app = Application.builder().token(self.settings.bot_token).build()
 
-        async def handle_message(update: Update, context: Any) -> None:
+        async def handle_message(update: Update, _context: Any) -> None:
             if update.message is None or update.message.text is None:
                 return
 
