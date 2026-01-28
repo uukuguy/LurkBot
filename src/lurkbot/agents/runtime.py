@@ -1,709 +1,320 @@
-"""Agent runtime for managing agent sessions."""
+"""Agent runtime implementation using PydanticAI.
 
-from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING, Any
+This module provides the core agent execution functionality,
+implementing MoltBot's runEmbeddedPiAgent equivalent using PydanticAI.
+"""
 
-from loguru import logger
+from typing import Any, AsyncIterator
 
-from lurkbot.agents.base import Agent, AgentContext, ChatMessage
-from lurkbot.config import Settings
-from lurkbot.models import ModelRegistry, ToolCall, ToolResult
-from lurkbot.storage.jsonl import SessionMessage, SessionStore
-from lurkbot.tools import SessionType, ToolRegistry
-from lurkbot.tools.approval import ApprovalDecision, ApprovalManager, ApprovalRequest
-from lurkbot.tools.builtin.bash import BashTool
-from lurkbot.tools.builtin.file_ops import ReadFileTool, WriteFileTool
+from pydantic import BaseModel, ConfigDict
+from pydantic_ai import Agent, DeferredToolRequests, RunContext
+from pydantic_ai.messages import (
+    FinalResultEvent,
+    FunctionToolCallEvent,
+    FunctionToolResultEvent,
+    PartDeltaEvent,
+    PartStartEvent,
+    TextPartDelta,
+)
 
-if TYPE_CHECKING:
-    from lurkbot.channels.base import Channel
+from lurkbot.logging import get_logger
+
+from .types import (
+    AgentContext,
+    AgentRunResult,
+    PromptMode,
+    StreamEvent,
+    ThinkLevel,
+)
+
+logger = get_logger("agent")
 
 
-class ModelAgent(Agent):
-    """Agent using the multi-model adapter system.
+class AgentDependencies(BaseModel):
+    """Dependencies injected into the agent at runtime.
 
-    Supports Anthropic, OpenAI, Ollama, and other providers through
-    the unified ModelAdapter interface.
+    This is the PydanticAI deps_type that provides context
+    to tools and system prompts.
     """
 
-    def __init__(
-        self,
-        model: str,
-        model_registry: ModelRegistry,
-        tool_registry: ToolRegistry | None = None,
-        approval_manager: ApprovalManager | None = None,
-        channel: "Channel | None" = None,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(model, **kwargs)
-        self.model_registry = model_registry
-        self.tool_registry = tool_registry
-        self.approval_manager = approval_manager
-        self.channel = channel
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-        # Get the model adapter
-        self._adapter = model_registry.get_adapter(model)
-        logger.info(f"Initialized ModelAgent with {model}")
+    context: AgentContext
+    message_history: list[dict[str, Any]] = []
 
-    async def chat(self, context: AgentContext, message: str) -> str:
-        """Process a chat message with tool support.
 
-        This method supports tool use through an iterative loop:
-        1. Send message to model with available tools
-        2. If model wants to use a tool, execute it
-        3. Send tool result back and continue conversation
-        4. Repeat until model provides a text response
-        """
-        # Add user message to context
-        context.messages.append(ChatMessage(role="user", content=message))
+# Model ID mapping from provider:model format
+MODEL_MAPPING = {
+    "anthropic": {
+        "claude-sonnet-4-20250514": "anthropic:claude-sonnet-4-20250514",
+        "claude-opus-4-5-20251101": "anthropic:claude-opus-4-5-20251101",
+        "claude-3-5-sonnet-20241022": "anthropic:claude-3-5-sonnet-20241022",
+        "claude-3-5-haiku-20241022": "anthropic:claude-3-5-haiku-20241022",
+    },
+    "openai": {
+        "gpt-4o": "openai:gpt-4o",
+        "gpt-4o-mini": "openai:gpt-4o-mini",
+        "gpt-4-turbo": "openai:gpt-4-turbo",
+    },
+    "google": {
+        "gemini-2.0-flash": "google-gla:gemini-2.0-flash",
+        "gemini-1.5-pro": "google-gla:gemini-1.5-pro",
+        "gemini-1.5-flash": "google-gla:gemini-1.5-flash",
+    },
+}
 
-        # Prepare messages for API (convert to dict format)
-        messages = self._prepare_messages(context)
 
-        # Get tool schemas if tool registry is available
-        tools = None
-        if self.tool_registry:
-            tools = self.tool_registry.get_tool_schemas(context.session_type)
-            if tools:
-                logger.debug(f"Providing {len(tools)} tools to model")
+def resolve_model_id(provider: str, model_id: str) -> str:
+    """Resolve a provider/model ID to PydanticAI format.
 
-        # Tool use loop
-        max_iterations = 10  # Prevent infinite loops
-        for iteration in range(max_iterations):
-            logger.debug(f"Tool iteration {iteration + 1}/{max_iterations}")
+    Args:
+        provider: Provider name (anthropic, openai, google, etc.)
+        model_id: Model identifier
 
-            # Get kwargs from config
-            kwargs: dict[str, Any] = {}
-            if "max_tokens" in self.config:
-                kwargs["max_tokens"] = self.config["max_tokens"]
-            if "temperature" in self.config:
-                kwargs["temperature"] = self.config["temperature"]
+    Returns:
+        PydanticAI-compatible model string
+    """
+    provider_lower = provider.lower()
 
-            # Call model API via adapter
-            response = await self._adapter.chat(
-                messages=messages,
-                tools=tools if tools else None,
-                **kwargs,
-            )
+    # Check if already in pydantic-ai format
+    if ":" in model_id:
+        return model_id
 
-            # Check if model requested tool use
-            if response.tool_calls:
-                logger.info(f"Model requested {len(response.tool_calls)} tool(s)")
+    # Look up in mapping
+    if provider_lower in MODEL_MAPPING:
+        if model_id in MODEL_MAPPING[provider_lower]:
+            return MODEL_MAPPING[provider_lower][model_id]
 
-                # Add assistant's response to conversation
-                # Convert tool calls to provider format for message history
-                assistant_content = self._build_assistant_content(response)
-                messages.append({"role": "assistant", "content": assistant_content})
+    # Default format
+    return f"{provider_lower}:{model_id}"
 
-                # Execute tools and collect results
-                tool_results = await self._execute_tools(response.tool_calls, context)
 
-                # Add tool results to conversation
-                messages.append(
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": r.tool_use_id,
-                                "content": r.content,
-                                "is_error": r.is_error,
-                            }
-                            for r in tool_results
-                        ],
-                    }
-                )
+def create_agent(
+    model: str,
+    system_prompt: str,
+    deps_type: type = AgentDependencies,
+) -> Agent[AgentDependencies, str | DeferredToolRequests]:
+    """Create a PydanticAI Agent instance.
 
-                # Continue loop to get model's response with tool results
+    This is a factory function that creates an agent with the given
+    configuration. Tools are registered separately after creation.
 
-            elif response.stop_reason in ("end_turn", "stop", None):
-                # Normal completion - extract text response
-                assistant_message = response.text or ""
+    Args:
+        model: PydanticAI model string (e.g., "anthropic:claude-sonnet-4-20250514")
+        system_prompt: The system prompt to use
+        deps_type: The dependencies type for the agent
 
-                # Save to context
-                context.messages.append(ChatMessage(role="assistant", content=assistant_message))
+    Returns:
+        Configured PydanticAI Agent instance
+    """
+    agent: Agent[AgentDependencies, str | DeferredToolRequests] = Agent(
+        model,
+        deps_type=deps_type,
+        output_type=[str, DeferredToolRequests],
+        system_prompt=system_prompt,
+    )
 
-                return assistant_message
+    return agent
 
-            else:
-                # Other stop reasons (max_tokens, etc.)
-                logger.warning(f"Unexpected stop reason: {response.stop_reason}")
-                assistant_message = response.text or ""
-                context.messages.append(ChatMessage(role="assistant", content=assistant_message))
-                return assistant_message
 
-        # Max iterations reached
-        logger.error(f"Max tool iterations ({max_iterations}) reached")
-        return "Error: Maximum tool execution iterations reached. Please try a simpler request."
+async def run_embedded_agent(
+    context: AgentContext,
+    prompt: str,
+    system_prompt: str,
+    images: list[str] | None = None,
+    message_history: list[dict[str, Any]] | None = None,
+) -> AgentRunResult:
+    """Run an embedded agent session.
 
-    def _build_assistant_content(self, response: Any) -> list[dict[str, Any]]:
-        """Build assistant message content with text and tool use blocks.
+    This is the main entry point for running an agent, equivalent to
+    MoltBot's runEmbeddedPiAgent function.
 
-        Args:
-            response: Model response
+    Args:
+        context: The agent execution context
+        prompt: The user prompt to process
+        system_prompt: The generated system prompt
+        images: Optional list of image URLs or base64 data
+        message_history: Optional previous message history
 
-        Returns:
-            List of content blocks
-        """
-        content: list[dict[str, Any]] = []
+    Returns:
+        AgentRunResult containing the execution results
+    """
+    result = AgentRunResult(session_id_used=context.session_id)
 
-        # Add text if present
-        if response.text:
-            content.append({"type": "text", "text": response.text})
+    try:
+        # Resolve the model ID
+        model_id = resolve_model_id(context.provider, context.model_id)
+        logger.info(f"Running agent with model: {model_id}")
 
-        # Add tool use blocks
-        for tc in response.tool_calls:
-            content.append(
-                {
-                    "type": "tool_use",
-                    "id": tc.id,
-                    "name": tc.name,
-                    "input": tc.arguments,
-                }
-            )
-
-        return content
-
-    async def _execute_tools(
-        self,
-        tool_calls: list[ToolCall],
-        context: AgentContext,
-    ) -> list[ToolResult]:
-        """Execute requested tools and return results.
-
-        Args:
-            tool_calls: List of tool calls from model
-            context: Agent context
-
-        Returns:
-            List of tool results
-        """
-        results: list[ToolResult] = []
-
-        for tc in tool_calls:
-            tool_name = tc.name
-            tool_input = tc.arguments
-            tool_id = tc.id
-
-            logger.info(f"Executing tool: {tool_name}")
-
-            # Get tool from registry
-            tool = self.tool_registry.get(tool_name) if self.tool_registry else None
-            if not tool:
-                error_msg = f"Tool '{tool_name}' not found in registry"
-                logger.error(error_msg)
-                results.append(
-                    ToolResult(
-                        tool_use_id=tool_id,
-                        content=f"Error: {error_msg}",
-                        is_error=True,
-                    )
-                )
-                continue
-
-            # Check policy
-            if self.tool_registry and not self.tool_registry.check_policy(
-                tool, context.session_type
-            ):
-                error_msg = (
-                    f"Tool '{tool_name}' not allowed for session type {context.session_type.value}"
-                )
-                logger.warning(error_msg)
-                results.append(
-                    ToolResult(
-                        tool_use_id=tool_id,
-                        content=f"Error: {error_msg}",
-                        is_error=True,
-                    )
-                )
-                continue
-
-            # Check if approval required
-            if tool.policy.requires_approval and self.approval_manager:
-                approval_result = await self._handle_approval(
-                    tool_name, tool_input, tool_id, context
-                )
-                if approval_result is not None:
-                    results.append(approval_result)
-                    continue
-
-            # Execute tool
-            try:
-                result = await tool.execute(
-                    tool_input,
-                    context.workspace or ".",
-                    context.session_type,
-                )
-
-                results.append(
-                    ToolResult(
-                        tool_use_id=tool_id,
-                        content=result.output or result.error or "No output",
-                        is_error=not result.success,
-                    )
-                )
-
-                if result.success:
-                    logger.info(f"Tool '{tool_name}' executed successfully")
-                else:
-                    logger.warning(f"Tool '{tool_name}' failed: {result.error}")
-
-            except Exception as e:
-                logger.exception(f"Tool execution error: {tool_name}")
-                results.append(
-                    ToolResult(
-                        tool_use_id=tool_id,
-                        content=f"Execution error: {e}",
-                        is_error=True,
-                    )
-                )
-
-        return results
-
-    async def _handle_approval(
-        self,
-        tool_name: str,
-        tool_input: dict[str, Any],
-        tool_id: str,
-        context: AgentContext,
-    ) -> ToolResult | None:
-        """Handle tool approval workflow.
-
-        Args:
-            tool_name: Name of the tool
-            tool_input: Tool input parameters
-            tool_id: Tool call ID
-            context: Agent context
-
-        Returns:
-            ToolResult if approval failed/denied, None if approved
-        """
-        logger.info(f"Tool '{tool_name}' requires approval")
-
-        # Create approval request
-        command = tool_input.get("command") if tool_name == "bash" else None
-        approval_request = ApprovalRequest(
-            tool_name=tool_name,
-            command=command,
-            args=tool_input,
-            session_key=context.session_id,
-            agent_id=self.model,
-            security_context=f"Session type: {context.session_type.value}",
-            reason=f"Tool {tool_name} requires user approval",
+        # Create the agent
+        agent = create_agent(
+            model=model_id,
+            system_prompt=system_prompt,
         )
 
-        # Send notification via channel
-        if self.channel:
-            try:
-                # Create approval record
-                record = self.approval_manager.create(approval_request)
+        # Prepare dependencies
+        deps = AgentDependencies(
+            context=context,
+            message_history=message_history or [],
+        )
 
-                # Format notification message
-                notification = self._format_approval_notification(record, approval_request)
+        # Run the agent
+        run_result = await agent.run(prompt, deps=deps)
 
-                # Send to user
-                await self.channel.send(
-                    recipient_id=context.sender_id,
-                    content=notification,
-                )
-
-                logger.info(f"Sent approval notification {record.id} to {context.sender_id}")
-
-                # Wait for decision
-                decision = await self.approval_manager.wait_for_decision(record)
-
-                if decision == ApprovalDecision.APPROVE:
-                    logger.info(f"Tool '{tool_name}' approved, executing")
-                    return None  # Approval granted, continue with execution
-                else:
-                    # Denied or timeout
-                    error_msg = f"Tool execution {'denied' if decision == ApprovalDecision.DENY else 'timed out'}"
-                    logger.warning(f"Tool '{tool_name}' {error_msg}")
-                    return ToolResult(
-                        tool_use_id=tool_id,
-                        content=f"Error: {error_msg}",
-                        is_error=True,
-                    )
-            except Exception as e:
-                logger.exception("Error in approval workflow")
-                return ToolResult(
-                    tool_use_id=tool_id,
-                    content=f"Approval error: {e}",
-                    is_error=True,
-                )
+        # Check for deferred tool requests (human-in-the-loop)
+        if isinstance(run_result.output, DeferredToolRequests):
+            result.deferred_requests = run_result.output
+            logger.info(f"Agent run has {len(run_result.output.approvals)} pending approvals")
         else:
-            # No channel available - deny execution
-            error_msg = "Tool requires approval but no channel available"
-            logger.error(error_msg)
-            return ToolResult(
-                tool_use_id=tool_id,
-                content=f"Error: {error_msg}",
-                is_error=True,
-            )
+            result.assistant_texts.append(run_result.output)
 
-    def _prepare_messages(self, context: AgentContext) -> list[dict[str, Any]]:
-        """Prepare messages for model API.
+        # Capture message history
+        result.messages_snapshot = [msg.model_dump() for msg in run_result.all_messages()]
 
-        Converts ChatMessage objects to the format expected by the API.
-        """
-        return [{"role": m.role, "content": m.content} for m in context.messages]
+    except TimeoutError:
+        result.timed_out = True
+        logger.error("Agent run timed out")
+    except Exception as e:
+        result.prompt_error = e
+        logger.error(f"Agent run failed: {e}")
 
-    def _format_approval_notification(self, record: Any, request: ApprovalRequest) -> str:
-        """Format approval notification message.
-
-        Args:
-            record: Approval record with ID and expiry
-            request: Approval request details
-
-        Returns:
-            Formatted notification message
-        """
-        lines = [
-            "Tool Approval Required",
-            "",
-            f"Tool: {request.tool_name}",
-        ]
-
-        if request.command:
-            lines.append(f"Command: {request.command}")
-
-        lines.extend(
-            [
-                f"Session: {request.session_key}",
-                f"Security: {request.security_context or 'Standard'}",
-                "",
-                f"Reply: /approve {record.id} or /deny {record.id}",
-                "Expires in: 5 minutes",
-            ]
-        )
-
-        return "\n".join(lines)
-
-    async def stream_chat(self, context: AgentContext, message: str) -> AsyncIterator[str]:
-        """Stream a chat response.
-
-        Note: Streaming currently does not support tool use.
-        """
-        context.messages.append(ChatMessage(role="user", content=message))
-
-        messages = [{"role": m.role, "content": m.content} for m in context.messages]
-
-        kwargs: dict[str, Any] = {}
-        if "max_tokens" in self.config:
-            kwargs["max_tokens"] = self.config["max_tokens"]
-        if "temperature" in self.config:
-            kwargs["temperature"] = self.config["temperature"]
-
-        full_response = ""
-        async for chunk in self._adapter.stream_chat(messages=messages, **kwargs):
-            if chunk.text:
-                full_response += chunk.text
-                yield chunk.text
-
-        context.messages.append(ChatMessage(role="assistant", content=full_response))
+    return result
 
 
-class AgentRuntime:
-    """Runtime for managing agent sessions.
+async def run_embedded_agent_stream(
+    context: AgentContext,
+    prompt: str,
+    system_prompt: str,
+    images: list[str] | None = None,
+    message_history: list[dict[str, Any]] | None = None,
+) -> AsyncIterator[StreamEvent]:
+    """Run an embedded agent session with streaming output.
 
-    Supports optional session persistence using JSONL storage.
-    Sessions are automatically loaded from disk on first access
-    and saved after each message exchange.
+    This provides real-time streaming of agent output, useful for
+    interactive UIs and long-running operations.
+
+    Args:
+        context: The agent execution context
+        prompt: The user prompt to process
+        system_prompt: The generated system prompt
+        images: Optional list of image URLs or base64 data
+        message_history: Optional previous message history
+
+    Yields:
+        StreamEvent objects for real-time updates
     """
+    # Resolve the model ID
+    model_id = resolve_model_id(context.provider, context.model_id)
+    logger.info(f"Running streaming agent with model: {model_id}")
 
-    def __init__(self, settings: Settings, channel: "Channel | None" = None) -> None:
-        self.settings = settings
-        self.channel = channel
-        self.sessions: dict[str, AgentContext] = {}
-        self.agents: dict[str, Agent] = {}
+    # Create the agent
+    agent = create_agent(
+        model=model_id,
+        system_prompt=system_prompt,
+    )
 
-        # Initialize model registry
-        self.model_registry = ModelRegistry(settings)
-        logger.info("Initialized model registry")
+    # Prepare dependencies
+    deps = AgentDependencies(
+        context=context,
+        message_history=message_history or [],
+    )
 
-        # Initialize tool registry
-        self.tool_registry = ToolRegistry()
-        self._register_builtin_tools()
+    # Stream the agent run
+    async with agent.run_stream(prompt, deps=deps) as run:
+        # Emit start event
+        yield StreamEvent(event_type="assistant_start", data={})
 
-        # Initialize approval manager
-        self.approval_manager = ApprovalManager()
-        logger.info("Initialized approval manager")
-
-        # Initialize session store (if enabled)
-        self.session_store: SessionStore | None = None
-        if settings.storage.enabled:
-            self.session_store = SessionStore(settings.sessions_dir)
-            logger.info(f"Session persistence enabled: {settings.sessions_dir}")
-
-    def _register_builtin_tools(self) -> None:
-        """Register built-in tools."""
-        self.tool_registry.register(BashTool())
-        self.tool_registry.register(ReadFileTool())
-        self.tool_registry.register(WriteFileTool())
-        logger.info("Registered built-in tools")
-
-    async def get_or_create_session(
-        self,
-        session_id: str,
-        channel: str,
-        sender_id: str,
-        sender_name: str | None = None,
-        session_type: SessionType = SessionType.MAIN,
-    ) -> AgentContext:
-        """Get or create an agent session.
-
-        If persistence is enabled, loads existing session from disk.
-        Creates a new session file if one doesn't exist.
-        """
-        if session_id not in self.sessions:
-            # Create new context
-            context = AgentContext(
-                session_id=session_id,
-                channel=channel,
-                sender_id=sender_id,
-                sender_name=sender_name,
-                workspace=str(self.settings.agent.workspace),
-                session_type=session_type,
+        # Stream text output
+        async for text in run.stream_text():
+            yield StreamEvent(
+                event_type="partial_reply",
+                data={"text": text},
             )
 
-            # Load from storage if enabled
-            if self.session_store:
-                await self._load_session_from_store(context, channel, sender_id)
 
-            self.sessions[session_id] = context
-            logger.info(f"Created new session: {session_id} (type: {session_type.value})")
+async def run_embedded_agent_events(
+    context: AgentContext,
+    prompt: str,
+    system_prompt: str,
+    images: list[str] | None = None,
+    message_history: list[dict[str, Any]] | None = None,
+) -> AsyncIterator[StreamEvent]:
+    """Run an embedded agent session with detailed event streaming.
 
-        return self.sessions[session_id]
+    This provides granular events including tool calls and results,
+    useful for debugging and detailed progress tracking.
 
-    async def _load_session_from_store(
-        self,
-        context: AgentContext,
-        channel: str,
-        sender_id: str,
-    ) -> None:
-        """Load session history from storage.
+    Args:
+        context: The agent execution context
+        prompt: The user prompt to process
+        system_prompt: The generated system prompt
+        images: Optional list of image URLs or base64 data
+        message_history: Optional previous message history
 
-        Args:
-            context: Agent context to populate
-            channel: Channel name
-            sender_id: User ID
-        """
-        if not self.session_store:
-            return
+    Yields:
+        StreamEvent objects for each agent event
+    """
+    # Resolve the model ID
+    model_id = resolve_model_id(context.provider, context.model_id)
+    logger.info(f"Running event-streaming agent with model: {model_id}")
 
-        try:
-            # Get or create session in store
-            await self.session_store.get_or_create_session(
-                session_id=context.session_id,
-                channel=channel,
-                chat_id=context.session_id.split("_")[1]
-                if "_" in context.session_id
-                else context.session_id,
-                user_id=sender_id,
-                session_type=context.session_type.value,
-            )
+    # Create the agent
+    agent = create_agent(
+        model=model_id,
+        system_prompt=system_prompt,
+    )
 
-            # Load existing messages
-            stored_messages = await self.session_store.load_messages(
-                context.session_id,
-                limit=self.settings.storage.max_messages,
-            )
+    # Prepare dependencies
+    deps = AgentDependencies(
+        context=context,
+        message_history=message_history or [],
+    )
 
-            # Convert to ChatMessage format
-            for msg in stored_messages:
-                context.messages.append(
-                    ChatMessage(
-                        role=msg.role,
-                        content=msg.content,
-                        name=msg.name,
-                        tool_calls=msg.tool_calls,
-                        tool_call_id=msg.tool_call_id,
-                    )
+    # Use the new iter() API for detailed events
+    async with agent.iter(prompt, deps=deps) as run:
+        async for node in run:
+            if Agent.is_user_prompt_node(node):
+                yield StreamEvent(
+                    event_type="agent_event",
+                    data={"type": "user_prompt", "prompt": node.user_prompt},
                 )
-
-            if stored_messages:
-                logger.info(
-                    f"Loaded {len(stored_messages)} messages from session {context.session_id}"
-                )
-
-        except Exception as e:
-            logger.exception(f"Error loading session {context.session_id}: {e}")
-
-    async def _save_message_to_store(
-        self,
-        session_id: str,
-        message: ChatMessage,
-    ) -> None:
-        """Save a message to storage.
-
-        Args:
-            session_id: Session identifier
-            message: Message to save
-        """
-        if not self.session_store or not self.settings.storage.auto_save:
-            return
-
-        try:
-            session_msg = SessionMessage(
-                role=message.role,
-                content=message.content,
-                name=message.name,
-                tool_calls=message.tool_calls,
-                tool_call_id=message.tool_call_id,
-            )
-            await self.session_store.append_message(session_id, session_msg)
-            logger.debug(f"Saved message to session {session_id}")
-
-        except Exception as e:
-            logger.exception(f"Error saving message to session {session_id}: {e}")
-
-    def get_agent(self, model: str | None = None) -> Agent:
-        """Get or create an agent for the specified model.
-
-        Args:
-            model: Model ID (e.g., "anthropic/claude-sonnet-4-20250514").
-                   If None, uses default from settings.
-
-        Returns:
-            Agent instance for the model
-        """
-        model = model or self.settings.models.default_model
-
-        if model not in self.agents:
-            self.agents[model] = ModelAgent(
-                model=model,
-                model_registry=self.model_registry,
-                tool_registry=self.tool_registry,
-                approval_manager=self.approval_manager,
-                channel=self.channel,
-                max_tokens=self.settings.agent.max_tokens,
-                temperature=self.settings.agent.temperature,
-            )
-
-        return self.agents[model]
-
-    async def chat(
-        self,
-        session_id: str,
-        channel: str,
-        sender_id: str,
-        message: str,
-        sender_name: str | None = None,
-        model: str | None = None,
-    ) -> str:
-        """Process a chat message.
-
-        Automatically saves messages to storage if enabled.
-        """
-        context = await self.get_or_create_session(session_id, channel, sender_id, sender_name)
-
-        # Save user message
-        user_msg = ChatMessage(role="user", content=message)
-        await self._save_message_to_store(session_id, user_msg)
-
-        agent = self.get_agent(model)
-        response = await agent.chat(context, message)
-
-        # Save assistant response
-        assistant_msg = ChatMessage(role="assistant", content=response)
-        await self._save_message_to_store(session_id, assistant_msg)
-
-        return response
-
-    async def stream_chat(
-        self,
-        session_id: str,
-        channel: str,
-        sender_id: str,
-        message: str,
-        sender_name: str | None = None,
-        model: str | None = None,
-    ) -> AsyncIterator[str]:
-        """Stream a chat response.
-
-        Automatically saves messages to storage if enabled.
-        """
-        context = await self.get_or_create_session(session_id, channel, sender_id, sender_name)
-
-        # Save user message
-        user_msg = ChatMessage(role="user", content=message)
-        await self._save_message_to_store(session_id, user_msg)
-
-        agent = self.get_agent(model)
-        full_response = ""
-
-        async for chunk in agent.stream_chat(context, message):
-            full_response += chunk
-            yield chunk
-
-        # Save assistant response after streaming completes
-        assistant_msg = ChatMessage(role="assistant", content=full_response)
-        await self._save_message_to_store(session_id, assistant_msg)
-
-    async def clear_session(self, session_id: str) -> bool:
-        """Clear a session's message history.
-
-        Args:
-            session_id: Session identifier
-
-        Returns:
-            True if session was cleared
-        """
-        # Clear in-memory
-        if session_id in self.sessions:
-            self.sessions[session_id].messages.clear()
-
-        # Clear in storage
-        if self.session_store:
-            try:
-                await self.session_store.clear_messages(session_id)
-                logger.info(f"Cleared session: {session_id}")
-                return True
-            except FileNotFoundError:
-                logger.warning(f"Session {session_id} not found in storage")
-                return False
-
-        return True
-
-    async def delete_session(self, session_id: str) -> bool:
-        """Delete a session completely.
-
-        Args:
-            session_id: Session identifier
-
-        Returns:
-            True if session was deleted
-        """
-        # Remove from memory
-        if session_id in self.sessions:
-            del self.sessions[session_id]
-
-        # Remove from storage
-        if self.session_store:
-            try:
-                deleted = await self.session_store.delete_session(session_id)
-                if deleted:
-                    logger.info(f"Deleted session: {session_id}")
-                return deleted
-            except Exception as e:
-                logger.exception(f"Error deleting session {session_id}: {e}")
-                return False
-
-        return True
-
-    async def list_sessions(self) -> list[str]:
-        """List all session IDs.
-
-        Returns:
-            List of session IDs from storage
-        """
-        if self.session_store:
-            return await self.session_store.list_sessions()
-        return list(self.sessions.keys())
-
-    def list_models(self) -> list[str]:
-        """List all available models.
-
-        Returns:
-            List of model IDs
-        """
-        return [m.id for m in self.model_registry.list_models()]
+            elif Agent.is_model_request_node(node):
+                async with node.stream(run.ctx) as request_stream:
+                    async for event in request_stream:
+                        if isinstance(event, PartStartEvent):
+                            yield StreamEvent(
+                                event_type="agent_event",
+                                data={"type": "part_start", "index": event.index},
+                            )
+                        elif isinstance(event, PartDeltaEvent):
+                            if isinstance(event.delta, TextPartDelta):
+                                yield StreamEvent(
+                                    event_type="partial_reply",
+                                    data={"text": event.delta.content_delta},
+                                )
+                        elif isinstance(event, FinalResultEvent):
+                            yield StreamEvent(
+                                event_type="agent_event",
+                                data={"type": "final_result", "tool_name": event.tool_name},
+                            )
+            elif Agent.is_call_tools_node(node):
+                async with node.stream(run.ctx) as handle_stream:
+                    async for event in handle_stream:
+                        if isinstance(event, FunctionToolCallEvent):
+                            yield StreamEvent(
+                                event_type="tool_result",
+                                data={
+                                    "type": "tool_call",
+                                    "tool_name": event.part.tool_name,
+                                    "args": event.part.args,
+                                    "tool_call_id": event.part.tool_call_id,
+                                },
+                            )
+                        elif isinstance(event, FunctionToolResultEvent):
+                            yield StreamEvent(
+                                event_type="tool_result",
+                                data={
+                                    "type": "tool_result",
+                                    "content": str(event.result.content)[:500],  # Truncate
+                                },
+                            )
