@@ -1,20 +1,28 @@
 """Telegram channel adapter."""
 
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
 from lurkbot.channels.base import Channel, ChannelMessage
-from lurkbot.config import TelegramSettings
+from lurkbot.config.settings import TelegramSettings
+
+if TYPE_CHECKING:
+    from lurkbot.tools.approval import ApprovalDecision, ApprovalManager
 
 
 class TelegramChannel(Channel):
     """Telegram bot channel adapter."""
 
-    def __init__(self, settings: TelegramSettings) -> None:
+    def __init__(
+        self,
+        settings: TelegramSettings,
+        approval_manager: "ApprovalManager | None" = None,
+    ) -> None:
         super().__init__("telegram")
         self.settings = settings
+        self.approval_manager = approval_manager
         self._app: Any = None
         self._running = False
 
@@ -24,7 +32,12 @@ class TelegramChannel(Channel):
             raise ValueError("Telegram bot token not configured")
 
         from telegram import Update
-        from telegram.ext import Application, MessageHandler, filters
+        from telegram.ext import (
+            Application,
+            CommandHandler,
+            MessageHandler,
+            filters,
+        )
 
         self._app = Application.builder().token(self.settings.bot_token).build()
 
@@ -57,7 +70,67 @@ class TelegramChannel(Channel):
             )
             await self._dispatch(message)
 
+        async def handle_approve(update: Update, context: Any) -> None:
+            """Handle /approve command."""
+            if update.message is None or not context.args:
+                return
+
+            user = update.message.from_user
+            if user is None:
+                return
+
+            # Check allowlist
+            if self.settings.allowed_users and user.id not in self.settings.allowed_users:
+                logger.warning(f"Ignoring command from non-allowed user: {user.id}")
+                return
+
+            approval_id = context.args[0]
+            if self.approval_manager:
+                from lurkbot.tools.approval import ApprovalDecision
+
+                success = self.approval_manager.resolve(
+                    approval_id, ApprovalDecision.APPROVE, str(user.id)
+                )
+                if success:
+                    await update.message.reply_text(f"✅ Approved tool execution: {approval_id}")
+                    logger.info(f"User {user.id} approved {approval_id}")
+                else:
+                    await update.message.reply_text(f"❌ Approval not found or already resolved: {approval_id}")
+            else:
+                await update.message.reply_text("❌ Approval system not configured")
+
+        async def handle_deny(update: Update, context: Any) -> None:
+            """Handle /deny command."""
+            if update.message is None or not context.args:
+                return
+
+            user = update.message.from_user
+            if user is None:
+                return
+
+            # Check allowlist
+            if self.settings.allowed_users and user.id not in self.settings.allowed_users:
+                logger.warning(f"Ignoring command from non-allowed user: {user.id}")
+                return
+
+            approval_id = context.args[0]
+            if self.approval_manager:
+                from lurkbot.tools.approval import ApprovalDecision
+
+                success = self.approval_manager.resolve(
+                    approval_id, ApprovalDecision.DENY, str(user.id)
+                )
+                if success:
+                    await update.message.reply_text(f"🚫 Denied tool execution: {approval_id}")
+                    logger.info(f"User {user.id} denied {approval_id}")
+                else:
+                    await update.message.reply_text(f"❌ Approval not found or already resolved: {approval_id}")
+            else:
+                await update.message.reply_text("❌ Approval system not configured")
+
         self._app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        self._app.add_handler(CommandHandler("approve", handle_approve))
+        self._app.add_handler(CommandHandler("deny", handle_deny))
 
         self._running = True
         logger.info("Starting Telegram bot")

@@ -1,15 +1,19 @@
 """Agent runtime for managing agent sessions."""
 
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
 from lurkbot.agents.base import Agent, AgentContext, ChatMessage
 from lurkbot.config import Settings
 from lurkbot.tools import SessionType, ToolRegistry
+from lurkbot.tools.approval import ApprovalDecision, ApprovalManager, ApprovalRequest
 from lurkbot.tools.builtin.bash import BashTool
 from lurkbot.tools.builtin.file_ops import ReadFileTool, WriteFileTool
+
+if TYPE_CHECKING:
+    from lurkbot.channels.base import Channel
 
 
 class ClaudeAgent(Agent):
@@ -20,11 +24,15 @@ class ClaudeAgent(Agent):
         model: str,
         api_key: str,
         tool_registry: ToolRegistry | None = None,
+        approval_manager: ApprovalManager | None = None,
+        channel: "Channel | None" = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(model, **kwargs)
         self.api_key = api_key
         self.tool_registry = tool_registry
+        self.approval_manager = approval_manager
+        self.channel = channel
         self._client: Any = None
 
     @property
@@ -121,6 +129,76 @@ class ClaudeAgent(Agent):
                         })
                         continue
 
+                    # Check if approval required
+                    if tool.policy.requires_approval and self.approval_manager:
+                        logger.info(f"Tool '{tool_name}' requires approval")
+
+                        # Create approval request
+                        command = tool_input.get("command") if tool_name == "bash" else None
+                        approval_request = ApprovalRequest(
+                            tool_name=tool_name,
+                            command=command,
+                            args=tool_input,
+                            session_key=context.session_id,
+                            agent_id=self.model,
+                            security_context=f"Session type: {context.session_type.value}",
+                            reason=f"Tool {tool_name} requires user approval",
+                        )
+
+                        # Send notification via channel
+                        if self.channel:
+                            try:
+                                # Create approval record
+                                record = self.approval_manager.create(approval_request)
+
+                                # Format notification message
+                                notification = self._format_approval_notification(record, approval_request)
+
+                                # Send to user (use sender_id from context)
+                                await self.channel.send(
+                                    recipient_id=context.sender_id,
+                                    content=notification,
+                                )
+
+                                logger.info(f"Sent approval notification {record.id} to {context.sender_id}")
+
+                                # Wait for decision
+                                decision = await self.approval_manager.wait_for_decision(record)
+
+                                if decision == ApprovalDecision.APPROVE:
+                                    logger.info(f"Tool '{tool_name}' approved, executing")
+                                else:
+                                    # Denied or timeout
+                                    error_msg = f"Tool execution {'denied' if decision == ApprovalDecision.DENY else 'timed out'}"
+                                    logger.warning(f"Tool '{tool_name}' {error_msg}")
+                                    tool_results.append({
+                                        "type": "tool_result",
+                                        "tool_use_id": tool_id,
+                                        "content": f"Error: {error_msg}",
+                                        "is_error": True,
+                                    })
+                                    continue
+                            except Exception as e:
+                                logger.exception("Error in approval workflow")
+                                tool_results.append({
+                                    "type": "tool_result",
+                                    "tool_use_id": tool_id,
+                                    "content": f"Approval error: {e}",
+                                    "is_error": True,
+                                })
+                                continue
+                        else:
+                            # No channel available - deny execution
+                            error_msg = "Tool requires approval but no channel available"
+                            logger.error(error_msg)
+                            tool_results.append({
+                                "type": "tool_result",
+                                "tool_use_id": tool_id,
+                                "content": f"Error: {error_msg}",
+                                "is_error": True,
+                            })
+                            continue
+
                     # Execute tool
                     try:
                         result = await tool.execute(
@@ -189,6 +267,37 @@ class ClaudeAgent(Agent):
         """
         return [{"role": m.role, "content": m.content} for m in context.messages]
 
+    def _format_approval_notification(
+        self, record: Any, request: ApprovalRequest
+    ) -> str:
+        """Format approval notification message.
+
+        Args:
+            record: Approval record with ID and expiry
+            request: Approval request details
+
+        Returns:
+            Formatted notification message
+        """
+        lines = [
+            "🔒 Tool Approval Required",
+            "",
+            f"Tool: {request.tool_name}",
+        ]
+
+        if request.command:
+            lines.append(f"Command: {request.command}")
+
+        lines.extend([
+            f"Session: {request.session_key}",
+            f"Security: {request.security_context or 'Standard'}",
+            "",
+            f"Reply: /approve {record.id} or /deny {record.id}",
+            "Expires in: 5 minutes",
+        ])
+
+        return "\n".join(lines)
+
     async def stream_chat(self, context: AgentContext, message: str) -> AsyncIterator[str]:
         """Stream a chat response using Claude."""
         context.messages.append(ChatMessage(role="user", content=message))
@@ -211,14 +320,19 @@ class ClaudeAgent(Agent):
 class AgentRuntime:
     """Runtime for managing agent sessions."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, channel: "Channel | None" = None) -> None:
         self.settings = settings
+        self.channel = channel
         self.sessions: dict[str, AgentContext] = {}
         self.agents: dict[str, Agent] = {}
 
         # Initialize tool registry
         self.tool_registry = ToolRegistry()
         self._register_builtin_tools()
+
+        # Initialize approval manager
+        self.approval_manager = ApprovalManager()
+        logger.info("Initialized approval manager")
 
     def _register_builtin_tools(self) -> None:
         """Register built-in tools."""
@@ -259,7 +373,9 @@ class AgentRuntime:
                 self.agents[model] = ClaudeAgent(
                     model=model,
                     api_key=self.settings.anthropic_api_key,
-                    tool_registry=self.tool_registry,  # Pass tool registry
+                    tool_registry=self.tool_registry,
+                    approval_manager=self.approval_manager,
+                    channel=self.channel,
                     max_tokens=self.settings.agent.max_tokens,
                     temperature=self.settings.agent.temperature,
                 )
