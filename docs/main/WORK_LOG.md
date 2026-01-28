@@ -1,5 +1,601 @@
 # LurkBot 工作日志
 
+## 2026-01-29 (续-13) - Phase 4: 九层工具策略系统（100% 完成）
+
+### 会话概述
+
+实现 MoltBot 的九层工具策略系统，严格对齐 MoltBot 的 `tool-policy.ts` 和 `pi-tools.policy.ts` 实现。
+
+### 主要工作
+
+#### 1. 九层工具策略系统 ✅
+
+**文件创建**:
+- `src/lurkbot/tools/policy.py`: 完整的九层工具策略系统（~750 行）
+
+**核心常量**:
+- `TOOL_NAME_ALIASES`: 工具名称别名（bash→exec, apply-patch→apply_patch）
+- `TOOL_GROUPS`: 11 个工具组定义（group:memory, group:web, group:fs, group:runtime, group:sessions, group:ui, group:automation, group:messaging, group:nodes, group:lurkbot, group:moltbot）
+- `TOOL_PROFILES`: 4 个工具配置文件（minimal/coding/messaging/full）
+- `DEFAULT_SUBAGENT_TOOL_DENY`: 子代理默认禁用的 11 个工具
+
+**类型定义**:
+- `ToolProfileId`: 工具配置文件枚举（minimal/coding/messaging/full）
+- `ToolPolicy`: 工具策略（allow/deny 列表）
+- `ToolPolicyConfig`: 工具策略配置（allow/also_allow/deny/profile）
+- `PluginToolGroups`: 插件工具组映射
+- `AllowlistResolution`: 允许列表解析结果
+- `CompiledPattern`: 编译后的模式（all/exact/regex）
+- `Tool`: 工具基础类型
+- `ToolFilterContext`: 九层过滤上下文
+- `EffectiveToolPolicy`: 有效工具策略
+
+**核心函数**:
+- `normalize_tool_name()`: 工具名称规范化（小写 + 别名解析）
+- `normalize_tool_list()`: 工具列表规范化
+- `expand_tool_groups()`: 工具组展开
+- `expand_plugin_groups()`: 插件工具组展开
+- `expand_policy_with_plugin_groups()`: 策略的插件组展开
+- `compile_pattern()`: 模式编译（支持 * 通配符）
+- `compile_patterns()`: 模式列表编译
+- `matches_any()`: 模式匹配检查
+- `make_tool_policy_matcher()`: 创建策略匹配器
+- `filter_tools_by_policy()`: 按策略过滤工具
+- `is_tool_allowed_by_policy_name()`: 检查工具是否被策略允许
+- `is_tool_allowed_by_policies()`: 检查工具是否被所有策略允许
+- `resolve_tool_profile_policy()`: 解析配置文件策略
+- `union_allow()`: 合并允许列表（支持 alsoAllow）
+- `pick_tool_policy()`: 从配置提取策略
+- `collect_explicit_allowlist()`: 收集显式允许列表
+- `build_plugin_tool_groups()`: 构建插件工具组
+- `strip_plugin_only_allowlist()`: 剥离纯插件允许列表
+- `resolve_subagent_tool_policy()`: 解析子代理策略
+- `filter_tools_nine_layers()`: 九层工具过滤主函数
+
+**九层过滤顺序**:
+1. Layer 1: Profile Policy - `tools.profile`
+2. Layer 2: Provider Profile Policy - `tools.byProvider[provider].profile`
+3. Layer 3: Global Allow/Deny - `tools.allow/deny`
+4. Layer 4: Global Provider Policy - `tools.byProvider[provider].allow/deny`
+5. Layer 5: Agent Policy - `agents[].tools.allow/deny`
+6. Layer 6: Agent Provider Policy - `agents[].tools.byProvider[provider].allow/deny`
+7. Layer 7: Group/Channel Policy - 群组级工具限制
+8. Layer 8: Sandbox Policy - `sandbox.tools.allow/deny`
+9. Layer 9: Subagent Policy - 子代理默认禁用列表
+
+**对齐 MoltBot 的特性**:
+- 工具名称规范化（小写 + 别名解析）
+- 工具组展开（group:* → 具体工具列表）
+- 模式匹配（支持 * 通配符和正则表达式）
+- Deny 优先规则（deny 总是优先于 allow）
+- apply_patch 特殊处理（如果 exec 被允许则 apply_patch 也被允许）
+- alsoAllow 支持（在无 allow 列表时添加隐式 allow-all）
+- 插件工具组展开（group:plugins → 所有插件工具）
+- 纯插件允许列表剥离（避免意外禁用核心工具）
+
+#### 2. 模块导出更新 ✅
+
+**文件修改**:
+- `src/lurkbot/tools/__init__.py`:
+  - 导出所有常量、类型和函数
+  - 更新 `__all__` 列表
+
+#### 3. 测试覆盖 ✅
+
+**文件创建**:
+- `tests/test_tool_policy.py`: 99 个测试
+  - `TestConstants`: 9 个常量测试
+  - `TestNormalizeToolName`: 5 个名称规范化测试
+  - `TestNormalizeToolList`: 4 个列表规范化测试
+  - `TestExpandToolGroups`: 6 个组展开测试
+  - `TestCompilePattern`: 5 个模式编译测试
+  - `TestCompilePatterns`: 3 个模式列表测试
+  - `TestMatchesAny`: 5 个模式匹配测试
+  - `TestMakeToolPolicyMatcher`: 6 个匹配器测试
+  - `TestFilterToolsByPolicy`: 3 个过滤测试
+  - `TestIsToolAllowedByPolicyName`: 3 个单策略测试
+  - `TestIsToolAllowedByPolicies`: 2 个多策略测试
+  - `TestResolveToolProfilePolicy`: 5 个配置文件解析测试
+  - `TestUnionAllow`: 4 个合并测试
+  - `TestPickToolPolicy`: 5 个策略提取测试
+  - `TestCollectExplicitAllowlist`: 3 个收集测试
+  - `TestBuildPluginToolGroups`: 2 个插件组构建测试
+  - `TestExpandPluginGroups`: 4 个插件展开测试
+  - `TestStripPluginOnlyAllowlist`: 4 个剥离测试
+  - `TestResolveSubagentToolPolicy`: 3 个子代理策略测试
+  - `TestFilterToolsNineLayers`: 8 个九层过滤测试
+  - `TestToolProfileId`: 2 个枚举测试
+  - `TestEdgeCases`: 5 个边界情况测试
+  - `TestIntegration`: 3 个集成测试
+
+**测试结果**:
+```
+198 passed in 0.31s
+```
+（99 个新测试 + 99 个之前的测试）
+
+### 实现进度
+
+| 阶段 | 内容 | 状态 | 完成度 |
+|------|------|------|--------|
+| Phase 1: 项目重构 | ✅ 完成 | 100% |
+| Phase 2: PydanticAI 核心框架 | ✅ 完成 | 100% |
+| Phase 3: Bootstrap 文件系统 | ✅ 完成 | 100% |
+| Phase 3 续: 系统提示词生成器 | ✅ 完成 | 100% |
+| **Phase 4: 九层工具策略系统** | ✅ 完成 | **100%** |
+| Phase 5: 22 个原生工具实现 | 🔲 待开始 | 0% |
+| Phase 6: 会话管理 + 子代理系统 | 🔲 待开始 | 0% |
+| Phase 7: Heartbeat + Cron 自主运行 | 🔲 待开始 | 0% |
+| Phase 8: Auth Profile + Compaction | 🔲 待开始 | 0% |
+| Phase 9: Gateway WebSocket 协议 | 🔲 待开始 | 0% |
+| Phase 10: 技能和插件系统 | 🔲 待开始 | 0% |
+
+### 下一步计划
+
+**Phase 5: 22 个原生工具实现**
+- 实现核心 22 个工具的 Python 版本
+- 工具列表：
+  - 文件系统：read, write, edit, apply_patch
+  - 执行：exec, process
+  - 会话：sessions_list, sessions_history, sessions_send, sessions_spawn, session_status, agents_list
+  - 内存：memory_search, memory_get
+  - Web：web_search, web_fetch
+  - UI：browser, canvas
+  - 自动化：cron, gateway
+  - 消息：message
+  - 其他：image, nodes, tts
+
+---
+
+## 2026-01-29 (续-12) - Phase 3 续: 系统提示词生成器（100% 完成）
+
+### 会话概述
+
+继续 Phase 3 工作，实现 MoltBot 的 23 节系统提示词生成器，严格对齐 MoltBot 的 `system-prompt.ts` 实现。
+
+### 主要工作
+
+#### 1. 系统提示词生成器 ✅
+
+**文件创建**:
+- `src/lurkbot/agents/system_prompt.py`: 完整的系统提示词生成器
+  - 23 节结构完全对齐 MoltBot
+  - 支持三种提示模式（full/minimal/none）
+  - 条件性节渲染（根据可用工具、配置等）
+
+**核心组件**:
+- `SILENT_REPLY_TOKEN = "NO_REPLY"`: 静默回复令牌
+- `HEARTBEAT_TOKEN = "HEARTBEAT_OK"`: 心跳确认令牌
+- `DEFAULT_HEARTBEAT_PROMPT`: 默认心跳提示词
+- `CHAT_CHANNEL_ORDER`: 渠道顺序列表
+- `CORE_TOOL_SUMMARIES`: 22 个核心工具描述
+- `TOOL_ORDER`: 工具排序列表
+
+**数据类**:
+- `RuntimeInfo`: 运行时信息（agent_id, host, os, arch, model, channel 等）
+- `SandboxInfo`: 沙箱环境信息
+- `ReactionGuidance`: 反应指导配置（minimal/extensive）
+- `SystemPromptParams`: 系统提示词参数（完整参数列表）
+
+**辅助函数**:
+- `_build_skills_section()`: Skills 节（条件性）
+- `_build_memory_section()`: Memory Recall 节（需要 memory_search/memory_get）
+- `_build_user_identity_section()`: User Identity 节
+- `_build_time_section()`: Current Date & Time 节
+- `_build_reply_tags_section()`: Reply Tags 节
+- `_build_messaging_section()`: Messaging 节（包含 message tool 详情）
+- `_build_voice_section()`: Voice (TTS) 节
+- `_build_docs_section()`: Documentation 节
+- `build_runtime_line()`: 构建 Runtime 信息行
+- `build_agent_system_prompt()`: 主入口函数
+
+**对齐 MoltBot 的特性**:
+- 工具名称大小写保留（去重时保留原始大小写）
+- 工具排序（核心工具按 TOOL_ORDER，额外工具按字母序）
+- SOUL.md 特殊处理（触发 persona 提示）
+- Subagent Context vs Group Chat Context 头部
+- Sandbox 节的详细信息（workspace、elevated 等）
+- Inline buttons 支持检测
+
+**函数添加**:
+- `is_silent_reply_text()`: 检测静默回复文本（匹配 MoltBot 的 isSilentReplyText）
+- `list_deliverable_message_channels()`: 列出可投递的消息渠道
+
+#### 2. 模块导出更新 ✅
+
+**文件修改**:
+- `src/lurkbot/agents/__init__.py`:
+  - 更新模块描述，移除 `[TODO]` 标记
+  - 添加 system_prompt 模块的所有导出
+  - 更新 `__all__` 列表包含新导出
+
+#### 3. 测试覆盖 ✅
+
+**文件创建**:
+- `tests/test_system_prompt.py`: 54 个测试
+  - `TestConstants`: 8 个常量测试
+  - `TestListDeliverableMessageChannels`: 2 个渠道列表测试
+  - `TestIsSilentReplyText`: 7 个静默回复检测测试
+  - `TestBuildRuntimeLine`: 4 个 Runtime 行测试
+  - `TestSystemPromptParams`: 2 个参数测试
+  - `TestBuildAgentSystemPromptBasic`: 4 个基础测试
+  - `TestBuildAgentSystemPromptTools`: 5 个工具节测试
+  - `TestBuildAgentSystemPromptSkills`: 2 个技能节测试
+  - `TestBuildAgentSystemPromptContext`: 2 个上下文测试
+  - `TestBuildAgentSystemPromptMinimalMode`: 4 个最小模式测试
+  - `TestBuildAgentSystemPromptFullMode`: 4 个完整模式测试
+  - `TestBuildAgentSystemPromptSandbox`: 3 个沙箱测试
+  - `TestBuildAgentSystemPromptMessaging`: 3 个消息节测试
+  - `TestBuildAgentSystemPromptReactions`: 2 个反应测试
+  - `TestBuildAgentSystemPromptReasoning`: 2 个推理格式测试
+
+**测试结果**:
+```
+99 passed in 0.30s
+```
+
+### 23 节结构对照
+
+| 节 | MoltBot | LurkBot | 状态 |
+|---|---------|---------|------|
+| 1 | Identity Line | ✅ 实现 | 完成 |
+| 2 | Tooling | ✅ 实现 | 完成 |
+| 3 | Tool Call Style | ✅ 实现 | 完成 |
+| 4 | CLI Quick Reference | ✅ 实现 | 完成 |
+| 5 | Skills | ✅ 实现 | 完成 |
+| 6 | Memory Recall | ✅ 实现 | 完成 |
+| 7 | Self-Update | ✅ 实现 | 完成 |
+| 8 | Model Aliases | ✅ 实现 | 完成 |
+| 9 | Workspace | ✅ 实现 | 完成 |
+| 10 | Documentation | ✅ 实现 | 完成 |
+| 11 | Sandbox | ✅ 实现 | 完成 |
+| 12 | User Identity | ✅ 实现 | 完成 |
+| 13 | Current Date & Time | ✅ 实现 | 完成 |
+| 14 | Workspace Files | ✅ 实现 | 完成 |
+| 15 | Reply Tags | ✅ 实现 | 完成 |
+| 16 | Messaging | ✅ 实现 | 完成 |
+| 17 | Voice (TTS) | ✅ 实现 | 完成 |
+| 18 | Group/Subagent Context | ✅ 实现 | 完成 |
+| 19 | Reactions | ✅ 实现 | 完成 |
+| 20 | Reasoning Format | ✅ 实现 | 完成 |
+| 21 | Project Context | ✅ 实现 | 完成 |
+| 22 | Silent Replies | ✅ 实现 | 完成 |
+| 23 | Heartbeats | ✅ 实现 | 完成 |
+| 24 | Runtime | ✅ 实现 | 完成 |
+
+### 文件变更统计
+
+**新增文件**:
+- `src/lurkbot/agents/system_prompt.py` (~680 行)
+- `tests/test_system_prompt.py` (~400 行)
+
+**修改文件**:
+- `src/lurkbot/agents/__init__.py` (+30 行)
+
+**总计**: ~1,110 行新增代码和测试
+
+### 阶段完成状态
+
+| 阶段 | 状态 | 完成度 |
+|------|------|--------|
+| Phase 1: 项目重构 | ✅ 完成 | 100% |
+| Phase 2: PydanticAI 核心框架 | ✅ 完成 | 100% |
+| Phase 3: Bootstrap 文件系统 | ✅ 完成 | 100% |
+| Phase 3 续: 系统提示词生成器 | ✅ 完成 | 100% |
+| Phase 4: 九层工具策略系统 | 🔲 待开始 | 0% |
+| Phase 5: 22 个原生工具实现 | 🔲 待开始 | 0% |
+| Phase 6: 会话管理 + 子代理系统 | 🔲 待开始 | 0% |
+| Phase 7: Heartbeat + Cron 自主运行 | 🔲 待开始 | 0% |
+| Phase 8: Auth Profile + Compaction | 🔲 待开始 | 0% |
+| Phase 9: Gateway WebSocket 协议 | 🔲 待开始 | 0% |
+| Phase 10: 技能和插件系统 | 🔲 待开始 | 0% |
+
+### 下一步计划
+
+**Phase 5: 22 个原生工具实现** - 现在已解除阻塞
+
+---
+
+## 2026-01-29 (续-11) - 项目重构：基于 PydanticAI 的全新实现
+
+### 会话概述
+
+按照 `docs/design/LURKBOT_COMPLETE_DESIGN.md` 设计文档，从头重构 LurkBot 项目。废弃之前的代码，严格对齐 MoltBot 实现。
+
+### 主要工作
+
+#### 1. Phase 1: 项目重构 ✅
+
+**清理旧代码**:
+- 删除 `src/lurkbot/` 下所有旧模块
+- 删除引用旧模块的测试文件
+- 保留 conftest.py 通用配置
+
+**新目录结构**:
+```
+src/lurkbot/
+├── __init__.py
+├── logging.py           # 日志模块
+├── agents/              # Agent 运行时
+├── tools/builtin/       # 内置工具
+├── sessions/            # 会话管理
+├── autonomous/          # 自主运行（Heartbeat、Cron）
+├── auth/                # 认证 Profile
+├── gateway/             # WebSocket 协议
+├── skills/              # 技能系统
+├── plugins/             # 插件系统
+├── memory/              # 向量内存
+├── infra/               # 错误处理、重试
+├── config/              # 配置管理
+└── cli/                 # CLI 入口
+```
+
+#### 2. Phase 2: PydanticAI 核心框架 ✅
+
+**文件创建**:
+- `src/lurkbot/agents/types.py`: 核心类型定义
+  - `SessionType`: 会话类型枚举（main/group/dm/topic/subagent）
+  - `ThinkLevel`: 思考级别（off/low/medium/high）
+  - `VerboseLevel`: 详细级别
+  - `PromptMode`: 提示模式（full/minimal/none）
+  - `ToolResultFormat`: 工具结果格式
+  - `AgentContext`: Agent 执行上下文（对标 MoltBot EmbeddedRunAttemptParams）
+  - `AgentRunResult`: Agent 运行结果
+  - `StreamEvent`: 流式事件
+  - `build_session_key()`: 会话 key 构建函数
+  - `parse_session_key()`: 会话 key 解析函数
+
+- `src/lurkbot/agents/runtime.py`: PydanticAI Agent 运行时
+  - `AgentDependencies`: 依赖注入模型
+  - `MODEL_MAPPING`: 模型 ID 映射
+  - `resolve_model_id()`: 解析模型 ID
+  - `create_agent()`: 创建 PydanticAI Agent
+  - `run_embedded_agent()`: 主运行函数（对标 runEmbeddedPiAgent）
+  - `run_embedded_agent_stream()`: 流式运行
+  - `run_embedded_agent_events()`: 详细事件流运行
+
+- `src/lurkbot/agents/api.py`: FastAPI HTTP/SSE 端点
+  - `ChatRequest`: 聊天请求模型
+  - `ChatResponse`: 聊天响应模型
+  - `create_chat_api()`: 创建 FastAPI 应用
+  - `/chat`: 非流式/流式聊天端点
+  - `/chat/stream`: 详细事件流端点
+  - `/health`: 健康检查端点
+
+**PydanticAI 集成**:
+- 使用 PydanticAI v1.0.5
+- 支持 `DeferredToolRequests` 用于 Human-in-the-Loop
+- 使用 `Agent.iter()` API 进行详细事件流
+- 支持 Anthropic/OpenAI/Google 三个提供商
+
+#### 3. Phase 3: Bootstrap 文件系统 ✅
+
+**文件创建**:
+- `src/lurkbot/agents/bootstrap.py`: Bootstrap 文件系统
+  - 8 个 Bootstrap 文件常量（AGENTS.md, SOUL.md, TOOLS.md 等）
+  - `BootstrapFile`: Bootstrap 文件数据类
+  - `ContextFile`: 上下文文件数据类
+  - `SUBAGENT_BOOTSTRAP_ALLOWLIST`: 子代理允许列表
+  - `get_default_workspace_dir()`: 获取默认工作区
+  - `load_workspace_bootstrap_files()`: 加载 Bootstrap 文件
+  - `filter_bootstrap_files_for_session()`: 按会话类型过滤
+  - `trim_bootstrap_content()`: 截断过长内容（头 70% + 尾 20%）
+  - `build_bootstrap_context_files()`: 构建上下文文件
+  - `resolve_bootstrap_context_for_run()`: 解析 Bootstrap 上下文
+
+**对齐 MoltBot**:
+- 文件名常量对齐 `workspace.ts`
+- 截断逻辑对齐 `pi-embedded-helpers/bootstrap.ts`
+- 子代理过滤对齐 `filterBootstrapFilesForSession()`
+
+### 测试覆盖
+
+**测试文件**:
+- `tests/test_agent_types.py`: 23 个测试
+  - Session key 构建和解析
+  - 模型 ID 解析
+  - AgentContext 默认值
+  - AgentRunResult 属性
+  - AgentDependencies
+  - ChatRequest/ChatResponse
+  - create_chat_api()
+
+- `tests/test_bootstrap.py`: 22 个测试
+  - Bootstrap 常量
+  - 子代理会话 key 检测
+  - 内容截断
+  - 文件过滤
+  - 上下文文件构建
+  - 工作区加载
+  - 默认工作区目录
+
+**测试结果**:
+```
+45 passed in 0.24s
+```
+
+### 文件变更统计
+
+**新增文件**:
+- `src/lurkbot/agents/types.py` (~280 行)
+- `src/lurkbot/agents/runtime.py` (~320 行)
+- `src/lurkbot/agents/api.py` (~220 行)
+- `src/lurkbot/agents/bootstrap.py` (~350 行)
+- `tests/test_agent_types.py` (~250 行)
+- `tests/test_bootstrap.py` (~200 行)
+
+**删除文件**:
+- 旧的 `src/lurkbot/` 模块
+- 旧的测试文件（test_approval.py, test_config.py 等）
+
+**总计**: ~1,620 行新增代码
+
+### 阶段完成状态
+
+| 阶段 | 状态 | 完成度 |
+|------|------|--------|
+| Phase 1: 项目重构 | ✅ 完成 | 100% |
+| Phase 2: PydanticAI 核心框架 | ✅ 完成 | 100% |
+| Phase 3: Bootstrap 文件系统 | ✅ 完成 | 100% |
+| Phase 4: 九层工具策略系统 | 🔲 待开始 | 0% |
+| Phase 5: 22 个原生工具实现 | 🔲 待开始 | 0% |
+| Phase 6: 会话管理 + 子代理系统 | 🔲 待开始 | 0% |
+| Phase 7: Heartbeat + Cron 自主运行 | 🔲 待开始 | 0% |
+| Phase 8: Auth Profile + Compaction | 🔲 待开始 | 0% |
+| Phase 9: Gateway WebSocket 协议 | 🔲 待开始 | 0% |
+| Phase 10: 技能和插件系统 | 🔲 待开始 | 0% |
+
+### 下一步计划
+
+**Phase 4: 九层工具策略系统**
+- 实现 `ToolProfile` 枚举
+- 实现 `TOOL_GROUPS` 工具组定义
+- 实现 `ToolPolicyContext` 策略上下文
+- 实现 `filter_tools_by_policy()` 九层过滤
+
+**Phase 3 续: 系统提示词生成器**
+- 实现 `build_system_prompt()` 函数
+- 23 节结构对齐 MoltBot
+
+---
+
+## 2026-01-29 (续-10) - MoltBot TypeScript 智能体架构分析
+
+### 会话概述
+
+针对 `github.com/moltbot` 目录下的 MoltBot TypeScript 原版代码进行智能体架构设计分析，补充之前对 Python LurkBot 的分析工作。
+
+### 主要工作
+
+#### 1. 代码分析 ✅
+
+对以下核心 TypeScript 文件进行深入分析：
+
+- `src/agents/pi-embedded-runner/run.ts`: Agent 执行主入口
+- `src/agents/pi-embedded-runner/run/attempt.ts`: 单次执行尝试逻辑
+- `src/agents/pi-embedded-subscribe.ts`: 流式响应事件订阅
+- `src/agents/pi-tools.ts`: 工具组装和策略过滤
+- `src/agents/bash-tools.exec.ts`: Exec 命令执行工具
+- `src/agents/moltbot-tools.ts`: Moltbot 特有工具集
+- `src/acp/session.ts`: ACP 会话存储
+- `src/agents/cli-runner.ts`: CLI 模式运行器
+
+#### 2. 设计文档编写 ✅
+
+**文件创建**:
+- `docs/design/MOLTBOT_AGENT_ARCHITECTURE.md`: MoltBot TypeScript 版智能体架构设计文档
+
+**文档内容**:
+- MoltBot 核心架构概览（与 Pi SDK 的关系）
+- Pi SDK 依赖分析（pi-agent-core、pi-coding-agent）
+- runEmbeddedPiAgent 主入口函数详解
+- runEmbeddedAttempt 单次执行尝试分析
+- Tool Use Loop 事件流程（SDK 内部实现 + 事件订阅）
+- 工具系统架构（核心编码工具、命令执行、Moltbot 特有、会话管理、插件）
+- 会话管理（ACP Session Store + Pi SDK SessionManager）
+- 9 层工具策略系统
+- 多模型支持与认证 Profile 轮转
+- 沙箱隔离系统
+- 流式响应处理（事件类型、文本过滤）
+- 与 Python LurkBot 的对比分析
+
+### 关键发现
+
+#### 架构差异
+- MoltBot 使用外部 Pi SDK 实现 Agent 核心循环
+- LurkBot (Python) 完全自实现 Tool Use Loop
+- MoltBot 通过事件订阅模式处理流式响应
+- LurkBot 使用 AsyncIterator 模式
+
+#### MoltBot 设计特点
+1. **SDK 集成模式**: 核心 Agent Loop 委托给 Pi SDK，保持松耦合
+2. **多层工具策略**: 支持 9 层策略优先级（Profile → Provider → Global → Agent → Group → Sandbox → Subagent）
+3. **认证 Profile 轮转**: 自动 Failover + Cooldown 机制
+4. **沙箱隔离**: Docker 容器化执行 + 路径限制
+
+### 文件变更统计
+
+**新增文件**:
+- `docs/design/MOLTBOT_AGENT_ARCHITECTURE.md` (~700 行)
+
+### 下一步建议
+
+1. **对比分析文档**: 可创建专门的 LurkBot vs MoltBot 对比文档
+2. **测试验证**: 如需要，可运行 MoltBot 测试验证分析准确性
+3. **迁移指南**: 如需将 MoltBot 特性移植到 LurkBot，可编写迁移指南
+
+---
+
+## 2026-01-29 (续-9) - 智能体架构设计分析
+
+### 会话概述
+
+为 LurkBot 项目编写智能体架构设计文档，详细分析智能体自动运行、推理、执行任务的设计和代码实现。
+
+### 主要工作
+
+#### 1. 代码分析 ✅
+
+对以下核心文件进行深入分析：
+
+- `src/lurkbot/agents/base.py`: Agent 基类和 AgentContext 定义
+- `src/lurkbot/agents/runtime.py`: ModelAgent 和 AgentRuntime 实现
+- `src/lurkbot/tools/base.py`: Tool 基类、ToolPolicy、SessionType
+- `src/lurkbot/tools/registry.py`: ToolRegistry 实现
+- `src/lurkbot/tools/approval.py`: ApprovalManager 审批系统
+- `src/lurkbot/models/base.py`: ModelAdapter 抽象基类
+- `src/lurkbot/models/registry.py`: ModelRegistry 和内置模型定义
+- `src/lurkbot/models/adapters/anthropic.py`: Anthropic 适配器实现
+- `src/lurkbot/storage/jsonl.py`: SessionStore JSONL 持久化
+
+#### 2. 设计文档编写 ✅
+
+**文件创建**:
+- `docs/design/AGENT_ARCHITECTURE_DESIGN.md`: 智能体架构设计文档
+
+**文档内容**:
+- 智能体核心架构概览（架构图）
+- 核心组件详解（Agent、AgentRuntime、ModelAgent）
+- Tool Use Loop 完整流程分析（流程图 + 代码详解）
+- 工具系统架构（Tool、ToolPolicy、ToolRegistry）
+- 审批系统设计（Human-in-the-Loop 工作流）
+- 多模型适配器系统
+- 会话持久化机制
+- 设计亮点总结
+
+### 文档核心发现
+
+#### Tool Use Loop 关键设计
+- 最多 10 次迭代，防止无限循环
+- 模型可以连续调用多个工具
+- 工具结果反馈给模型继续推理
+- 直到 `stop_reason == "end_turn"` 才返回
+
+#### 安全隔离机制
+- 基于 SessionType 的会话类型控制（MAIN/GROUP/DM/TOPIC）
+- 工具策略强制执行（ToolPolicy）
+- 沙箱隔离支持（GROUP/TOPIC 会话）
+- 人工审批流程（5分钟超时自动拒绝）
+
+#### 多模型支持
+- 统一的 ModelAdapter 接口
+- 支持 Anthropic、OpenAI、Ollama 三大提供商
+- 自动格式转换（Anthropic 格式为基准）
+- 模型配置缓存和懒加载
+
+### 文件变更统计
+
+**新增文件**:
+- `docs/design/AGENT_ARCHITECTURE_DESIGN.md` (~900 行)
+
+### 下一步建议
+
+1. **英文版本**: 如需要，可创建英文版设计文档
+2. **验证测试**: 运行测试确认分析准确性
+3. **架构图更新**: 可使用 Mermaid 重新绘制架构图
+
+---
+
 ## 2026-01-29 (续-8) - Phase 9: CLI Enhancements（100% 完成）
 
 ### 会话概述

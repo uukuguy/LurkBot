@@ -26,6 +26,8 @@ dependencies = [
     # Validation
     "pydantic>=2.10.0",
     "pydantic-settings>=2.6.0",
+    # AI Agent framework (core)
+    "pydantic-ai>=1.0.0",
     # AI providers
     "anthropic>=0.40.0",
     "openai>=1.55.0",
@@ -41,8 +43,15 @@ dependencies = [
     "loguru>=0.7.0",
     "python-dotenv>=1.0.0",
     "aiofiles>=24.1.0",
+    # Cron scheduling
+    "croniter>=3.0.0",
+    # Memory and embeddings
+    "tiktoken>=0.8.0",
+    "numpy>=1.26.0",
     # Docker sandbox
     "docker>=7.0.0",
+    # YAML parsing (for skills)
+    "pyyaml>=6.0.0",
 ]
 
 [project.optional-dependencies]

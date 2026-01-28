@@ -1,6 +1,4 @@
-"""Command-line interface for LurkBot."""
+"""Command-line interface.
 
-from lurkbot.cli import chat, models, sessions
-from lurkbot.cli.main import app
-
-__all__ = ["app", "chat", "models", "sessions"]
+This module provides the CLI for LurkBot using Typer.
+"""

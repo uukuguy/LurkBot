@@ -1,5 +1,5 @@
-"""Configuration management for LurkBot."""
+"""Configuration management.
 
-from lurkbot.config.settings import Settings, get_settings
-
-__all__ = ["Settings", "get_settings"]
+This module contains configuration infrastructure:
+- settings.py: Application settings with Pydantic
+"""
