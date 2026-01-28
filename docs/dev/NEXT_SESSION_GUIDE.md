@@ -2,168 +2,191 @@
 
 ## Session Context
 
-**Last Session Date**: 2026-01-29 (续-5)
-**Phase Completed**: Phase 6 - Skills System (100% ✅)
-**Status**: ✅ Skills Parser, Loader, Registry and Bundled Skills Implemented
+**Last Session Date**: 2026-01-29 (续-6)
+**Phase Completed**: Phase 7 - Multi-Model Support (100% ✅)
+**Status**: ✅ Anthropic, OpenAI, Ollama adapters implemented with unified interface
 
 ## What Was Accomplished
 
-### Phase 6: Skills System (100% COMPLETE ✅)
+### Phase 7: Multi-Model Support (100% COMPLETE ✅)
 
-**1. Skill Types** (`src/lurkbot/skills/types.py`) ✅
-- `SkillRequirements` - Binary/env/config requirements
-- `SkillMetadata` - Moltbot-specific metadata (emoji, requires, install)
-- `SkillFrontmatter` - Parsed YAML frontmatter model
-- `SkillEntry` - Complete skill representation
-- `SkillSnapshot` - Cached skill state for versioning
+**1. Type Definitions** (`src/lurkbot/models/types.py`) ✅
+- `ApiType` enum - anthropic, openai, ollama, litellm
+- `ModelCost` - Pricing per million tokens
+- `ModelCapabilities` - tools, vision, streaming, thinking support
+- `ModelConfig` - Complete model configuration
+- `ToolCall` / `ToolResult` - Unified tool interaction types
+- `ModelResponse` / `StreamChunk` - Standardized responses
 
-**2. Skill Parser** (`src/lurkbot/skills/parser.py`) ✅
-- YAML frontmatter parsing with regex
-- JSON metadata field parsing
-- Source type detection (bundled/managed/workspace/extra)
-- Directory loading with skill discovery
+**2. ModelAdapter Base Class** (`src/lurkbot/models/base.py`) ✅
+- Abstract `chat()` and `stream_chat()` interfaces
+- Lazy client loading pattern
+- Tool format standardization (Anthropic format as baseline)
 
-**3. Skill Loader** (`src/lurkbot/skills/loader.py`) ✅
-- Multi-source loading with precedence:
-  1. Extra directories (lowest)
-  2. Bundled skills
-  3. Managed skills (~/.lurkbot/config/skills)
-  4. Workspace skills (highest)
-- Eligibility checking:
-  - OS platform matching
-  - Required binaries (bins)
-  - Any binaries (anyBins)
-  - Environment variables (env)
-  - Always-on skills bypass checks
-- Snapshot building for AI context
+**3. Native Adapters** (`src/lurkbot/models/adapters/`) ✅
 
-**4. Skill Registry** (`src/lurkbot/skills/registry.py`) ✅
-- Thread-safe skill management
-- Hot-reload support via `refresh()`
-- Skill lookup by name, emoji
-- Prompt generation for AI context
-- Version tracking for cache invalidation
+| Adapter | SDK | Features |
+|---------|-----|----------|
+| `AnthropicAdapter` | anthropic | Native tools, vision, thinking, cache |
+| `OpenAIAdapter` | openai | Tool/message format conversion, streaming |
+| `OllamaAdapter` | httpx | OpenAI-compatible API, local models |
+
+**4. Model Registry** (`src/lurkbot/models/registry.py`) ✅
+- 13 built-in models defined
+- Adapter caching and lazy creation
+- Custom model registration support
+- Filter by provider/api_type
+
+**Built-in Models**:
+```
+Anthropic (3):
+  - anthropic/claude-sonnet-4-20250514
+  - anthropic/claude-opus-4-20250514
+  - anthropic/claude-haiku-3-5-20241022
+
+OpenAI (4):
+  - openai/gpt-4o
+  - openai/gpt-4o-mini
+  - openai/gpt-4-turbo
+  - openai/o1-mini
+
+Ollama (6):
+  - ollama/llama3.3
+  - ollama/llama3.2
+  - ollama/qwen2.5
+  - ollama/qwen2.5-coder
+  - ollama/deepseek-r1
+  - ollama/mistral
+```
 
 **5. Configuration** (`src/lurkbot/config/settings.py`) ✅
-- Added `SkillSettings` model
-- `allow_bundled` - Bundled skill allowlist
-- `extra_dirs` - Additional skill directories
-- `entries` - Per-skill configuration
+- `ModelSettings` class added
+  - `default_model` - Default model ID
+  - `ollama_base_url` - Ollama server URL
+  - `custom_models` - User-defined models
 
-**6. Bundled Skills** (`skills/`) ✅
-- `github/SKILL.md` - GitHub CLI integration
-- `weather/SKILL.md` - Weather queries (wttr.in)
-- `web-search/SKILL.md` - Web search capabilities
+**6. AgentRuntime Refactor** (`src/lurkbot/agents/runtime.py`) ✅
+- New `ModelAgent` class replaces `ClaudeAgent`
+- Integrated `ModelRegistry`
+- Tool execution and approval logic preserved
+- Supports any registered model
 
 **7. Test Coverage** ✅
-- Created `tests/test_skills.py` with 42 unit tests:
-  - Type/model tests
-  - Parser tests
-  - Loader tests
-  - Registry tests
-  - Integration tests
+- `tests/test_models/test_types.py` - 19 type tests
+- `tests/test_models/test_registry.py` - 19 registry tests
+- `tests/test_models/test_adapters.py` - 15 adapter tests
 
 **Test Results**:
 ```
-176 passed, 4 skipped (browser tests), 13 deselected (docker tests)
+53 passed (models module)
+228 passed total (excluding Docker tests)
 ```
 
 ## Configuration Reference
 
-### Skills Settings
+### Model Settings
 
 ```bash
-# Enable/disable skills system
-LURKBOT_SKILLS__ENABLED=true
+# Default model
+LURKBOT_MODELS__DEFAULT_MODEL=anthropic/claude-sonnet-4-20250514
 
-# Allowlist specific bundled skills (null = all, [] = none)
-LURKBOT_SKILLS__ALLOW_BUNDLED=["github", "weather"]
+# Ollama server URL
+LURKBOT_MODELS__OLLAMA_BASE_URL=http://localhost:11434
 
-# Add extra skill directories
-LURKBOT_SKILLS__EXTRA_DIRS=["/path/to/skills"]
+# API Keys
+LURKBOT_ANTHROPIC_API_KEY=sk-ant-...
+LURKBOT_OPENAI_API_KEY=sk-...
 ```
 
-### Skill File Format (SKILL.md)
+### Custom Model Definition
 
-```yaml
----
-name: skill-name
-description: Short description of the skill
-homepage: https://example.com
-metadata: {"moltbot":{"emoji":"🔧","requires":{"bins":["tool"]}}}
----
-
-# Skill Name
-
-Markdown documentation and examples...
-```
-
-### Metadata Fields
-
-```json
-{
-  "moltbot": {
-    "emoji": "🔧",
-    "always": false,
-    "os": ["darwin", "linux"],
-    "requires": {
-      "bins": ["required_binary"],
-      "anyBins": ["optional1", "optional2"],
-      "env": ["API_KEY"],
-      "config": ["some.config.path"]
-    },
-    "install": [
-      {"kind": "brew", "formula": "tool", "bins": ["tool"]}
-    ]
-  }
+```python
+# In settings or programmatically
+custom_models = {
+    "custom/my-model": {
+        "name": "My Custom Model",
+        "api_type": "openai",
+        "provider": "openai",
+        "model_id": "my-model-v1",
+        "context_window": 32000,
+        "max_tokens": 4096,
+    }
 }
+```
+
+### Usage Example
+
+```python
+from lurkbot.models import ModelRegistry
+from lurkbot.config import Settings
+
+settings = Settings(
+    anthropic_api_key="sk-ant-...",
+    openai_api_key="sk-...",
+)
+registry = ModelRegistry(settings)
+
+# Get adapter and call
+adapter = registry.get_adapter("openai/gpt-4o")
+response = await adapter.chat(
+    messages=[{"role": "user", "content": "Hello"}],
+    tools=[{"name": "bash", "description": "...", "input_schema": {...}}],
+)
 ```
 
 ## Next Phase Priorities
 
-### Phase 7: Multi-Model Support (Next Priority)
-
-**Objective**: Add support for multiple AI providers
-
-#### Tasks:
-1. **Model Adapters**
-   - OpenAI GPT adapter
-   - Google Gemini adapter
-   - Ollama local adapter
-
-2. **Model Selection**
-   - Per-session model selection
-   - Model fallback chains
-
-3. **Configuration**
-   - Model-specific settings
-   - API key management
-
-### Phase 8: Web Interface (Future)
+### Phase 8: Web Interface (Next Priority)
 
 **Objective**: Add web-based control interface
 
 #### Tasks:
-1. HTTP API endpoints for session management
-2. WebSocket real-time updates
-3. Simple web dashboard
+1. **HTTP API Endpoints**
+   - Session management
+   - Model listing/selection
+   - Chat history
+
+2. **WebSocket Real-time**
+   - Streaming responses
+   - Tool execution notifications
+
+3. **Simple Dashboard**
+   - Session overview
+   - Model configuration
+   - Usage statistics
+
+### Future Enhancements
+
+1. **LiteLLM Integration** (Optional)
+   - Google Gemini support
+   - AWS Bedrock support
+   - Azure OpenAI support
+
+2. **Cost Tracking**
+   - Token usage statistics
+   - Cost calculation per session
+
+3. **Model CLI Commands**
+   - `lurkbot models list`
+   - `lurkbot chat --model openai/gpt-4o`
 
 ## Known Issues & Limitations
 
-### Resolved in Phase 6
-- ✅ ~~No Skills System~~ - **SOLVED** (Phase 6)
+### Resolved in Phase 7
+- ✅ ~~Single Model Support~~ - **SOLVED** (13 models supported)
 
 ### Remaining Limitations
-1. ⚠️ **Single Model** - Only Claude supported (Future Phase 7)
-2. ⚠️ **No Web Interface** - Future Phase 8
+1. ⚠️ **No Web Interface** - Future Phase 8
+2. ⚠️ **No Cost Tracking** - Future enhancement
+3. ⚠️ **No Model Hot-Swap** - Restart required for model changes
 
 ### Technical Debt
-- [ ] Fix unused argument warnings in other modules
-- [ ] Add docstrings to all public APIs
-- [x] Add type hints to functions
-- [x] Create tests for skills
-- [ ] E2E test with real APIs
-- [ ] Skills hot-reload file watching
+- [ ] LiteLLM adapter (for 100+ models)
+- [ ] Model performance benchmarks
+- [ ] Cost tracking and alerts
+- [ ] E2E tests with real APIs
+- [x] ~~Add docstrings to all public APIs~~ (models module)
+- [x] ~~Add type hints to functions~~
 
 ## Important Notes for Next Session
 
@@ -172,21 +195,21 @@ Markdown documentation and examples...
 - Use `loguru.logger` for logging
 - Use `datetime.now(UTC)` instead of `datetime.utcnow()`
 - Use Pydantic models for data validation
-- Use `all()/any()` instead of for loops for eligibility checks
+- Tool schemas use Anthropic format (input_schema)
 
 ### Testing Guidelines
 ```bash
-make test                       # All core tests (excludes docker)
-pytest -m "not docker"          # Explicit skip docker tests
-pytest tests/test_skills.py     # Skills tests only
-make lint                       # Check code style
-make format                     # Auto-fix formatting
+make test                          # All core tests
+pytest tests/test_models/ -xvs     # Models tests only
+pytest -x --ignore=tests/test_bash_sandbox.py  # Skip Docker tests
+make lint                          # Check code style
+make format                        # Auto-fix formatting
 ```
 
 ### Configuration
 - Settings loaded from environment: `LURKBOT_*`
-- Nested settings use `__`: `LURKBOT_SKILLS__ALLOW_BUNDLED`
-- Skills directory: `~/.lurkbot/config/skills/`
+- Nested settings use `__`: `LURKBOT_MODELS__DEFAULT_MODEL`
+- API keys: `LURKBOT_ANTHROPIC_API_KEY`, `LURKBOT_OPENAI_API_KEY`
 
 ## Quick Start Commands
 
@@ -196,7 +219,7 @@ make dev
 
 # Run tests
 make test
-pytest -m "not docker"
+pytest tests/test_models/ -xvs
 
 # Check code
 make lint
@@ -211,58 +234,49 @@ make gateway
 
 ```
 src/lurkbot/
-├── skills/                     # ✅ Phase 6 (NEW)
-│   ├── __init__.py            # Exports main classes
-│   ├── types.py               # Pydantic models
-│   ├── parser.py              # YAML frontmatter parser
-│   ├── loader.py              # Multi-source skill loader
-│   └── registry.py            # Thread-safe skill registry
-├── storage/                    # ✅ Phase 4
-│   ├── __init__.py
-│   └── jsonl.py
-├── sandbox/                    # ✅ Phase 3
+├── models/                        # ✅ Phase 7 (NEW)
+│   ├── __init__.py               # Exports main classes
+│   ├── types.py                  # Type definitions
+│   ├── base.py                   # ModelAdapter ABC
+│   ├── registry.py               # Model registry + built-in models
+│   └── adapters/
+│       ├── __init__.py
+│       ├── anthropic.py          # Anthropic Claude adapter
+│       ├── openai.py             # OpenAI GPT adapter
+│       └── ollama.py             # Ollama local adapter
+├── skills/                        # ✅ Phase 6
+│   └── ...
+├── storage/                       # ✅ Phase 4
+│   └── ...
+├── sandbox/                       # ✅ Phase 3
 │   └── ...
 ├── tools/
-│   ├── builtin/
-│   │   ├── bash.py
-│   │   ├── file_ops.py
-│   │   └── browser.py
-│   ├── base.py
-│   ├── registry.py
-│   └── approval.py
+│   └── ...
 ├── agents/
 │   ├── base.py
-│   └── runtime.py
-├── channels/                   # ✅ Phase 5
-│   ├── __init__.py
-│   ├── base.py
-│   ├── telegram.py
-│   ├── discord.py
-│   ├── slack.py
-│   └── registry.py
+│   └── runtime.py                # ✅ Updated with ModelAgent
+├── channels/                      # ✅ Phase 5
+│   └── ...
 └── config/
-    └── settings.py            # ✅ Updated with SkillSettings
-
-skills/                         # ✅ Phase 6 (NEW)
-├── github/
-│   └── SKILL.md
-├── weather/
-│   └── SKILL.md
-└── web-search/
-    └── SKILL.md
+    └── settings.py               # ✅ Updated with ModelSettings
 
 tests/
-├── test_skills.py             # ✅ Phase 6 (42 tests - NEW)
-├── test_channels.py           # ✅ Phase 5
-├── test_session_storage.py    # ✅ Phase 4
-├── test_approval.py           # ✅ Phase 3
-├── test_approval_integration.py
-├── test_tools.py              # ✅ Phase 2
+├── test_models/                   # ✅ Phase 7 (53 tests - NEW)
+│   ├── __init__.py
+│   ├── test_types.py
+│   ├── test_registry.py
+│   └── test_adapters.py
+├── test_skills.py                 # ✅ Phase 6
+├── test_channels.py               # ✅ Phase 5
+├── test_session_storage.py        # ✅ Phase 4
+├── test_approval.py               # ✅ Phase 3
+├── test_approval_integration.py   # ✅ Updated for ModelAgent
+├── test_tools.py                  # ✅ Phase 2
 └── ...
 ```
 
 ---
 
-**Document Updated**: 2026-01-29 (Session 续-5)
+**Document Updated**: 2026-01-29 (Session 续-6)
 **Next Review**: Start of next session
-**Progress**: Phase 6 (100% ✅) → Ready for Phase 7 (Multi-Model Support)
+**Progress**: Phase 7 (100% ✅) → Ready for Phase 8 (Web Interface)

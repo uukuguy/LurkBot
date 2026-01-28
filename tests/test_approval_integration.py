@@ -14,10 +14,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from lurkbot.agents.base import AgentContext
-from lurkbot.agents.runtime import AgentRuntime, ClaudeAgent
+from lurkbot.agents.runtime import AgentRuntime, ModelAgent
 from lurkbot.channels.telegram import TelegramChannel
 from lurkbot.config import Settings
 from lurkbot.config.settings import TelegramSettings
+from lurkbot.models.types import ModelResponse, ToolCall
 from lurkbot.tools import SessionType
 from lurkbot.tools.approval import ApprovalDecision, ApprovalManager, ApprovalRequest
 from lurkbot.tools.base import Tool, ToolPolicy, ToolResult
@@ -97,6 +98,30 @@ def agent_runtime(
     return runtime
 
 
+def create_tool_use_response(tool_name: str, tool_id: str, tool_input: dict) -> ModelResponse:
+    """Create a ModelResponse with a tool call."""
+    return ModelResponse(
+        text=None,
+        tool_calls=[
+            ToolCall(
+                id=tool_id,
+                name=tool_name,
+                arguments=tool_input,
+            )
+        ],
+        stop_reason="tool_use",
+    )
+
+
+def create_text_response(text: str) -> ModelResponse:
+    """Create a ModelResponse with text."""
+    return ModelResponse(
+        text=text,
+        tool_calls=[],
+        stop_reason="end_turn",
+    )
+
+
 class TestApprovalIntegration:
     """Integration tests for approval workflow."""
 
@@ -109,31 +134,19 @@ class TestApprovalIntegration:
         dangerous_tool = MockDangerousTool()
         agent_runtime.tool_registry.register(dangerous_tool)
 
-        # Create mock Claude agent
+        # Create mock agent with mocked adapter
         agent = agent_runtime.get_agent()
-        assert isinstance(agent, ClaudeAgent)
+        assert isinstance(agent, ModelAgent)
 
-        # Mock API response
-        mock_response = MagicMock()
-        mock_response.stop_reason = "tool_use"
-        mock_tool_block = MagicMock()
-        mock_tool_block.type = "tool_use"
-        mock_tool_block.name = "dangerous_tool"
-        mock_tool_block.input = {"operation": "delete_database"}
-        mock_tool_block.id = "tool_123"
-        mock_response.content = [mock_tool_block]
+        # Mock adapter responses
+        mock_response_1 = create_tool_use_response(
+            "dangerous_tool", "tool_123", {"operation": "delete_database"}
+        )
+        mock_response_2 = create_text_response("Operation completed")
 
-        # Second response after tool execution
-        mock_final_response = MagicMock()
-        mock_final_response.stop_reason = "end_turn"
-        mock_text_block = MagicMock()
-        mock_text_block.text = "Operation completed"
-        mock_final_response.content = [mock_text_block]
-
-        # Mock the _client instead of client property
-        mock_client = AsyncMock()
-        mock_client.messages.create = AsyncMock(side_effect=[mock_response, mock_final_response])
-        agent._client = mock_client
+        mock_adapter = MagicMock()
+        mock_adapter.chat = AsyncMock(side_effect=[mock_response_1, mock_response_2])
+        agent._adapter = mock_adapter
 
         # Create agent context
         context = AgentContext(
@@ -183,29 +196,17 @@ class TestApprovalIntegration:
         agent_runtime.tool_registry.register(dangerous_tool)
 
         agent = agent_runtime.get_agent()
-        assert isinstance(agent, ClaudeAgent)
+        assert isinstance(agent, ModelAgent)
 
-        # Mock API response
-        mock_response = MagicMock()
-        mock_response.stop_reason = "tool_use"
-        mock_tool_block = MagicMock()
-        mock_tool_block.type = "tool_use"
-        mock_tool_block.name = "dangerous_tool"
-        mock_tool_block.input = {"operation": "delete_database"}
-        mock_tool_block.id = "tool_123"
-        mock_response.content = [mock_tool_block]
+        # Mock adapter responses
+        mock_response_1 = create_tool_use_response(
+            "dangerous_tool", "tool_123", {"operation": "delete_database"}
+        )
+        mock_response_2 = create_text_response("Operation was denied")
 
-        # Second response after tool denial
-        mock_final_response = MagicMock()
-        mock_final_response.stop_reason = "end_turn"
-        mock_text_block = MagicMock()
-        mock_text_block.text = "Operation was denied"
-        mock_final_response.content = [mock_text_block]
-
-        # Mock the _client
-        mock_client = AsyncMock()
-        mock_client.messages.create = AsyncMock(side_effect=[mock_response, mock_final_response])
-        agent._client = mock_client
+        mock_adapter = MagicMock()
+        mock_adapter.chat = AsyncMock(side_effect=[mock_response_1, mock_response_2])
+        agent._adapter = mock_adapter
 
         context = AgentContext(
             session_id="test_session",
@@ -246,29 +247,17 @@ class TestApprovalIntegration:
         agent_runtime.tool_registry.register(dangerous_tool)
 
         agent = agent_runtime.get_agent()
-        assert isinstance(agent, ClaudeAgent)
+        assert isinstance(agent, ModelAgent)
 
-        # Mock API response
-        mock_response = MagicMock()
-        mock_response.stop_reason = "tool_use"
-        mock_tool_block = MagicMock()
-        mock_tool_block.type = "tool_use"
-        mock_tool_block.name = "dangerous_tool"
-        mock_tool_block.input = {"operation": "delete_database"}
-        mock_tool_block.id = "tool_123"
-        mock_response.content = [mock_tool_block]
+        # Mock adapter responses
+        mock_response_1 = create_tool_use_response(
+            "dangerous_tool", "tool_123", {"operation": "delete_database"}
+        )
+        mock_response_2 = create_text_response("Operation timed out")
 
-        # Second response after timeout
-        mock_final_response = MagicMock()
-        mock_final_response.stop_reason = "end_turn"
-        mock_text_block = MagicMock()
-        mock_text_block.text = "Operation timed out"
-        mock_final_response.content = [mock_text_block]
-
-        # Mock the _client
-        mock_client = AsyncMock()
-        mock_client.messages.create = AsyncMock(side_effect=[mock_response, mock_final_response])
-        agent._client = mock_client
+        mock_adapter = MagicMock()
+        mock_adapter.chat = AsyncMock(side_effect=[mock_response_1, mock_response_2])
+        agent._adapter = mock_adapter
 
         # Override approval manager to use short timeout
         original_create = agent_runtime.approval_manager.create
@@ -313,40 +302,20 @@ class TestApprovalIntegration:
 
         agent = agent_runtime.get_agent()
 
-        # Mock API responses for two sequential tool uses
-        # First tool use
-        mock_response_1 = MagicMock()
-        mock_response_1.stop_reason = "tool_use"
-        mock_tool_block_1 = MagicMock()
-        mock_tool_block_1.type = "tool_use"
-        mock_tool_block_1.name = "dangerous_tool_1"
-        mock_tool_block_1.input = {"operation": "op1"}
-        mock_tool_block_1.id = "tool_1"
-        mock_response_1.content = [mock_tool_block_1]
-
-        # Second tool use
-        mock_response_2 = MagicMock()
-        mock_response_2.stop_reason = "tool_use"
-        mock_tool_block_2 = MagicMock()
-        mock_tool_block_2.type = "tool_use"
-        mock_tool_block_2.name = "dangerous_tool_2"
-        mock_tool_block_2.input = {"operation": "op2"}
-        mock_tool_block_2.id = "tool_2"
-        mock_response_2.content = [mock_tool_block_2]
-
-        # Final response
-        mock_final_response = MagicMock()
-        mock_final_response.stop_reason = "end_turn"
-        mock_text_block = MagicMock()
-        mock_text_block.text = "Both operations completed"
-        mock_final_response.content = [mock_text_block]
-
-        # Mock the _client with sequential responses
-        mock_client = AsyncMock()
-        mock_client.messages.create = AsyncMock(
-            side_effect=[mock_response_1, mock_response_2, mock_final_response]
+        # Mock adapter responses for two sequential tool uses
+        mock_response_1 = create_tool_use_response(
+            "dangerous_tool_1", "tool_1", {"operation": "op1"}
         )
-        agent._client = mock_client
+        mock_response_2 = create_tool_use_response(
+            "dangerous_tool_2", "tool_2", {"operation": "op2"}
+        )
+        mock_response_3 = create_text_response("Both operations completed")
+
+        mock_adapter = MagicMock()
+        mock_adapter.chat = AsyncMock(
+            side_effect=[mock_response_1, mock_response_2, mock_response_3]
+        )
+        agent._adapter = mock_adapter
 
         context = AgentContext(
             session_id="test_session",

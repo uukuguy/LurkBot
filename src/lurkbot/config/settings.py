@@ -8,6 +8,20 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class ModelSettings(BaseSettings):
+    """Model configuration settings."""
+
+    # Default model for new sessions
+    default_model: str = "anthropic/claude-sonnet-4-20250514"
+
+    # Ollama configuration
+    ollama_base_url: str = "http://localhost:11434"
+
+    # Custom model definitions (extends built-in models)
+    # Format: {"model_id": {"name": "...", "api_type": "...", ...}}
+    custom_models: dict[str, dict] = Field(default_factory=dict)
+
+
 class GatewaySettings(BaseSettings):
     """Gateway server settings."""
 
@@ -91,6 +105,7 @@ class Settings(BaseSettings):
     # Components
     gateway: GatewaySettings = Field(default_factory=GatewaySettings)
     agent: AgentSettings = Field(default_factory=AgentSettings)
+    models: ModelSettings = Field(default_factory=ModelSettings)
 
     # Channels
     telegram: TelegramSettings = Field(default_factory=TelegramSettings)

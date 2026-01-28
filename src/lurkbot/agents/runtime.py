@@ -7,6 +7,7 @@ from loguru import logger
 
 from lurkbot.agents.base import Agent, AgentContext, ChatMessage
 from lurkbot.config import Settings
+from lurkbot.models import ModelRegistry, ToolCall, ToolResult
 from lurkbot.storage.jsonl import SessionMessage, SessionStore
 from lurkbot.tools import SessionType, ToolRegistry
 from lurkbot.tools.approval import ApprovalDecision, ApprovalManager, ApprovalRequest
@@ -17,42 +18,40 @@ if TYPE_CHECKING:
     from lurkbot.channels.base import Channel
 
 
-class ClaudeAgent(Agent):
-    """Agent using Anthropic's Claude API."""
+class ModelAgent(Agent):
+    """Agent using the multi-model adapter system.
+
+    Supports Anthropic, OpenAI, Ollama, and other providers through
+    the unified ModelAdapter interface.
+    """
 
     def __init__(
         self,
         model: str,
-        api_key: str,
+        model_registry: ModelRegistry,
         tool_registry: ToolRegistry | None = None,
         approval_manager: ApprovalManager | None = None,
         channel: "Channel | None" = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(model, **kwargs)
-        self.api_key = api_key
+        self.model_registry = model_registry
         self.tool_registry = tool_registry
         self.approval_manager = approval_manager
         self.channel = channel
-        self._client: Any = None
 
-    @property
-    def client(self) -> Any:
-        """Lazy-load the Anthropic client."""
-        if self._client is None:
-            import anthropic
-
-            self._client = anthropic.AsyncAnthropic(api_key=self.api_key)
-        return self._client
+        # Get the model adapter
+        self._adapter = model_registry.get_adapter(model)
+        logger.info(f"Initialized ModelAgent with {model}")
 
     async def chat(self, context: AgentContext, message: str) -> str:
-        """Process a chat message using Claude with tool support.
+        """Process a chat message with tool support.
 
         This method supports tool use through an iterative loop:
-        1. Send message to Claude with available tools
-        2. If Claude wants to use a tool, execute it
+        1. Send message to model with available tools
+        2. If model wants to use a tool, execute it
         3. Send tool result back and continue conversation
-        4. Repeat until Claude provides a text response
+        4. Repeat until model provides a text response
         """
         # Add user message to context
         context.messages.append(ChatMessage(role="user", content=message))
@@ -65,196 +64,60 @@ class ClaudeAgent(Agent):
         if self.tool_registry:
             tools = self.tool_registry.get_tool_schemas(context.session_type)
             if tools:
-                logger.debug(f"Providing {len(tools)} tools to Claude")
+                logger.debug(f"Providing {len(tools)} tools to model")
 
         # Tool use loop
         max_iterations = 10  # Prevent infinite loops
         for iteration in range(max_iterations):
             logger.debug(f"Tool iteration {iteration + 1}/{max_iterations}")
 
-            # Call Claude API
-            response = await self.client.messages.create(
-                model=self.model.replace("anthropic/", ""),
-                max_tokens=self.config.get("max_tokens", 4096),
+            # Get kwargs from config
+            kwargs: dict[str, Any] = {}
+            if "max_tokens" in self.config:
+                kwargs["max_tokens"] = self.config["max_tokens"]
+            if "temperature" in self.config:
+                kwargs["temperature"] = self.config["temperature"]
+
+            # Call model API via adapter
+            response = await self._adapter.chat(
                 messages=messages,
                 tools=tools if tools else None,
+                **kwargs,
             )
 
-            # Check stop reason
-            if response.stop_reason == "tool_use":
-                # Extract tool use blocks
-                tool_use_blocks = [block for block in response.content if block.type == "tool_use"]
+            # Check if model requested tool use
+            if response.tool_calls:
+                logger.info(f"Model requested {len(response.tool_calls)} tool(s)")
 
-                if not tool_use_blocks:
-                    logger.warning("Stop reason was tool_use but no tool_use blocks found")
-                    break
-
-                logger.info(f"Claude requested {len(tool_use_blocks)} tool(s)")
-
-                # Add assistant's response (including tool_use) to conversation
-                messages.append({"role": "assistant", "content": response.content})
+                # Add assistant's response to conversation
+                # Convert tool calls to provider format for message history
+                assistant_content = self._build_assistant_content(response)
+                messages.append({"role": "assistant", "content": assistant_content})
 
                 # Execute tools and collect results
-                tool_results = []
-                for tool_block in tool_use_blocks:
-                    tool_name = tool_block.name
-                    tool_input = tool_block.input
-                    tool_id = tool_block.id
-
-                    logger.info(f"Executing tool: {tool_name}")
-
-                    # Get tool from registry
-                    tool = self.tool_registry.get(tool_name) if self.tool_registry else None
-                    if not tool:
-                        error_msg = f"Tool '{tool_name}' not found in registry"
-                        logger.error(error_msg)
-                        tool_results.append(
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": tool_id,
-                                "content": f"Error: {error_msg}",
-                                "is_error": True,
-                            }
-                        )
-                        continue
-
-                    # Check policy
-                    if not self.tool_registry.check_policy(tool, context.session_type):
-                        error_msg = f"Tool '{tool_name}' not allowed for session type {context.session_type.value}"
-                        logger.warning(error_msg)
-                        tool_results.append(
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": tool_id,
-                                "content": f"Error: {error_msg}",
-                                "is_error": True,
-                            }
-                        )
-                        continue
-
-                    # Check if approval required
-                    if tool.policy.requires_approval and self.approval_manager:
-                        logger.info(f"Tool '{tool_name}' requires approval")
-
-                        # Create approval request
-                        command = tool_input.get("command") if tool_name == "bash" else None
-                        approval_request = ApprovalRequest(
-                            tool_name=tool_name,
-                            command=command,
-                            args=tool_input,
-                            session_key=context.session_id,
-                            agent_id=self.model,
-                            security_context=f"Session type: {context.session_type.value}",
-                            reason=f"Tool {tool_name} requires user approval",
-                        )
-
-                        # Send notification via channel
-                        if self.channel:
-                            try:
-                                # Create approval record
-                                record = self.approval_manager.create(approval_request)
-
-                                # Format notification message
-                                notification = self._format_approval_notification(
-                                    record, approval_request
-                                )
-
-                                # Send to user (use sender_id from context)
-                                await self.channel.send(
-                                    recipient_id=context.sender_id,
-                                    content=notification,
-                                )
-
-                                logger.info(
-                                    f"Sent approval notification {record.id} to {context.sender_id}"
-                                )
-
-                                # Wait for decision
-                                decision = await self.approval_manager.wait_for_decision(record)
-
-                                if decision == ApprovalDecision.APPROVE:
-                                    logger.info(f"Tool '{tool_name}' approved, executing")
-                                else:
-                                    # Denied or timeout
-                                    error_msg = f"Tool execution {'denied' if decision == ApprovalDecision.DENY else 'timed out'}"
-                                    logger.warning(f"Tool '{tool_name}' {error_msg}")
-                                    tool_results.append(
-                                        {
-                                            "type": "tool_result",
-                                            "tool_use_id": tool_id,
-                                            "content": f"Error: {error_msg}",
-                                            "is_error": True,
-                                        }
-                                    )
-                                    continue
-                            except Exception as e:
-                                logger.exception("Error in approval workflow")
-                                tool_results.append(
-                                    {
-                                        "type": "tool_result",
-                                        "tool_use_id": tool_id,
-                                        "content": f"Approval error: {e}",
-                                        "is_error": True,
-                                    }
-                                )
-                                continue
-                        else:
-                            # No channel available - deny execution
-                            error_msg = "Tool requires approval but no channel available"
-                            logger.error(error_msg)
-                            tool_results.append(
-                                {
-                                    "type": "tool_result",
-                                    "tool_use_id": tool_id,
-                                    "content": f"Error: {error_msg}",
-                                    "is_error": True,
-                                }
-                            )
-                            continue
-
-                    # Execute tool
-                    try:
-                        result = await tool.execute(
-                            tool_input,
-                            context.workspace or ".",
-                            context.session_type,
-                        )
-
-                        # Format tool result for API
-                        tool_results.append(
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": tool_id,
-                                "content": result.output or result.error or "No output",
-                                "is_error": not result.success,
-                            }
-                        )
-
-                        if result.success:
-                            logger.info(f"Tool '{tool_name}' executed successfully")
-                        else:
-                            logger.warning(f"Tool '{tool_name}' failed: {result.error}")
-
-                    except Exception as e:
-                        logger.exception(f"Tool execution error: {tool_name}")
-                        tool_results.append(
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": tool_id,
-                                "content": f"Execution error: {e}",
-                                "is_error": True,
-                            }
-                        )
+                tool_results = await self._execute_tools(
+                    response.tool_calls, context
+                )
 
                 # Add tool results to conversation
-                messages.append({"role": "user", "content": tool_results})
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": r.tool_use_id,
+                            "content": r.content,
+                            "is_error": r.is_error,
+                        }
+                        for r in tool_results
+                    ],
+                })
 
-                # Continue loop to get Claude's response with tool results
+                # Continue loop to get model's response with tool results
 
-            elif response.stop_reason == "end_turn":
+            elif response.stop_reason in ("end_turn", "stop", None):
                 # Normal completion - extract text response
-                text_blocks = [block.text for block in response.content if hasattr(block, "text")]
-                assistant_message = "\n".join(text_blocks) if text_blocks else ""
+                assistant_message = response.text or ""
 
                 # Save to context
                 context.messages.append(ChatMessage(role="assistant", content=assistant_message))
@@ -262,10 +125,9 @@ class ClaudeAgent(Agent):
                 return assistant_message
 
             else:
-                # Other stop reasons (max_tokens, stop_sequence, etc.)
+                # Other stop reasons (max_tokens, etc.)
                 logger.warning(f"Unexpected stop reason: {response.stop_reason}")
-                text_blocks = [block.text for block in response.content if hasattr(block, "text")]
-                assistant_message = "\n".join(text_blocks) if text_blocks else ""
+                assistant_message = response.text or ""
                 context.messages.append(ChatMessage(role="assistant", content=assistant_message))
                 return assistant_message
 
@@ -273,8 +135,199 @@ class ClaudeAgent(Agent):
         logger.error(f"Max tool iterations ({max_iterations}) reached")
         return "Error: Maximum tool execution iterations reached. Please try a simpler request."
 
+    def _build_assistant_content(self, response: Any) -> list[dict[str, Any]]:
+        """Build assistant message content with text and tool use blocks.
+
+        Args:
+            response: Model response
+
+        Returns:
+            List of content blocks
+        """
+        content: list[dict[str, Any]] = []
+
+        # Add text if present
+        if response.text:
+            content.append({"type": "text", "text": response.text})
+
+        # Add tool use blocks
+        for tc in response.tool_calls:
+            content.append({
+                "type": "tool_use",
+                "id": tc.id,
+                "name": tc.name,
+                "input": tc.arguments,
+            })
+
+        return content
+
+    async def _execute_tools(
+        self,
+        tool_calls: list[ToolCall],
+        context: AgentContext,
+    ) -> list[ToolResult]:
+        """Execute requested tools and return results.
+
+        Args:
+            tool_calls: List of tool calls from model
+            context: Agent context
+
+        Returns:
+            List of tool results
+        """
+        results: list[ToolResult] = []
+
+        for tc in tool_calls:
+            tool_name = tc.name
+            tool_input = tc.arguments
+            tool_id = tc.id
+
+            logger.info(f"Executing tool: {tool_name}")
+
+            # Get tool from registry
+            tool = self.tool_registry.get(tool_name) if self.tool_registry else None
+            if not tool:
+                error_msg = f"Tool '{tool_name}' not found in registry"
+                logger.error(error_msg)
+                results.append(ToolResult(
+                    tool_use_id=tool_id,
+                    content=f"Error: {error_msg}",
+                    is_error=True,
+                ))
+                continue
+
+            # Check policy
+            if self.tool_registry and not self.tool_registry.check_policy(tool, context.session_type):
+                error_msg = f"Tool '{tool_name}' not allowed for session type {context.session_type.value}"
+                logger.warning(error_msg)
+                results.append(ToolResult(
+                    tool_use_id=tool_id,
+                    content=f"Error: {error_msg}",
+                    is_error=True,
+                ))
+                continue
+
+            # Check if approval required
+            if tool.policy.requires_approval and self.approval_manager:
+                approval_result = await self._handle_approval(
+                    tool_name, tool_input, tool_id, context
+                )
+                if approval_result is not None:
+                    results.append(approval_result)
+                    continue
+
+            # Execute tool
+            try:
+                result = await tool.execute(
+                    tool_input,
+                    context.workspace or ".",
+                    context.session_type,
+                )
+
+                results.append(ToolResult(
+                    tool_use_id=tool_id,
+                    content=result.output or result.error or "No output",
+                    is_error=not result.success,
+                ))
+
+                if result.success:
+                    logger.info(f"Tool '{tool_name}' executed successfully")
+                else:
+                    logger.warning(f"Tool '{tool_name}' failed: {result.error}")
+
+            except Exception as e:
+                logger.exception(f"Tool execution error: {tool_name}")
+                results.append(ToolResult(
+                    tool_use_id=tool_id,
+                    content=f"Execution error: {e}",
+                    is_error=True,
+                ))
+
+        return results
+
+    async def _handle_approval(
+        self,
+        tool_name: str,
+        tool_input: dict[str, Any],
+        tool_id: str,
+        context: AgentContext,
+    ) -> ToolResult | None:
+        """Handle tool approval workflow.
+
+        Args:
+            tool_name: Name of the tool
+            tool_input: Tool input parameters
+            tool_id: Tool call ID
+            context: Agent context
+
+        Returns:
+            ToolResult if approval failed/denied, None if approved
+        """
+        logger.info(f"Tool '{tool_name}' requires approval")
+
+        # Create approval request
+        command = tool_input.get("command") if tool_name == "bash" else None
+        approval_request = ApprovalRequest(
+            tool_name=tool_name,
+            command=command,
+            args=tool_input,
+            session_key=context.session_id,
+            agent_id=self.model,
+            security_context=f"Session type: {context.session_type.value}",
+            reason=f"Tool {tool_name} requires user approval",
+        )
+
+        # Send notification via channel
+        if self.channel:
+            try:
+                # Create approval record
+                record = self.approval_manager.create(approval_request)
+
+                # Format notification message
+                notification = self._format_approval_notification(record, approval_request)
+
+                # Send to user
+                await self.channel.send(
+                    recipient_id=context.sender_id,
+                    content=notification,
+                )
+
+                logger.info(f"Sent approval notification {record.id} to {context.sender_id}")
+
+                # Wait for decision
+                decision = await self.approval_manager.wait_for_decision(record)
+
+                if decision == ApprovalDecision.APPROVE:
+                    logger.info(f"Tool '{tool_name}' approved, executing")
+                    return None  # Approval granted, continue with execution
+                else:
+                    # Denied or timeout
+                    error_msg = f"Tool execution {'denied' if decision == ApprovalDecision.DENY else 'timed out'}"
+                    logger.warning(f"Tool '{tool_name}' {error_msg}")
+                    return ToolResult(
+                        tool_use_id=tool_id,
+                        content=f"Error: {error_msg}",
+                        is_error=True,
+                    )
+            except Exception as e:
+                logger.exception("Error in approval workflow")
+                return ToolResult(
+                    tool_use_id=tool_id,
+                    content=f"Approval error: {e}",
+                    is_error=True,
+                )
+        else:
+            # No channel available - deny execution
+            error_msg = "Tool requires approval but no channel available"
+            logger.error(error_msg)
+            return ToolResult(
+                tool_use_id=tool_id,
+                content=f"Error: {error_msg}",
+                is_error=True,
+            )
+
     def _prepare_messages(self, context: AgentContext) -> list[dict[str, Any]]:
-        """Prepare messages for Claude API.
+        """Prepare messages for model API.
 
         Converts ChatMessage objects to the format expected by the API.
         """
@@ -291,7 +344,7 @@ class ClaudeAgent(Agent):
             Formatted notification message
         """
         lines = [
-            "🔒 Tool Approval Required",
+            "Tool Approval Required",
             "",
             f"Tool: {request.tool_name}",
         ]
@@ -312,20 +365,25 @@ class ClaudeAgent(Agent):
         return "\n".join(lines)
 
     async def stream_chat(self, context: AgentContext, message: str) -> AsyncIterator[str]:
-        """Stream a chat response using Claude."""
+        """Stream a chat response.
+
+        Note: Streaming currently does not support tool use.
+        """
         context.messages.append(ChatMessage(role="user", content=message))
 
         messages = [{"role": m.role, "content": m.content} for m in context.messages]
 
+        kwargs: dict[str, Any] = {}
+        if "max_tokens" in self.config:
+            kwargs["max_tokens"] = self.config["max_tokens"]
+        if "temperature" in self.config:
+            kwargs["temperature"] = self.config["temperature"]
+
         full_response = ""
-        async with self.client.messages.stream(
-            model=self.model.replace("anthropic/", ""),
-            max_tokens=self.config.get("max_tokens", 4096),
-            messages=messages,
-        ) as stream:
-            async for text in stream.text_stream:
-                full_response += text
-                yield text
+        async for chunk in self._adapter.stream_chat(messages=messages, **kwargs):
+            if chunk.text:
+                full_response += chunk.text
+                yield chunk.text
 
         context.messages.append(ChatMessage(role="assistant", content=full_response))
 
@@ -343,6 +401,10 @@ class AgentRuntime:
         self.channel = channel
         self.sessions: dict[str, AgentContext] = {}
         self.agents: dict[str, Agent] = {}
+
+        # Initialize model registry
+        self.model_registry = ModelRegistry(settings)
+        logger.info("Initialized model registry")
 
         # Initialize tool registry
         self.tool_registry = ToolRegistry()
@@ -481,24 +543,27 @@ class AgentRuntime:
             logger.exception(f"Error saving message to session {session_id}: {e}")
 
     def get_agent(self, model: str | None = None) -> Agent:
-        """Get or create an agent for the specified model."""
-        model = model or self.settings.agent.model
+        """Get or create an agent for the specified model.
+
+        Args:
+            model: Model ID (e.g., "anthropic/claude-sonnet-4-20250514").
+                   If None, uses default from settings.
+
+        Returns:
+            Agent instance for the model
+        """
+        model = model or self.settings.models.default_model
 
         if model not in self.agents:
-            if model.startswith("anthropic/"):
-                if not self.settings.anthropic_api_key:
-                    raise ValueError("ANTHROPIC_API_KEY not configured")
-                self.agents[model] = ClaudeAgent(
-                    model=model,
-                    api_key=self.settings.anthropic_api_key,
-                    tool_registry=self.tool_registry,
-                    approval_manager=self.approval_manager,
-                    channel=self.channel,
-                    max_tokens=self.settings.agent.max_tokens,
-                    temperature=self.settings.agent.temperature,
-                )
-            else:
-                raise ValueError(f"Unsupported model: {model}")
+            self.agents[model] = ModelAgent(
+                model=model,
+                model_registry=self.model_registry,
+                tool_registry=self.tool_registry,
+                approval_manager=self.approval_manager,
+                channel=self.channel,
+                max_tokens=self.settings.agent.max_tokens,
+                temperature=self.settings.agent.temperature,
+            )
 
         return self.agents[model]
 
@@ -620,3 +685,11 @@ class AgentRuntime:
         if self.session_store:
             return await self.session_store.list_sessions()
         return list(self.sessions.keys())
+
+    def list_models(self) -> list[str]:
+        """List all available models.
+
+        Returns:
+            List of model IDs
+        """
+        return [m.id for m in self.model_registry.list_models()]

@@ -1,5 +1,199 @@
 # LurkBot 工作日志
 
+## 2026-01-29 (续-4) - Phase 7: 多模型支持（100% 完成）
+
+### 会话概述
+
+实现 Phase 7 多模型支持功能，为 LurkBot 添加 Anthropic、OpenAI、Ollama 三个提供商的原生适配器。
+
+### 主要工作
+
+#### 1. 类型定义 ✅
+
+**文件创建**:
+- `src/lurkbot/models/types.py`: 核心类型定义
+  - `ApiType`: 支持的 API 类型枚举（anthropic, openai, ollama, litellm）
+  - `ModelCost`: 模型定价（USD/百万 token）
+  - `ModelCapabilities`: 模型能力配置（tools, vision, streaming, thinking）
+  - `ModelConfig`: 模型配置模型
+  - `ToolCall`: 工具调用请求
+  - `ModelResponse`: 统一模型响应
+  - `StreamChunk`: 流式响应块
+  - `ToolResult`: 工具执行结果
+
+#### 2. 适配器抽象基类 ✅
+
+**文件创建**:
+- `src/lurkbot/models/base.py`: ModelAdapter ABC
+  - 统一的 `chat()` 和 `stream_chat()` 接口
+  - 懒加载客户端模式
+  - 工具格式标准化（Anthropic 格式为基准）
+
+#### 3. 三个原生适配器 ✅
+
+**Anthropic 适配器** (`adapters/anthropic.py`):
+- 使用原生 `anthropic` SDK
+- 保持原有工具调用格式
+- 支持 vision、thinking、cache
+
+**OpenAI 适配器** (`adapters/openai.py`):
+- 使用原生 `openai` SDK
+- 消息格式转换（tool_result → tool role）
+- 工具格式转换（input_schema → function.parameters）
+- 支持流式响应
+
+**Ollama 适配器** (`adapters/ollama.py`):
+- 使用 OpenAI 兼容 API（/v1/chat/completions）
+- 无需额外依赖（使用 httpx）
+- 支持本地模型列表查询
+
+#### 4. 模型注册中心 ✅
+
+**文件创建**:
+- `src/lurkbot/models/registry.py`:
+  - `BUILTIN_MODELS`: 13 个内置模型定义
+    - Anthropic: claude-sonnet-4, claude-opus-4, claude-haiku-3.5
+    - OpenAI: gpt-4o, gpt-4o-mini, gpt-4-turbo, o1-mini
+    - Ollama: llama3.3, llama3.2, qwen2.5, qwen2.5-coder, deepseek-r1, mistral
+  - `ModelRegistry`: 模型注册和适配器管理
+    - 按 provider/api_type 过滤
+    - 适配器缓存
+    - 自定义模型注册
+
+#### 5. 配置扩展 ✅
+
+**文件修改**:
+- `src/lurkbot/config/settings.py`:
+  - 添加 `ModelSettings` 类
+    - `default_model`: 默认模型 ID
+    - `ollama_base_url`: Ollama 服务器地址
+    - `custom_models`: 自定义模型定义
+
+#### 6. AgentRuntime 重构 ✅
+
+**文件修改**:
+- `src/lurkbot/agents/runtime.py`:
+  - 新增 `ModelAgent` 类替代 `ClaudeAgent`
+  - 集成 `ModelRegistry`
+  - 保持工具执行和审批逻辑不变
+  - 支持任意模型切换
+
+#### 7. 测试覆盖 ✅
+
+**文件创建**:
+- `tests/test_models/__init__.py`
+- `tests/test_models/test_types.py`: 19 个类型测试
+- `tests/test_models/test_registry.py`: 19 个注册中心测试
+- `tests/test_models/test_adapters.py`: 15 个适配器测试
+
+**测试结果**:
+```
+53 passed (models module)
+228 passed total (excluding Docker-specific tests)
+```
+
+### 模块结构
+
+```
+src/lurkbot/
+├── models/
+│   ├── __init__.py          # 模块导出
+│   ├── types.py             # 类型定义
+│   ├── base.py              # ModelAdapter ABC
+│   ├── registry.py          # 注册中心 + 内置模型
+│   └── adapters/
+│       ├── __init__.py
+│       ├── anthropic.py     # Anthropic 适配器
+│       ├── openai.py        # OpenAI 适配器
+│       └── ollama.py        # Ollama 适配器
+```
+
+### 关键设计决策
+
+1. **原生 SDK 优先**
+   - 完全控制工具调用格式转换
+   - 无性能损耗
+   - 减少第三方依赖
+
+2. **Anthropic 格式为基准**
+   - 工具 schema 使用 `input_schema` 格式
+   - 其他适配器负责转换
+
+3. **懒加载客户端**
+   - 延迟创建 API 客户端
+   - 按需初始化减少启动时间
+
+4. **统一响应格式**
+   - `ModelResponse` 标准化各提供商响应
+   - `ToolCall` 统一工具调用表示
+
+### 使用示例
+
+```python
+from lurkbot.models import ModelRegistry
+from lurkbot.config import Settings
+
+# 初始化
+settings = Settings(
+    anthropic_api_key="sk-ant-...",
+    openai_api_key="sk-...",
+)
+registry = ModelRegistry(settings)
+
+# 获取适配器
+adapter = registry.get_adapter("openai/gpt-4o")
+
+# 调用模型
+response = await adapter.chat(
+    messages=[{"role": "user", "content": "Hello"}],
+    tools=[{"name": "bash", "description": "...", "input_schema": {...}}],
+)
+
+# 处理响应
+if response.tool_calls:
+    for tc in response.tool_calls:
+        print(f"Tool: {tc.name}, Args: {tc.arguments}")
+else:
+    print(response.text)
+```
+
+### 文件变更统计
+
+**新增文件**:
+- `src/lurkbot/models/__init__.py` (~40 行)
+- `src/lurkbot/models/types.py` (~80 行)
+- `src/lurkbot/models/base.py` (~90 行)
+- `src/lurkbot/models/registry.py` (~400 行)
+- `src/lurkbot/models/adapters/__init__.py` (~15 行)
+- `src/lurkbot/models/adapters/anthropic.py` (~180 行)
+- `src/lurkbot/models/adapters/openai.py` (~260 行)
+- `src/lurkbot/models/adapters/ollama.py` (~280 行)
+- `tests/test_models/test_types.py` (~160 行)
+- `tests/test_models/test_registry.py` (~200 行)
+- `tests/test_models/test_adapters.py` (~240 行)
+
+**修改文件**:
+- `src/lurkbot/config/settings.py` (+15 行)
+- `src/lurkbot/agents/runtime.py` (重构为 ~700 行)
+- `tests/test_approval_integration.py` (更新导入)
+
+**总计**: ~1,960 行新增代码和测试
+
+### 下一步建议
+
+1. **LiteLLM 扩展**（可选）
+   - 支持 Google Gemini、AWS Bedrock 等
+
+2. **模型切换 API**
+   - CLI 命令 `lurkbot models list`
+   - 运行时切换 `--model` 参数
+
+3. **成本追踪**
+   - 基于 `ModelCost` 计算会话成本
+   - 添加使用量统计
+
+---
+
 ## 2026-01-29 (续-3) - Phase 4: 会话持久化（100% 完成）
 
 ### 会话概述
