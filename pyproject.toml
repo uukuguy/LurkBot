@@ -1,0 +1,135 @@
+[project]
+name = "lurkbot"
+version = "0.1.0"
+description = "A multi-channel AI assistant platform - Python rewrite of moltbot"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+authors = [{ name = "LurkBot Team" }]
+keywords = ["ai", "assistant", "chatbot", "telegram", "discord", "slack", "whatsapp"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Chat",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    # Web framework
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "websockets>=14.0",
+    # Validation
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.0",
+    # AI providers
+    "anthropic>=0.40.0",
+    "openai>=1.55.0",
+    # Messaging channels
+    "python-telegram-bot>=21.0",
+    "discord.py>=2.4.0",
+    "slack-sdk>=3.33.0",
+    # CLI
+    "typer>=0.15.0",
+    "rich>=13.9.0",
+    # Utilities
+    "httpx>=0.28.0",
+    "loguru>=0.7.0",
+    "python-dotenv>=1.0.0",
+    "aiofiles>=24.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "mypy>=1.13.0",
+    "ruff>=0.8.0",
+    "pre-commit>=4.0.0",
+]
+browser = [
+    "playwright>=1.49.0",
+]
+all = ["lurkbot[dev,browser]"]
+
+[project.scripts]
+lurkbot = "lurkbot.cli.main:app"
+
+[project.urls]
+Homepage = "https://github.com/example/lurkbot"
+Documentation = "https://github.com/example/lurkbot#readme"
+Repository = "https://github.com/example/lurkbot"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lurkbot"]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "mypy>=1.13.0",
+    "ruff>=0.8.0",
+    "pre-commit>=4.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-xvs"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "ARG", # flake8-unused-arguments
+    "SIM", # flake8-simplify
+]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["lurkbot"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["telegram.*", "discord.*", "slack_sdk.*"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src/lurkbot"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
