@@ -54,9 +54,7 @@ class Agent(ABC):
         ...
 
     @abstractmethod
-    async def stream_chat(
-        self, context: AgentContext, message: str
-    ) -> "AsyncIterator[str]":  # noqa: F821
+    async def stream_chat(self, context: AgentContext, message: str) -> "AsyncIterator[str]":  # noqa: F821
         """Process a chat message and stream the response.
 
         Args:

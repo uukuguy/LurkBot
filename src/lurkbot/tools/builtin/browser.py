@@ -1,11 +1,10 @@
 """Browser automation tool using Playwright."""
 
-import asyncio
 from pathlib import Path
 from typing import Any
 
-from playwright.async_api import async_playwright
 from loguru import logger
+from playwright.async_api import async_playwright
 
 from lurkbot.tools.base import SessionType, Tool, ToolPolicy, ToolResult
 

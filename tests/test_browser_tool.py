@@ -1,10 +1,11 @@
 """Tests for browser tool."""
 
-import pytest
 from pathlib import Path
 
-from lurkbot.tools.builtin.browser import BrowserTool
+import pytest
+
 from lurkbot.agents.base import SessionType
+from lurkbot.tools.builtin.browser import BrowserTool
 
 
 class TestBrowserTool:

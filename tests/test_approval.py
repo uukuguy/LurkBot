@@ -1,14 +1,12 @@
 """Tests for tool approval system."""
 
 import asyncio
-import time
 
 import pytest
 
 from lurkbot.tools.approval import (
     ApprovalDecision,
     ApprovalManager,
-    ApprovalRecord,
     ApprovalRequest,
 )
 
@@ -37,9 +35,7 @@ class TestApprovalRequest:
 
     def test_create_basic_request(self):
         """Test creating basic approval request."""
-        request = ApprovalRequest(
-            tool_name="bash", session_key="test_session"
-        )
+        request = ApprovalRequest(tool_name="bash", session_key="test_session")
         assert request.tool_name == "bash"
         assert request.session_key == "test_session"
         assert request.command is None
@@ -74,9 +70,7 @@ class TestApprovalRecord:
     def test_custom_approval_id(self, approval_manager, sample_request):
         """Test creating record with custom ID."""
         custom_id = "custom_approval_123"
-        record = approval_manager.create(
-            sample_request, approval_id=custom_id
-        )
+        record = approval_manager.create(sample_request, approval_id=custom_id)
         assert record.id == custom_id
 
     def test_is_expired(self, approval_manager, sample_request):
@@ -107,17 +101,13 @@ class TestApprovalManager:
         record = approval_manager.create(sample_request, timeout_ms=5000)
 
         # Start waiting in background
-        wait_task = asyncio.create_task(
-            approval_manager.wait_for_decision(record)
-        )
+        wait_task = asyncio.create_task(approval_manager.wait_for_decision(record))
 
         # Give it time to start waiting
         await asyncio.sleep(0.05)
 
         # Resolve while waiting
-        resolved = approval_manager.resolve(
-            record.id, ApprovalDecision.APPROVE, "user_123"
-        )
+        resolved = approval_manager.resolve(record.id, ApprovalDecision.APPROVE, "user_123")
         assert resolved
 
         # Wait for decision
@@ -133,17 +123,13 @@ class TestApprovalManager:
         record = approval_manager.create(sample_request, timeout_ms=5000)
 
         # Start waiting in background
-        wait_task = asyncio.create_task(
-            approval_manager.wait_for_decision(record)
-        )
+        wait_task = asyncio.create_task(approval_manager.wait_for_decision(record))
 
         # Give it time to start waiting
         await asyncio.sleep(0.05)
 
         # Resolve while waiting
-        approval_manager.resolve(
-            record.id, ApprovalDecision.DENY, "user_456"
-        )
+        approval_manager.resolve(record.id, ApprovalDecision.DENY, "user_456")
 
         # Wait for decision
         decision = await wait_task
@@ -168,17 +154,13 @@ class TestApprovalManager:
         record = approval_manager.create(sample_request, timeout_ms=5000)
 
         # Start waiting in background
-        wait_task = asyncio.create_task(
-            approval_manager.wait_for_decision(record)
-        )
+        wait_task = asyncio.create_task(approval_manager.wait_for_decision(record))
 
         # Give it time to start
         await asyncio.sleep(0.1)
 
         # Resolve while waiting
-        approval_manager.resolve(
-            record.id, ApprovalDecision.APPROVE, "user_789"
-        )
+        approval_manager.resolve(record.id, ApprovalDecision.APPROVE, "user_789")
 
         # Should resolve immediately
         decision = await wait_task
@@ -187,9 +169,7 @@ class TestApprovalManager:
     @pytest.mark.asyncio
     async def test_resolve_nonexistent(self, approval_manager):
         """Test resolving non-existent approval."""
-        resolved = approval_manager.resolve(
-            "nonexistent_id", ApprovalDecision.APPROVE
-        )
+        resolved = approval_manager.resolve("nonexistent_id", ApprovalDecision.APPROVE)
         assert not resolved
 
     @pytest.mark.asyncio
@@ -198,9 +178,7 @@ class TestApprovalManager:
         record = approval_manager.create(sample_request, timeout_ms=5000)
 
         # Start waiting in background
-        wait_task = asyncio.create_task(
-            approval_manager.wait_for_decision(record)
-        )
+        wait_task = asyncio.create_task(approval_manager.wait_for_decision(record))
 
         # Give it time to start waiting
         await asyncio.sleep(0.05)
@@ -238,12 +216,8 @@ class TestApprovalManager:
         )
 
         # Start waiting for both (makes them "pending")
-        wait_task1 = asyncio.create_task(
-            approval_manager.wait_for_decision(record1)
-        )
-        wait_task2 = asyncio.create_task(
-            approval_manager.wait_for_decision(record2)
-        )
+        wait_task1 = asyncio.create_task(approval_manager.wait_for_decision(record1))
+        wait_task2 = asyncio.create_task(approval_manager.wait_for_decision(record2))
 
         # Give them time to start
         await asyncio.sleep(0.05)
@@ -272,17 +246,13 @@ class TestApprovalManager:
     async def test_multiple_approvals_concurrent(self, approval_manager):
         """Test handling multiple approvals concurrently."""
         requests = [
-            ApprovalRequest(tool_name=f"tool_{i}", session_key=f"session_{i}")
-            for i in range(5)
+            ApprovalRequest(tool_name=f"tool_{i}", session_key=f"session_{i}") for i in range(5)
         ]
-        records = [
-            approval_manager.create(req, timeout_ms=2000) for req in requests
-        ]
+        records = [approval_manager.create(req, timeout_ms=2000) for req in requests]
 
         # Start waiting for all
         wait_tasks = [
-            asyncio.create_task(approval_manager.wait_for_decision(record))
-            for record in records
+            asyncio.create_task(approval_manager.wait_for_decision(record)) for record in records
         ]
 
         # Resolve some, let others timeout

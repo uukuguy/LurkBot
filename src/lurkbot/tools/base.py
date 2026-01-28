@@ -49,9 +49,7 @@ class ToolPolicy:
         max_execution_time: Maximum execution time in seconds
     """
 
-    allowed_session_types: set[SessionType] = field(
-        default_factory=lambda: {SessionType.MAIN}
-    )
+    allowed_session_types: set[SessionType] = field(default_factory=lambda: {SessionType.MAIN})
     requires_approval: bool = False
     sandbox_required: bool = False
     max_execution_time: int = 30  # seconds

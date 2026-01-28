@@ -73,9 +73,7 @@ class ToolRegistry:
         """
         allowed = session_type in tool.policy.allowed_session_types
         if not allowed:
-            logger.warning(
-                f"Tool {tool.name} not allowed for session type {session_type.value}"
-            )
+            logger.warning(f"Tool {tool.name} not allowed for session type {session_type.value}")
         return allowed
 
     def get_tool_schemas(self, session_type: SessionType) -> list[dict[str, Any]]:
@@ -92,9 +90,7 @@ class ToolRegistry:
         """
         tools = self.list_tools(session_type)
         schemas = [tool.get_schema() for tool in tools]
-        logger.debug(
-            f"Generated {len(schemas)} tool schemas for session type {session_type.value}"
-        )
+        logger.debug(f"Generated {len(schemas)} tool schemas for session type {session_type.value}")
         return schemas
 
     def __len__(self) -> int:

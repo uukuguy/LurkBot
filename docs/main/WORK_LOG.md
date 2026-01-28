@@ -1,6 +1,143 @@
 # LurkBot 工作日志
 
-## 2026-01-29 (续) - Phase 3: 工具审批与沙箱集成（85% 完成）
+## 2026-01-29 (续-3) - Phase 4: 会话持久化（100% 完成）
+
+### 会话概述
+
+实现 Phase 4 会话持久化功能，使对话历史能够跨会话保存和恢复。
+
+### 主要工作
+
+#### 1. JSONL 会话存储 ✅
+
+**文件创建**:
+- `src/lurkbot/storage/__init__.py`: Storage 模块导出
+- `src/lurkbot/storage/jsonl.py`: JSONL 会话存储实现
+  - `SessionMessage`: 消息数据模型（role, content, timestamp, metadata）
+  - `SessionMetadata`: 会话元数据（session_id, channel, chat_id, user_id）
+  - `SessionStore`: 核心存储类
+    - `create_session()`: 创建新会话
+    - `get_or_create_session()`: 获取或创建会话
+    - `load_messages()`: 加载消息（支持 limit/offset 分页）
+    - `append_message()`: 追加单条消息
+    - `append_messages()`: 批量追加消息
+    - `update_metadata()`: 更新元数据
+    - `delete_session()`: 删除会话
+    - `clear_messages()`: 清空消息
+    - `list_sessions()`: 列出所有会话
+    - `get_message_count()`: 获取消息数量
+
+**核心特性**:
+- Session ID 格式: `{channel}_{chat_id}_{user_id}`
+- 存储位置: `~/.lurkbot/sessions/{session_id}.jsonl`
+- 追加写入（append-only）提高性能
+- 异步文件操作（aiofiles）
+- 路径遍历保护（正则过滤危险字符）
+- 时区感知时间戳（UTC）
+
+#### 2. 存储配置 ✅
+
+**文件修改**:
+- `src/lurkbot/config/settings.py`:
+  - 添加 `StorageSettings` 类
+    - `enabled: bool = True` - 启用/禁用存储
+    - `auto_save: bool = True` - 自动保存
+    - `max_messages: int = 1000` - 最大消息数
+  - 添加 `sessions_dir` 属性到 `Settings`
+
+**环境变量**:
+- `LURKBOT_STORAGE__ENABLED=true`
+- `LURKBOT_STORAGE__AUTO_SAVE=true`
+- `LURKBOT_STORAGE__MAX_MESSAGES=1000`
+
+#### 3. Agent Runtime 集成 ✅
+
+**文件修改**:
+- `src/lurkbot/agents/runtime.py`:
+  - `__init__()`: 初始化 `SessionStore`（如果启用）
+  - `get_or_create_session()`: 改为 async，从存储加载历史
+  - `_load_session_from_store()`: 加载已有消息到 context
+  - `_save_message_to_store()`: 保存消息到存储
+  - `chat()` / `stream_chat()`: 自动保存用户消息和助手响应
+  - `clear_session()`: 清除会话历史
+  - `delete_session()`: 完全删除会话
+  - `list_sessions()`: 列出所有会话
+
+#### 4. 测试覆盖 ✅
+
+**文件创建**:
+- `tests/test_session_storage.py`: 30 个单元测试
+  - SessionStore CRUD 操作测试
+  - 消息分页测试（limit/offset）
+  - 路径遍历保护测试
+  - 序列化/反序列化测试
+  - 元数据更新测试
+
+**测试结果**:
+```
+104 passed, 4 skipped (browser), 13 deselected (docker)
+30 session storage tests passed
+```
+
+#### 5. Bug 修复
+
+**修复文件**:
+- `src/lurkbot/tools/builtin/bash.py`:
+  - 修复 `SandboxConfig` 参数名：`timeout` → `execution_timeout`
+  - 修复 `workspace_path` 类型：`str` → `Path`
+
+### 技术要点
+
+#### 时区处理
+```python
+from datetime import UTC, datetime
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+```
+
+#### 路径遍历保护
+```python
+safe_id = re.sub(r"[/\\]", "_", session_id)  # Replace slashes
+safe_id = re.sub(r"\.{2,}", "_", safe_id)    # Replace .. sequences
+safe_id = safe_id.strip(".")                  # Remove leading/trailing dots
+```
+
+### 文件变更统计
+
+**新增文件**:
+- `src/lurkbot/storage/__init__.py` (~10 行)
+- `src/lurkbot/storage/jsonl.py` (~485 行)
+- `tests/test_session_storage.py` (~390 行)
+
+**修改文件**:
+- `src/lurkbot/config/settings.py` (+15 行)
+- `src/lurkbot/agents/runtime.py` (+100 行)
+- `src/lurkbot/tools/builtin/bash.py` (修复)
+
+**总计**: +1000 行代码和测试
+
+### 阶段完成状态
+
+**Phase 4: 会话持久化** ✅ 100% 完成
+
+- [x] JSONL 会话存储实现
+- [x] 存储配置系统
+- [x] Agent Runtime 集成
+- [x] 单元测试覆盖
+- [x] 路径安全保护
+
+### 下一阶段计划
+
+**Phase 5: 多渠道支持**
+
+1. Discord 渠道适配器
+2. Slack 渠道适配器
+3. 渠道注册中心
+
+---
+
+## 2026-01-29 (续-2) - Phase 3: 审批系统集成（100% 完成）
 
 ### 会话概述
 

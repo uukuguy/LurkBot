@@ -36,20 +36,12 @@ class ApprovalRequest(BaseModel):
     """
 
     tool_name: str = Field(description="Name of the tool requesting approval")
-    command: str | None = Field(
-        None, description="Command to execute (for bash tool)"
-    )
-    args: dict[str, Any] = Field(
-        default_factory=dict, description="Tool arguments"
-    )
+    command: str | None = Field(None, description="Command to execute (for bash tool)")
+    args: dict[str, Any] = Field(default_factory=dict, description="Tool arguments")
     session_key: str = Field(description="Session requesting approval")
     agent_id: str | None = Field(None, description="Agent ID if available")
-    security_context: str | None = Field(
-        None, description="Security level or context"
-    )
-    reason: str | None = Field(
-        None, description="Why this tool needs approval"
-    )
+    security_context: str | None = Field(None, description="Security level or context")
+    reason: str | None = Field(None, description="Why this tool needs approval")
 
 
 class ApprovalRecord(BaseModel):
@@ -101,7 +93,7 @@ class ApprovalManager:
 
     def __init__(self) -> None:
         """Initialize approval manager."""
-        self._pending: dict[str, "_PendingEntry"] = {}
+        self._pending: dict[str, _PendingEntry] = {}
         self._records: dict[str, ApprovalRecord] = {}  # All records (waiting or not)
 
     def create(
@@ -139,9 +131,7 @@ class ApprovalManager:
         )
         return record
 
-    async def wait_for_decision(
-        self, record: ApprovalRecord
-    ) -> ApprovalDecision:
+    async def wait_for_decision(self, record: ApprovalRecord) -> ApprovalDecision:
         """Wait for user decision or timeout.
 
         Args:
@@ -159,9 +149,7 @@ class ApprovalManager:
         """
         # Check if already resolved (resolve() called before wait)
         if record.is_resolved:
-            logger.info(
-                f"Approval {record.id} already resolved with {record.decision}"
-            )
+            logger.info(f"Approval {record.id} already resolved with {record.decision}")
             return record.decision  # type: ignore
 
         # Calculate remaining timeout
@@ -181,9 +169,7 @@ class ApprovalManager:
         )
 
         # Store in pending map
-        entry = _PendingEntry(
-            record=record, future=future, timeout_task=timeout_task
-        )
+        entry = _PendingEntry(record=record, future=future, timeout_task=timeout_task)
         self._pending[record.id] = entry
 
         try:
@@ -231,9 +217,7 @@ class ApprovalManager:
         if not entry.timeout_task.done():
             entry.timeout_task.cancel()
 
-        logger.info(
-            f"Resolved approval {record_id} with {decision} by {resolved_by}"
-        )
+        logger.info(f"Resolved approval {record_id} with {decision} by {resolved_by}")
         return True
 
     def get_snapshot(self, record_id: str) -> ApprovalRecord | None:

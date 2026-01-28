@@ -70,9 +70,7 @@ class BashTool(Tool):
             return ToolResult(success=False, error="Missing 'command' argument")
 
         if not isinstance(command, str):
-            return ToolResult(
-                success=False, error=f"Command must be a string, got {type(command)}"
-            )
+            return ToolResult(success=False, error=f"Command must be a string, got {type(command)}")
 
         logger.info(f"Executing bash command: {command[:100]}...")
 
@@ -80,17 +78,13 @@ class BashTool(Tool):
         use_sandbox = session_type in {SessionType.GROUP, SessionType.TOPIC}
 
         if use_sandbox:
-            logger.debug(
-                f"Using sandbox for {session_type.value} session: {command[:50]}..."
-            )
+            logger.debug(f"Using sandbox for {session_type.value} session: {command[:50]}...")
             return await self._execute_in_sandbox(command, workspace)
         else:
             logger.debug(f"Direct execution for {session_type.value} session")
             return await self._execute_direct(command, workspace)
 
-    async def _execute_in_sandbox(
-        self, command: str, workspace: str
-    ) -> ToolResult:
+    async def _execute_in_sandbox(self, command: str, workspace: str) -> ToolResult:
         """Execute command in Docker sandbox.
 
         Args:
@@ -102,12 +96,14 @@ class BashTool(Tool):
         """
         try:
             # Get sandbox with workspace mount
+            from pathlib import Path
+
             from lurkbot.sandbox.types import SandboxConfig
 
             config = SandboxConfig(
-                workspace_path=workspace,
+                workspace_path=Path(workspace),
                 workspace_readonly=False,
-                timeout=self.policy.max_execution_time,
+                execution_timeout=self.policy.max_execution_time,
             )
 
             # Create sandbox instance
@@ -124,9 +120,7 @@ class BashTool(Tool):
                     f"Sandbox command executed successfully (exit code: {result.exit_code})"
                 )
             else:
-                logger.warning(
-                    f"Sandbox command failed (exit code: {result.exit_code})"
-                )
+                logger.warning(f"Sandbox command failed (exit code: {result.exit_code})")
 
             return ToolResult(
                 success=success,
@@ -164,12 +158,10 @@ class BashTool(Tool):
                     process.communicate(),
                     timeout=self.policy.max_execution_time,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 process.kill()
                 await process.wait()  # Clean up zombie process
-                error_msg = (
-                    f"Command timed out after {self.policy.max_execution_time} seconds"
-                )
+                error_msg = f"Command timed out after {self.policy.max_execution_time} seconds"
                 logger.warning(error_msg)
                 return ToolResult(success=False, error=error_msg)
 

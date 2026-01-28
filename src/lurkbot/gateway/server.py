@@ -1,6 +1,5 @@
 """WebSocket Gateway server implementation."""
 
-import asyncio
 from collections.abc import Callable
 from typing import Any
 

@@ -2,9 +2,9 @@
 
 import pytest
 
+from lurkbot.agents.base import SessionType
 from lurkbot.sandbox import DockerSandbox, SandboxConfig
 from lurkbot.sandbox.manager import SandboxManager
-from lurkbot.agents.base import SessionType
 
 
 class TestSandboxConfig:

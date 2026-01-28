@@ -50,9 +50,7 @@ class ReadFileTool(Tool):
             return ToolResult(success=False, error="Missing 'path' argument")
 
         if not isinstance(path, str):
-            return ToolResult(
-                success=False, error=f"Path must be a string, got {type(path)}"
-            )
+            return ToolResult(success=False, error=f"Path must be a string, got {type(path)}")
 
         # Construct full path and resolve it
         workspace_path = Path(workspace).resolve()
@@ -75,7 +73,7 @@ class ReadFileTool(Tool):
 
         try:
             # Read file contents asynchronously
-            async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
+            async with aiofiles.open(file_path, encoding="utf-8") as f:
                 content = await f.read()
 
             logger.info(f"Read file: {file_path} ({len(content)} bytes)")
@@ -158,13 +156,9 @@ class WriteFileTool(Tool):
             return ToolResult(success=False, error="Missing 'content' argument")
 
         if not isinstance(path, str):
-            return ToolResult(
-                success=False, error=f"Path must be a string, got {type(path)}"
-            )
+            return ToolResult(success=False, error=f"Path must be a string, got {type(path)}")
         if not isinstance(content, str):
-            return ToolResult(
-                success=False, error=f"Content must be a string, got {type(content)}"
-            )
+            return ToolResult(success=False, error=f"Content must be a string, got {type(content)}")
 
         # Construct full path and resolve it
         workspace_path = Path(workspace).resolve()

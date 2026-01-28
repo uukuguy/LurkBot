@@ -115,7 +115,6 @@ def config_show() -> None:
 @config_app.command("init")
 def config_init() -> None:
     """Initialize configuration file."""
-    from pathlib import Path
 
     settings = get_settings()
     config_dir = settings.data_dir

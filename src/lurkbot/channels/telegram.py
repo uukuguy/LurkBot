@@ -9,7 +9,7 @@ from lurkbot.channels.base import Channel, ChannelMessage
 from lurkbot.config.settings import TelegramSettings
 
 if TYPE_CHECKING:
-    from lurkbot.tools.approval import ApprovalDecision, ApprovalManager
+    from lurkbot.tools.approval import ApprovalManager
 
 
 class TelegramChannel(Channel):
@@ -95,7 +95,9 @@ class TelegramChannel(Channel):
                     await update.message.reply_text(f"✅ Approved tool execution: {approval_id}")
                     logger.info(f"User {user.id} approved {approval_id}")
                 else:
-                    await update.message.reply_text(f"❌ Approval not found or already resolved: {approval_id}")
+                    await update.message.reply_text(
+                        f"❌ Approval not found or already resolved: {approval_id}"
+                    )
             else:
                 await update.message.reply_text("❌ Approval system not configured")
 
@@ -124,7 +126,9 @@ class TelegramChannel(Channel):
                     await update.message.reply_text(f"🚫 Denied tool execution: {approval_id}")
                     logger.info(f"User {user.id} denied {approval_id}")
                 else:
-                    await update.message.reply_text(f"❌ Approval not found or already resolved: {approval_id}")
+                    await update.message.reply_text(
+                        f"❌ Approval not found or already resolved: {approval_id}"
+                    )
             else:
                 await update.message.reply_text("❌ Approval system not configured")
 

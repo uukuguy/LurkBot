@@ -39,9 +39,7 @@ class SandboxManager:
         # group and topic sessions are untrusted, use sandbox
         return session_type in {SessionType.GROUP, SessionType.TOPIC}
 
-    def get_sandbox(
-        self, session_id: str, config: SandboxConfig | None = None
-    ) -> DockerSandbox:
+    def get_sandbox(self, session_id: str, config: SandboxConfig | None = None) -> DockerSandbox:
         """Get or create sandbox for session.
 
         Args:

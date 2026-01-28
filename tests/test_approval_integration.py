@@ -132,9 +132,7 @@ class TestApprovalIntegration:
 
         # Mock the _client instead of client property
         mock_client = AsyncMock()
-        mock_client.messages.create = AsyncMock(
-            side_effect=[mock_response, mock_final_response]
-        )
+        mock_client.messages.create = AsyncMock(side_effect=[mock_response, mock_final_response])
         agent._client = mock_client
 
         # Create agent context
@@ -165,9 +163,7 @@ class TestApprovalIntegration:
         approval_id = notification.split("/approve ")[1].split(" or")[0]
 
         # Approve the tool
-        agent_runtime.approval_manager.resolve(
-            approval_id, ApprovalDecision.APPROVE, "12345"
-        )
+        agent_runtime.approval_manager.resolve(approval_id, ApprovalDecision.APPROVE, "12345")
 
         # Wait for chat to complete
         response = await chat_task
@@ -208,9 +204,7 @@ class TestApprovalIntegration:
 
         # Mock the _client
         mock_client = AsyncMock()
-        mock_client.messages.create = AsyncMock(
-            side_effect=[mock_response, mock_final_response]
-        )
+        mock_client.messages.create = AsyncMock(side_effect=[mock_response, mock_final_response])
         agent._client = mock_client
 
         context = AgentContext(
@@ -273,9 +267,7 @@ class TestApprovalIntegration:
 
         # Mock the _client
         mock_client = AsyncMock()
-        mock_client.messages.create = AsyncMock(
-            side_effect=[mock_response, mock_final_response]
-        )
+        mock_client.messages.create = AsyncMock(side_effect=[mock_response, mock_final_response])
         agent._client = mock_client
 
         # Override approval manager to use short timeout
@@ -374,17 +366,13 @@ class TestApprovalIntegration:
             await asyncio.sleep(0.1)
             pending = agent_runtime.approval_manager.get_all_pending()
             assert len(pending) == 1
-            agent_runtime.approval_manager.resolve(
-                pending[0].id, ApprovalDecision.APPROVE, "12345"
-            )
+            agent_runtime.approval_manager.resolve(pending[0].id, ApprovalDecision.APPROVE, "12345")
 
             # Wait for second approval
             await asyncio.sleep(0.1)
             pending = agent_runtime.approval_manager.get_all_pending()
             assert len(pending) == 1
-            agent_runtime.approval_manager.resolve(
-                pending[0].id, ApprovalDecision.DENY, "12345"
-            )
+            agent_runtime.approval_manager.resolve(pending[0].id, ApprovalDecision.DENY, "12345")
 
             return await task
 

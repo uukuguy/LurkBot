@@ -52,6 +52,14 @@ class SlackSettings(BaseSettings):
     allowed_channels: list[str] = Field(default_factory=list)
 
 
+class StorageSettings(BaseSettings):
+    """Session storage settings."""
+
+    enabled: bool = True
+    auto_save: bool = True
+    max_messages: int = 1000  # Max messages to keep per session
+
+
 class Settings(BaseSettings):
     """Main application settings."""
 
@@ -77,9 +85,17 @@ class Settings(BaseSettings):
     discord: DiscordSettings = Field(default_factory=DiscordSettings)
     slack: SlackSettings = Field(default_factory=SlackSettings)
 
+    # Storage
+    storage: StorageSettings = Field(default_factory=StorageSettings)
+
     # AI Provider API Keys
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
+
+    @property
+    def sessions_dir(self) -> Path:
+        """Get the sessions directory path."""
+        return self.data_dir / "sessions"
 
 
 @lru_cache
