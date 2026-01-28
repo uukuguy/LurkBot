@@ -6,6 +6,7 @@ import typer
 from rich.console import Console
 
 from lurkbot import __version__
+from lurkbot.cli import chat, models, sessions
 from lurkbot.config import get_settings
 from lurkbot.utils import setup_logging
 
@@ -24,6 +25,11 @@ config_app = typer.Typer(help="Configuration commands")
 app.add_typer(gateway_app, name="gateway")
 app.add_typer(channels_app, name="channels")
 app.add_typer(config_app, name="config")
+
+# Add new command groups
+app.add_typer(models.app, name="models")
+app.add_typer(sessions.app, name="sessions")
+app.add_typer(chat.app, name="chat")
 
 
 @app.callback()
@@ -46,8 +52,10 @@ def version() -> None:
 def gateway_start(
     host: str = typer.Option(None, "--host", "-h", help="Host to bind to"),
     port: int = typer.Option(None, "--port", "-p", help="Port to listen on"),
+    no_api: bool = typer.Option(False, "--no-api", help="Disable HTTP API and dashboard"),
 ) -> None:
     """Start the gateway server."""
+    from lurkbot.agents.runtime import AgentRuntime
     from lurkbot.gateway import GatewayServer
 
     settings = get_settings()
@@ -58,7 +66,15 @@ def gateway_start(
 
     console.print(f"Starting gateway on {settings.gateway.host}:{settings.gateway.port}")
 
-    server = GatewayServer(settings)
+    # Create runtime for HTTP API
+    runtime = None if no_api else AgentRuntime(settings)
+
+    server = GatewayServer(settings, runtime=runtime)
+
+    if not no_api:
+        console.print(f"Dashboard: http://{settings.gateway.host}:{settings.gateway.port}/")
+        console.print(f"API: http://{settings.gateway.host}:{settings.gateway.port}/api/")
+
     asyncio.run(server.run())
 
 

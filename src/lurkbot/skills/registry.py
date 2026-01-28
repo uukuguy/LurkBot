@@ -146,9 +146,7 @@ class SkillRegistry:
             List of skills from the specified source.
         """
         with self._lock:
-            return [
-                skill for skill in self._skills.values() if skill.source_type == source_type
-            ]
+            return [skill for skill in self._skills.values() if skill.source_type == source_type]
 
     @property
     def version(self) -> int:

@@ -139,9 +139,7 @@ class SkillLoader:
                     all_skills[skill.name] = skill
 
         # Filter by eligibility
-        eligible_skills = [
-            skill for skill in all_skills.values() if self.check_eligibility(skill)
-        ]
+        eligible_skills = [skill for skill in all_skills.values() if self.check_eligibility(skill)]
 
         logger.info(
             f"Loaded {len(eligible_skills)} skills "
@@ -249,10 +247,12 @@ class SkillLoader:
 
         for skill in skills:
             prompt_parts.append(skill.to_prompt())
-            skill_list.append({
-                "name": skill.name,
-                "primary_env": skill.primary_env,
-            })
+            skill_list.append(
+                {
+                    "name": skill.name,
+                    "primary_env": skill.primary_env,
+                }
+            )
 
         return SkillSnapshot(
             prompt="\n\n".join(prompt_parts),

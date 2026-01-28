@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from lurkbot.models.registry import BUILTIN_MODELS, ModelRegistry
-from lurkbot.models.types import ApiType, ModelCapabilities, ModelConfig, ModelCost
+from lurkbot.models.types import ApiType, ModelConfig
 
 
 class TestBuiltinModels:
@@ -114,7 +114,7 @@ class TestModelRegistry:
     ) -> None:
         """Test getting Anthropic adapter."""
         registry = ModelRegistry(mock_settings)
-        adapter = registry.get_adapter("anthropic/claude-sonnet-4-20250514")
+        registry.get_adapter("anthropic/claude-sonnet-4-20250514")
         mock_adapter_class.assert_called_once()
         assert "anthropic/claude-sonnet-4-20250514" in registry._adapters
 
@@ -124,7 +124,7 @@ class TestModelRegistry:
     ) -> None:
         """Test getting OpenAI adapter."""
         registry = ModelRegistry(mock_settings)
-        adapter = registry.get_adapter("openai/gpt-4o")
+        registry.get_adapter("openai/gpt-4o")
         mock_adapter_class.assert_called_once()
         assert "openai/gpt-4o" in registry._adapters
 
@@ -134,18 +134,16 @@ class TestModelRegistry:
     ) -> None:
         """Test getting Ollama adapter."""
         registry = ModelRegistry(mock_settings)
-        adapter = registry.get_adapter("ollama/llama3.3")
+        registry.get_adapter("ollama/llama3.3")
         mock_adapter_class.assert_called_once()
         assert "ollama/llama3.3" in registry._adapters
 
     @patch("lurkbot.models.adapters.anthropic.AnthropicAdapter")
-    def test_adapter_caching(
-        self, mock_adapter_class: MagicMock, mock_settings: MagicMock
-    ) -> None:
+    def test_adapter_caching(self, mock_adapter_class: MagicMock, mock_settings: MagicMock) -> None:
         """Test that adapters are cached."""
         registry = ModelRegistry(mock_settings)
-        adapter1 = registry.get_adapter("anthropic/claude-sonnet-4-20250514")
-        adapter2 = registry.get_adapter("anthropic/claude-sonnet-4-20250514")
+        registry.get_adapter("anthropic/claude-sonnet-4-20250514")
+        registry.get_adapter("anthropic/claude-sonnet-4-20250514")
         mock_adapter_class.assert_called_once()  # Only called once due to caching
 
     def test_list_models(self, mock_settings: MagicMock) -> None:
@@ -205,7 +203,9 @@ class TestModelRegistry:
 
     @patch("lurkbot.models.adapters.anthropic.AnthropicAdapter")
     def test_clear_adapters(
-        self, mock_adapter_class: MagicMock, mock_settings: MagicMock
+        self,
+        mock_adapter_class: MagicMock,  # noqa: ARG002
+        mock_settings: MagicMock,
     ) -> None:
         """Test clearing cached adapters."""
         registry = ModelRegistry(mock_settings)

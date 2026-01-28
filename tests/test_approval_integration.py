@@ -40,7 +40,10 @@ class MockDangerousTool(Tool):
         self.execution_args: dict | None = None
 
     async def execute(
-        self, arguments: dict, workspace: str, session_type: SessionType
+        self,
+        arguments: dict,
+        workspace: str,  # noqa: ARG002
+        session_type: SessionType,  # noqa: ARG002
     ) -> ToolResult:
         self.executed = True
         self.execution_args = arguments
@@ -240,7 +243,9 @@ class TestApprovalIntegration:
 
     @pytest.mark.asyncio
     async def test_approval_timeout(
-        self, agent_runtime: AgentRuntime, telegram_channel: TelegramChannel
+        self,
+        agent_runtime: AgentRuntime,
+        telegram_channel: TelegramChannel,  # noqa: ARG002
     ) -> None:
         """Test approval timeout."""
         dangerous_tool = MockDangerousTool()
@@ -262,7 +267,9 @@ class TestApprovalIntegration:
         # Override approval manager to use short timeout
         original_create = agent_runtime.approval_manager.create
 
-        def create_with_timeout(request: ApprovalRequest, **kwargs) -> Any:  # type: ignore
+        def create_with_timeout(
+            request: ApprovalRequest, **kwargs: Any  # noqa: ARG001
+        ) -> Any:  # type: ignore
             # Use 100ms timeout for testing
             return original_create(request, timeout_ms=100)
 
@@ -287,7 +294,9 @@ class TestApprovalIntegration:
 
     @pytest.mark.asyncio
     async def test_multiple_sequential_approvals(
-        self, agent_runtime: AgentRuntime, telegram_channel: TelegramChannel
+        self,
+        agent_runtime: AgentRuntime,
+        telegram_channel: TelegramChannel,  # noqa: ARG002
     ) -> None:
         """Test multiple tools requiring approval sequentially."""
         # Register two dangerous tools

@@ -1,6 +1,5 @@
 """Tests for model types."""
 
-import pytest
 
 from lurkbot.models.types import (
     ApiType,

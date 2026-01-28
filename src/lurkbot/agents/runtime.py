@@ -95,23 +95,23 @@ class ModelAgent(Agent):
                 messages.append({"role": "assistant", "content": assistant_content})
 
                 # Execute tools and collect results
-                tool_results = await self._execute_tools(
-                    response.tool_calls, context
-                )
+                tool_results = await self._execute_tools(response.tool_calls, context)
 
                 # Add tool results to conversation
-                messages.append({
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": r.tool_use_id,
-                            "content": r.content,
-                            "is_error": r.is_error,
-                        }
-                        for r in tool_results
-                    ],
-                })
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": r.tool_use_id,
+                                "content": r.content,
+                                "is_error": r.is_error,
+                            }
+                            for r in tool_results
+                        ],
+                    }
+                )
 
                 # Continue loop to get model's response with tool results
 
@@ -152,12 +152,14 @@ class ModelAgent(Agent):
 
         # Add tool use blocks
         for tc in response.tool_calls:
-            content.append({
-                "type": "tool_use",
-                "id": tc.id,
-                "name": tc.name,
-                "input": tc.arguments,
-            })
+            content.append(
+                {
+                    "type": "tool_use",
+                    "id": tc.id,
+                    "name": tc.name,
+                    "input": tc.arguments,
+                }
+            )
 
         return content
 
@@ -189,22 +191,30 @@ class ModelAgent(Agent):
             if not tool:
                 error_msg = f"Tool '{tool_name}' not found in registry"
                 logger.error(error_msg)
-                results.append(ToolResult(
-                    tool_use_id=tool_id,
-                    content=f"Error: {error_msg}",
-                    is_error=True,
-                ))
+                results.append(
+                    ToolResult(
+                        tool_use_id=tool_id,
+                        content=f"Error: {error_msg}",
+                        is_error=True,
+                    )
+                )
                 continue
 
             # Check policy
-            if self.tool_registry and not self.tool_registry.check_policy(tool, context.session_type):
-                error_msg = f"Tool '{tool_name}' not allowed for session type {context.session_type.value}"
+            if self.tool_registry and not self.tool_registry.check_policy(
+                tool, context.session_type
+            ):
+                error_msg = (
+                    f"Tool '{tool_name}' not allowed for session type {context.session_type.value}"
+                )
                 logger.warning(error_msg)
-                results.append(ToolResult(
-                    tool_use_id=tool_id,
-                    content=f"Error: {error_msg}",
-                    is_error=True,
-                ))
+                results.append(
+                    ToolResult(
+                        tool_use_id=tool_id,
+                        content=f"Error: {error_msg}",
+                        is_error=True,
+                    )
+                )
                 continue
 
             # Check if approval required
@@ -224,11 +234,13 @@ class ModelAgent(Agent):
                     context.session_type,
                 )
 
-                results.append(ToolResult(
-                    tool_use_id=tool_id,
-                    content=result.output or result.error or "No output",
-                    is_error=not result.success,
-                ))
+                results.append(
+                    ToolResult(
+                        tool_use_id=tool_id,
+                        content=result.output or result.error or "No output",
+                        is_error=not result.success,
+                    )
+                )
 
                 if result.success:
                     logger.info(f"Tool '{tool_name}' executed successfully")
@@ -237,11 +249,13 @@ class ModelAgent(Agent):
 
             except Exception as e:
                 logger.exception(f"Tool execution error: {tool_name}")
-                results.append(ToolResult(
-                    tool_use_id=tool_id,
-                    content=f"Execution error: {e}",
-                    is_error=True,
-                ))
+                results.append(
+                    ToolResult(
+                        tool_use_id=tool_id,
+                        content=f"Execution error: {e}",
+                        is_error=True,
+                    )
+                )
 
         return results
 

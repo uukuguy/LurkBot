@@ -298,7 +298,11 @@ class OllamaAdapter(ModelAdapter):
 
             # Handle user messages with tool_result content
             elif role == "user" and isinstance(content, list):
-                if content and isinstance(content[0], dict) and content[0].get("type") == "tool_result":
+                if (
+                    content
+                    and isinstance(content[0], dict)
+                    and content[0].get("type") == "tool_result"
+                ):
                     for result in content:
                         converted.append(
                             {

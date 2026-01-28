@@ -8,7 +8,6 @@ from loguru import logger
 
 from lurkbot.models.base import ModelAdapter
 from lurkbot.models.types import (
-    ModelConfig,
     ModelResponse,
     StreamChunk,
     ToolCall,
@@ -256,7 +255,11 @@ class OpenAIAdapter(ModelAdapter):
             # Handle user messages that might contain tool_result (from history)
             elif role == "user" and isinstance(content, list):
                 # Check if this is a tool_result message
-                if content and isinstance(content[0], dict) and content[0].get("type") == "tool_result":
+                if (
+                    content
+                    and isinstance(content[0], dict)
+                    and content[0].get("type") == "tool_result"
+                ):
                     # Convert each tool_result to a separate tool message
                     for result in content:
                         converted.append(

@@ -22,9 +22,9 @@ class DummyTool(Tool):
 
     async def execute(
         self,
-        arguments: dict,
-        workspace: str,
-        session_type: SessionType,
+        arguments: dict,  # noqa: ARG002
+        workspace: str,  # noqa: ARG002
+        session_type: SessionType,  # noqa: ARG002
     ) -> ToolResult:
         """Execute dummy tool."""
         return ToolResult(success=True, output="dummy output")

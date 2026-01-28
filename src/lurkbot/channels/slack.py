@@ -101,10 +101,7 @@ class SlackChannel(Channel):
         thread_ts = event.get("thread_ts")
 
         # Check channel allowlist
-        if (
-            self.settings.allowed_channels
-            and channel_id not in self.settings.allowed_channels
-        ):
+        if self.settings.allowed_channels and channel_id not in self.settings.allowed_channels:
             logger.debug(f"Ignoring message from non-allowed channel: {channel_id}")
             return
 
@@ -169,13 +166,9 @@ class SlackChannel(Channel):
         if self.approval_manager:
             from lurkbot.tools.approval import ApprovalDecision
 
-            success = self.approval_manager.resolve(
-                approval_id, ApprovalDecision.APPROVE, user_id
-            )
+            success = self.approval_manager.resolve(approval_id, ApprovalDecision.APPROVE, user_id)
             if success:
-                await self._send_reply(
-                    channel_id, f"✅ Approved tool execution: {approval_id}", ts
-                )
+                await self._send_reply(channel_id, f"✅ Approved tool execution: {approval_id}", ts)
                 logger.info(f"User {user_id} approved {approval_id}")
             else:
                 await self._send_reply(
@@ -186,9 +179,7 @@ class SlackChannel(Channel):
         else:
             await self._send_reply(channel_id, "❌ Approval system not configured", ts)
 
-    async def _handle_deny(
-        self, channel_id: str, user_id: str, approval_id: str, ts: str
-    ) -> None:
+    async def _handle_deny(self, channel_id: str, user_id: str, approval_id: str, ts: str) -> None:
         """Handle deny command."""
         if not approval_id:
             await self._send_reply(channel_id, "❌ Usage: @bot deny <approval_id>", ts)

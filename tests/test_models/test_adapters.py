@@ -1,8 +1,5 @@
 """Tests for model adapters."""
 
-import json
-from collections.abc import AsyncIterator
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -12,9 +9,7 @@ from lurkbot.models.adapters.ollama import OllamaAdapter
 from lurkbot.models.adapters.openai import OpenAIAdapter
 from lurkbot.models.types import (
     ApiType,
-    ModelCapabilities,
     ModelConfig,
-    ModelCost,
     ToolResult,
 )
 
@@ -76,11 +71,11 @@ class TestAnthropicAdapter:
         adapter = AnthropicAdapter(anthropic_config, api_key="test-key")
         assert adapter._client is None
 
-        client = adapter.client
+        _ = adapter.client
         mock_client_class.assert_called_once_with(api_key="test-key")
 
         # Second access should not create new client
-        client2 = adapter.client
+        _ = adapter.client
         mock_client_class.assert_called_once()
 
     @pytest.mark.asyncio

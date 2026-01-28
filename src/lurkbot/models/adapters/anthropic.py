@@ -7,7 +7,6 @@ from loguru import logger
 
 from lurkbot.models.base import ModelAdapter
 from lurkbot.models.types import (
-    ModelConfig,
     ModelResponse,
     StreamChunk,
     ToolCall,
@@ -120,14 +119,16 @@ class AnthropicAdapter(ModelAdapter):
 
             async for event in stream:
                 if event.type == "content_block_start":
-                    if hasattr(event.content_block, "type"):
-                        if event.content_block.type == "tool_use":
-                            current_tool_id = event.content_block.id
-                            current_tool_name = event.content_block.name
-                            yield StreamChunk(
-                                tool_use_id=current_tool_id,
-                                tool_name=current_tool_name,
-                            )
+                    if (
+                        hasattr(event.content_block, "type")
+                        and event.content_block.type == "tool_use"
+                    ):
+                        current_tool_id = event.content_block.id
+                        current_tool_name = event.content_block.name
+                        yield StreamChunk(
+                            tool_use_id=current_tool_id,
+                            tool_name=current_tool_name,
+                        )
 
                 elif event.type == "content_block_delta":
                     if hasattr(event.delta, "text"):

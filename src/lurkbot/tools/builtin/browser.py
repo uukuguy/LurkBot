@@ -32,7 +32,7 @@ class BrowserTool(Tool):
         self,
         arguments: dict[str, Any],
         workspace: str,
-        session_type: SessionType,
+        session_type: SessionType,  # noqa: ARG002
     ) -> ToolResult:
         """Execute browser action.
 
@@ -63,7 +63,7 @@ class BrowserTool(Tool):
             logger.exception("Browser tool error")
             return ToolResult(success=False, error=f"Browser error: {str(e)}")
 
-    async def _navigate(self, arguments: dict[str, Any], workspace: str) -> ToolResult:
+    async def _navigate(self, arguments: dict[str, Any], workspace: str) -> ToolResult:  # noqa: ARG002
         """Navigate to URL."""
         url = arguments.get("url")
         if not url:

@@ -1,6 +1,6 @@
 """Model registry with built-in model definitions."""
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from loguru import logger
 

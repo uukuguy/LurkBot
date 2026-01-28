@@ -28,7 +28,7 @@ from lurkbot.skills import (
 @pytest.fixture
 def sample_skill_content() -> str:
     """Sample SKILL.md content for testing."""
-    return '''---
+    return """---
 name: test-skill
 description: A test skill for unit testing.
 metadata: {"moltbot":{"emoji":"🧪","requires":{"bins":["python"]}}}
@@ -43,7 +43,7 @@ This is a test skill.
 ```bash
 python --version
 ```
-'''
+"""
 
 
 @pytest.fixture
@@ -69,7 +69,7 @@ def temp_skills_dir(sample_skill_content: str):
         # Create another skill
         other_skill_dir = skills_dir / "other-skill"
         other_skill_dir.mkdir()
-        (other_skill_dir / "SKILL.md").write_text('''---
+        (other_skill_dir / "SKILL.md").write_text("""---
 name: other-skill
 description: Another test skill.
 metadata: {"moltbot":{"emoji":"📦"}}
@@ -78,7 +78,7 @@ metadata: {"moltbot":{"emoji":"📦"}}
 # Other Skill
 
 Just another skill.
-''')
+""")
 
         yield skills_dir
 
@@ -122,10 +122,7 @@ class TestSkillMetadata:
         assert meta.emoji == "🐍"
 
     def test_with_requires(self):
-        meta = SkillMetadata.model_validate({
-            "requires": {"bins": ["python"]},
-            "always": True
-        })
+        meta = SkillMetadata.model_validate({"requires": {"bins": ["python"]}, "always": True})
         assert meta.requires.bins == ["python"]
         assert meta.always is True
 
@@ -140,10 +137,7 @@ class TestSkillFrontmatter:
         assert fm.user_invocable is True
 
     def test_get_moltbot_metadata(self):
-        fm = SkillFrontmatter(
-            name="test",
-            metadata={"moltbot": {"emoji": "🧪", "always": True}}
-        )
+        fm = SkillFrontmatter(name="test", metadata={"moltbot": {"emoji": "🧪", "always": True}})
         meta = fm.get_moltbot_metadata()
         assert meta.emoji == "🧪"
         assert meta.always is True
@@ -221,13 +215,13 @@ class TestParseFrontmatter:
         assert "# Just Markdown" in content
 
     def test_metadata_as_json_string(self):
-        content = '''---
+        content = """---
 name: test
 metadata: {"moltbot":{"emoji":"🧪"}}
 ---
 
 Content
-'''
+"""
         data, _ = parse_frontmatter(content)
         assert data["name"] == "test"
         # metadata should be parsed as dict
@@ -313,9 +307,7 @@ class TestSkillLoader:
             source_path=Path("/tmp/test/SKILL.md"),
             source_type="bundled",
             frontmatter=SkillFrontmatter(name="needs-bin"),
-            metadata=SkillMetadata(
-                requires=SkillRequirements(bins=["nonexistent_binary_xyz"])
-            ),
+            metadata=SkillMetadata(requires=SkillRequirements(bins=["nonexistent_binary_xyz"])),
         )
         assert loader.check_eligibility(entry) is False
 

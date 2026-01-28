@@ -33,7 +33,7 @@ class ReadFileTool(Tool):
         self,
         arguments: dict[str, Any],
         workspace: str,
-        session_type: SessionType,
+        session_type: SessionType,  # noqa: ARG002
     ) -> ToolResult:
         """Read file contents.
 
@@ -135,7 +135,7 @@ class WriteFileTool(Tool):
         self,
         arguments: dict[str, Any],
         workspace: str,
-        session_type: SessionType,
+        session_type: SessionType,  # noqa: ARG002
     ) -> ToolResult:
         """Write content to a file.
 

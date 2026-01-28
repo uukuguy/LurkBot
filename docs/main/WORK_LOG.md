@@ -1,5 +1,411 @@
 # LurkBot 工作日志
 
+## 2026-01-29 (续-8) - Phase 9: CLI Enhancements（100% 完成）
+
+### 会话概述
+
+实现 Phase 9 CLI 增强功能，为 LurkBot 添加模型管理、会话管理和交互式聊天命令。
+
+### 主要工作
+
+#### 1. 模型管理命令 ✅
+
+**文件创建**:
+- `src/lurkbot/cli/models.py`: 模型管理 CLI 命令
+  - `lurkbot models list`: 列出可用模型（支持 provider/api_type 过滤）
+  - `lurkbot models info <model>`: 显示模型详细信息
+  - `lurkbot models default [model]`: 显示或设置默认模型
+
+**功能特性**:
+- Rich 表格展示模型列表
+- 模型能力显示（Tools、Streaming、Vision、Thinking）
+- Context Window 和 Max Tokens 信息
+
+#### 2. 会话管理命令 ✅
+
+**文件创建**:
+- `src/lurkbot/cli/sessions.py`: 会话管理 CLI 命令
+  - `lurkbot sessions list`: 列出所有会话
+  - `lurkbot sessions show <id>`: 显示会话详情和消息历史
+  - `lurkbot sessions clear <id>`: 清空会话消息
+  - `lurkbot sessions delete <id>`: 删除会话
+
+**功能特性**:
+- 直接使用 SessionStore API
+- 支持 `--force` 跳过确认
+- 支持 `--limit` 限制消息数量
+
+#### 3. 交互式聊天命令 ✅
+
+**文件创建**:
+- `src/lurkbot/cli/chat.py`: 聊天 CLI 命令
+  - `lurkbot chat start`: 启动交互式聊天
+  - `lurkbot chat send <message>`: 发送单条消息
+
+**命令行选项**:
+- `--model, -m`: 指定模型
+- `--session, -s`: 恢复现有会话
+- `--no-stream`: 禁用流式输出
+
+**内置命令**:
+- `/help`: 显示帮助
+- `/clear`: 清空会话
+- `/history`: 显示对话历史
+- `/model <id>`: 切换模型
+- `exit`: 退出聊天
+
+#### 4. Gateway 命令更新 ✅
+
+**文件修改**:
+- `src/lurkbot/cli/main.py`:
+  - 更新 `gateway start` 添加 `--no-api` 选项
+  - 启动时显示 Dashboard 和 API URL
+  - 集成 AgentRuntime 以启用 HTTP API
+
+#### 5. 测试覆盖 ✅
+
+**文件创建**:
+- `tests/test_cli.py`: 15 个 CLI 测试
+  - 版本命令测试
+  - 模型命令测试（list、info、default）
+  - 会话命令测试（list、show、clear、delete）
+  - 聊天命令测试
+  - 配置命令测试
+  - Gateway 命令测试
+  - Channel 命令测试
+
+**测试结果**:
+```
+283 passed total
+15 new tests (Phase 9)
+```
+
+### 模块结构
+
+```
+src/lurkbot/cli/
+├── __init__.py           # 更新导出
+├── main.py               # 主 CLI 入口 (更新)
+├── models.py             # ✅ NEW: 模型管理命令
+├── sessions.py           # ✅ NEW: 会话管理命令
+└── chat.py               # ✅ NEW: 聊天命令
+```
+
+### 使用示例
+
+#### 模型管理
+
+```bash
+# 列出所有模型
+lurkbot models list
+
+# 按提供商过滤
+lurkbot models list --provider anthropic
+
+# 查看模型详情
+lurkbot models info anthropic/claude-sonnet-4-20250514
+
+# 查看默认模型
+lurkbot models default
+```
+
+#### 会话管理
+
+```bash
+# 列出会话
+lurkbot sessions list
+
+# 查看会话详情
+lurkbot sessions show telegram_123_456
+
+# 清空会话（需确认）
+lurkbot sessions clear telegram_123_456
+
+# 强制删除会话
+lurkbot sessions delete --force telegram_123_456
+```
+
+#### 交互式聊天
+
+```bash
+# 启动交互式聊天
+lurkbot chat start
+
+# 指定模型
+lurkbot chat start --model openai/gpt-4o
+
+# 恢复会话
+lurkbot chat start --session my-session
+
+# 发送单条消息
+lurkbot chat send "Hello, world!"
+```
+
+### 文件变更统计
+
+**新增文件**:
+- `src/lurkbot/cli/models.py` (~120 行)
+- `src/lurkbot/cli/sessions.py` (~170 行)
+- `src/lurkbot/cli/chat.py` (~200 行)
+- `tests/test_cli.py` (~130 行)
+
+**修改文件**:
+- `src/lurkbot/cli/main.py` (+20 行)
+- `src/lurkbot/cli/__init__.py` (+5 行)
+- `tests/conftest.py` (+20 行，添加 Docker/Browser 测试跳过逻辑)
+
+**总计**: ~665 行新增代码和测试
+
+### Bug 修复
+
+1. **conftest.py Docker 测试跳过**
+   - 添加 `pytest_collection_modifyitems` 自动跳过未启用的 Docker/Browser 测试
+
+2. **Lint 修复**
+   - 修复多处 `raise ... from e` 模式
+   - 修复未使用的导入和变量
+   - 添加 `# noqa` 注释用于接口一致性的未使用参数
+
+### 下一步建议
+
+1. **LiteLLM 集成**（可选）
+   - Google Gemini 支持
+   - AWS Bedrock 支持
+
+2. **成本追踪**
+   - Token 使用统计
+   - 每会话成本计算
+
+3. **Dashboard 增强**
+   - 使用统计图表
+   - 多会话并行聊天
+   - 设置页面
+
+---
+
+## 2026-01-29 (续-7) - Phase 8: Web Interface（100% 完成）
+
+### 会话概述
+
+实现 Phase 8 Web 界面功能，为 LurkBot 添加 HTTP REST API、WebSocket 实时流和 Web Dashboard。
+
+### 主要工作
+
+#### 1. HTTP REST API 端点 ✅
+
+**文件创建**:
+- `src/lurkbot/gateway/http_api.py`: HTTP API 实现
+  - `ChatRequest`/`ChatResponse`: 聊天请求/响应模型
+  - `SessionInfo`/`SessionListResponse`: 会话信息
+  - `ModelInfo`/`ModelListResponse`: 模型信息
+  - `ApprovalAction`: 审批操作
+
+**API 端点**:
+| 端点 | 方法 | 描述 |
+|------|------|------|
+| `/api/health` | GET | 健康检查 |
+| `/api/sessions` | GET | 列出所有会话 |
+| `/api/sessions/{id}` | GET | 获取会话详情 |
+| `/api/sessions/{id}` | DELETE | 删除会话 |
+| `/api/sessions/{id}/clear` | POST | 清空会话消息 |
+| `/api/sessions/{id}/chat` | POST | 发送消息 |
+| `/api/models` | GET | 列出可用模型 |
+| `/api/models/{id}` | GET | 获取模型详情 |
+| `/api/approvals` | GET | 列出待审批请求 |
+| `/api/approvals/{id}` | POST | 批准/拒绝请求 |
+
+**特性**:
+- SSE (Server-Sent Events) 流式响应支持
+- CORS 中间件配置
+- Pydantic 验证
+
+#### 2. WebSocket 实时流 ✅
+
+**文件创建**:
+- `src/lurkbot/gateway/websocket_streaming.py`: WebSocket 流实现
+  - `EventType`: 事件类型枚举（chat_start, chat_chunk, chat_end 等）
+  - `WebSocketEvent`: WebSocket 事件消息
+  - `WebSocketManager`: 连接和订阅管理
+  - `StreamingChatHandler`: 流式聊天处理
+
+**事件类型**:
+- 连接事件：`connected`, `disconnected`, `error`
+- 聊天事件：`chat_start`, `chat_chunk`, `chat_end`, `chat_error`
+- 工具事件：`tool_start`, `tool_progress`, `tool_end`, `tool_error`
+- 审批事件：`approval_required`, `approval_resolved`, `approval_timeout`
+- 会话事件：`session_created`, `session_updated`, `session_deleted`
+
+**WebSocket 协议**:
+- `chat`: 发送聊天消息
+- `subscribe`: 订阅会话事件
+- `unsubscribe`: 取消订阅
+- `ping`: 保活
+
+#### 3. Web Dashboard ✅
+
+**文件创建**:
+- `src/lurkbot/static/index.html`: 单页面 Web 界面
+  - 使用 Tailwind CSS 样式
+  - 使用 htmx 和原生 JavaScript
+  - 使用 DOMPurify 防止 XSS
+
+**功能**:
+- 会话列表和管理
+- 模型列表和选择
+- 实时聊天界面
+- 待审批列表和操作
+- WebSocket 连接状态显示
+- 自动重连机制
+
+#### 4. GatewayServer 更新 ✅
+
+**文件修改**:
+- `src/lurkbot/gateway/server.py`:
+  - 添加 `WebSocketManager` 和 `StreamingChatHandler` 组件
+  - 添加 `/ws/chat/{client_id}` WebSocket 端点
+  - 添加静态文件服务（`/static/*`）
+  - 添加 Dashboard 根路由（`/`）
+  - CORS 中间件配置
+
+**文件修改**:
+- `src/lurkbot/gateway/__init__.py`: 更新导出
+
+#### 5. 测试覆盖 ✅
+
+**文件创建**:
+- `tests/test_http_api.py`: 18 个 HTTP API 测试
+  - 健康检查端点
+  - 会话 CRUD 操作
+  - 模型列表
+  - 审批操作
+  - CORS 头
+
+- `tests/test_websocket_streaming.py`: 21 个 WebSocket 测试
+  - 事件创建和序列化
+  - 连接管理
+  - 订阅/取消订阅
+  - 广播功能
+  - 消息处理
+
+**测试结果**:
+```
+267 passed (总计)
+39 new tests (Phase 8)
+```
+
+### 模块结构
+
+```
+src/lurkbot/
+├── gateway/
+│   ├── __init__.py             # 更新导出
+│   ├── server.py               # ✅ 更新: 集成 API 和 Dashboard
+│   ├── protocol.py             # WebSocket 协议
+│   ├── http_api.py             # ✅ NEW: HTTP REST API
+│   └── websocket_streaming.py  # ✅ NEW: WebSocket 流
+├── static/
+│   └── index.html              # ✅ NEW: Web Dashboard
+└── ...
+
+tests/
+├── test_http_api.py            # ✅ NEW: 18 tests
+├── test_websocket_streaming.py # ✅ NEW: 21 tests
+└── ...
+```
+
+### 使用方法
+
+#### 启动服务器
+
+```python
+from lurkbot.agents.runtime import AgentRuntime
+from lurkbot.config import Settings
+from lurkbot.gateway import GatewayServer
+
+settings = Settings(anthropic_api_key="sk-ant-...")
+runtime = AgentRuntime(settings)
+server = GatewayServer(settings, runtime=runtime)
+
+# 启动服务
+await server.run()
+```
+
+#### 访问 Dashboard
+
+```
+http://localhost:18789/
+```
+
+#### API 调用示例
+
+```bash
+# 列出模型
+curl http://localhost:18789/api/models
+
+# 发送消息
+curl -X POST http://localhost:18789/api/sessions/test/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello"}'
+
+# 列出会话
+curl http://localhost:18789/api/sessions
+```
+
+#### WebSocket 连接
+
+```javascript
+const ws = new WebSocket('ws://localhost:18789/ws/chat/my-client');
+
+ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    console.log(data.type, data.data);
+};
+
+ws.send(JSON.stringify({
+    type: 'chat',
+    data: {
+        session_id: 'test',
+        message: 'Hello'
+    }
+}));
+```
+
+### 文件变更统计
+
+**新增文件**:
+- `src/lurkbot/gateway/http_api.py` (~380 行)
+- `src/lurkbot/gateway/websocket_streaming.py` (~420 行)
+- `src/lurkbot/static/index.html` (~400 行)
+- `tests/test_http_api.py` (~200 行)
+- `tests/test_websocket_streaming.py` (~300 行)
+
+**修改文件**:
+- `src/lurkbot/gateway/server.py` (+50 行)
+- `src/lurkbot/gateway/__init__.py` (+10 行)
+
+**总计**: ~1,760 行新增代码和测试
+
+### 下一步建议
+
+1. **LiteLLM 集成**（可选）
+   - Google Gemini 支持
+   - AWS Bedrock 支持
+
+2. **成本追踪**
+   - Token 使用统计
+   - 每会话成本计算
+
+3. **模型 CLI 命令**
+   - `lurkbot models list`
+   - `lurkbot chat --model openai/gpt-4o`
+
+4. **Dashboard 增强**
+   - 使用统计图表
+   - 多会话并行聊天
+   - 设置页面
+
+---
+
 ## 2026-01-29 (续-4) - Phase 7: 多模型支持（100% 完成）
 
 ### 会话概述

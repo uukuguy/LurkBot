@@ -8,7 +8,6 @@ import pytest
 from lurkbot.channels.base import Channel, ChannelMessage
 from lurkbot.config.settings import DiscordSettings, Settings, SlackSettings, TelegramSettings
 
-
 # =============================================================================
 # Base Channel Tests
 # =============================================================================
@@ -64,7 +63,12 @@ class ConcreteChannel(Channel):
     async def stop(self):
         pass
 
-    async def send(self, recipient_id: str, content: str, reply_to: str | None = None) -> str:
+    async def send(
+        self,
+        recipient_id: str,  # noqa: ARG002
+        content: str,  # noqa: ARG002
+        reply_to: str | None = None,  # noqa: ARG002
+    ) -> str:
         return "sent_123"
 
     async def send_typing(self, recipient_id: str) -> None:
@@ -416,7 +420,12 @@ class TestChannelRegistry:
 
     @patch("lurkbot.channels.telegram.TelegramChannel.start", new_callable=AsyncMock)
     @patch("lurkbot.channels.telegram.TelegramChannel.stop", new_callable=AsyncMock)
-    async def test_registry_stop_all(self, mock_stop, mock_start, settings_telegram_only):
+    async def test_registry_stop_all(
+        self,
+        mock_stop,
+        mock_start,  # noqa: ARG002
+        settings_telegram_only,
+    ):
         """Test stopping all channels."""
         from lurkbot.channels.registry import ChannelRegistry
 
