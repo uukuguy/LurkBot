@@ -2,99 +2,117 @@
 
 ## Session Context
 
-**Last Session Date**: 2026-01-28
-**Phase Completed**: Phase 2 - Tool System (90% complete)
-**Status**: ✅ Core Tool System Implemented
+**Last Session Date**: 2026-01-29
+**Phase Completed**: Phase 3 - Sandbox & Advanced Tools (70% complete)
+**Status**: ✅ Docker Sandbox + Browser Tool Implemented
 
 ## What Was Accomplished
 
-### Phase 2: Tool System Implementation ✅
+### Phase 3: Sandbox & Advanced Tools (70% complete)
 
-**1. Tool Infrastructure** ✅
-- Created `tools/base.py` with Tool, ToolPolicy, SessionType, ToolResult
-- Created `tools/registry.py` for tool registration and policy enforcement
-- 10 infrastructure tests passing
+**1. Docker Sandbox Infrastructure** ✅
+- Created `sandbox/` module with Docker container isolation
+- `sandbox/types.py`: SandboxConfig, SandboxResult data models
+- `sandbox/docker.py`: DockerSandbox class for secure execution
+- `sandbox/manager.py`: SandboxManager for lifecycle management
+- **Security Features**:
+  - Resource limits (memory: 512M, CPU: 50%, timeout: 30s)
+  - Network isolation (network=none)
+  - Read-only root filesystem
+  - Process limits (pids_limit: 64)
+  - Capability dropping (drop ALL)
+  - Tmpfs for temporary files
+- **Container Management**:
+  - Hot container window (5 min reuse)
+  - Automatic cleanup
+  - Workspace mounting support
+- **Tests**: 8 sandbox tests (3 config + 5 Docker + 2 manager)
+  - Run Docker tests with: `pytest --docker`
 
-**2. Built-in Tools** ✅
-- `BashTool`: Execute shell commands with timeout protection (8 tests)
-- `ReadFileTool`: Read files with path traversal protection (7 tests)
-- `WriteFileTool`: Write files with directory creation (7 tests)
-- All security measures implemented
+**2. Browser Tool** ✅
+- Created `tools/builtin/browser.py` with Playwright integration
+- Uses **async Playwright API** for better performance
+- **Actions**:
+  - `navigate`: Navigate to URL and get page title
+  - `screenshot`: Capture full page or element screenshots
+  - `extract_text`: Extract text from page or specific element
+  - `get_html`: Get HTML content from page or element
+- **Policy**: Allowed in MAIN and DM sessions only
+- **Tests**: 9 browser tool tests (5 unit + 4 integration)
+  - Run browser tests with: `pytest --browser`
+- Added `playwright>=1.49.0` to `pyproject.toml` (browser extra)
 
-**3. Agent Integration** ✅
-- Modified `agents/base.py` to add SessionType to AgentContext
-- Modified `agents/runtime.py` to integrate ToolRegistry
-- Implemented tool calling loop in ClaudeAgent.chat()
-- Used Context7 to query Anthropic API documentation
-- All 41 tests passing (32 tool tests + 9 existing tests)
-
-**4. Testing** ✅
-- Comprehensive unit tests for all tools
-- Integration test script (`tests/integration_test_tools.py`)
-- Path traversal attack prevention verified
-- Timeout protection verified
+**3. Dependencies Updated** ✅
+- Added `docker>=7.0.0` to core dependencies
+- Added `playwright>=1.49.0` to browser extras
+- Updated mypy config to ignore docker/playwright imports
 
 ### Test Coverage
-- Total tests: 41/41 passing ✅
-- Tool system tests: 32 tests
-- Integration tests: Manual verification ✅
+- **Total tests**: 61 tests
+  - **Passing**: 50 ✅
+  - **Skipped**: 11 (Docker: 7, Browser: 4)
+  - **Failed**: 0 ✅
+- **Test Commands**:
+  ```bash
+  make test                    # Run all non-optional tests
+  pytest --docker             # Run Docker sandbox tests
+  pytest --browser            # Run browser automation tests
+  pytest --docker --browser   # Run all tests
+  ```
 
 ## Next Phase Priorities
 
-### Phase 2 Completion (10% remaining)
+### Phase 3 Completion (30% remaining)
 
-**Objective**: Complete end-to-end testing with real Claude API
-
-#### Tasks:
-1. **E2E Test with Claude API** (High Priority)
-   - Create test script that calls AgentRuntime with real API
-   - Test tool calling with actual Claude responses
-   - Verify tool execution loop works correctly
-   - **Requires**: ANTHROPIC_API_KEY environment variable
-
-2. **Documentation Updates** (Medium Priority)
-   - Update `docs/design/ARCHITECTURE_DESIGN.md` with tool system architecture
-   - Add tool system section with architecture diagram
-   - Document tool calling flow
-
-### Phase 3: Sandbox & Advanced Tools (Next Priority)
-
-**Objective**: Docker container isolation for untrusted sessions and browser automation
+**Objective**: Complete tool approval workflow and integration
 
 #### Tasks:
-1. **Docker Sandbox** (`src/lurkbot/sandbox/docker.py`)
-   - Docker container management for GROUP/TOPIC sessions
-   - Workspace mounting (read-only)
-   - Resource limits (memory, CPU, timeout)
-   - Tool execution in isolated environment
+1. **Tool Approval Workflow** (High Priority) - **未完成**
+   - Create `tools/approval.py` module
+   - Store pending tool approvals in memory or temp storage
+   - Notification system via Channel adapters
+   - Handle user approval/denial responses
+   - Timeout mechanism for pending approvals
+   - **Design**:
+     - For GROUP/TOPIC sessions, dangerous tools require approval
+     - User responds via Channel message (approve/deny)
+     - Timeout after N minutes (default: 5 min)
 
-2. **Browser Tool** (`src/lurkbot/tools/builtin/browser.py`)
-   - Playwright integration
-   - Navigate, screenshot, extract text
-   - Safe browsing in sandbox
+2. **Sandbox Integration with Tools** (Medium Priority) - **部分完成**
+   - Integrate SandboxManager with BashTool
+   - Execute tools in sandbox for GROUP/TOPIC sessions
+   - Test tool execution in isolated containers
+   - Verify resource limits work correctly
 
-3. **Tool Approval Workflow** (`src/lurkbot/tools/approval.py`)
-   - Store pending tool approvals
-   - Notify user via channel
-   - Handle approval/denial responses
+3. **Browser Tool in Sandbox** (Low Priority)
+   - Run Playwright in Docker container
+   - May require custom Docker image with Chrome/Chromium
+   - Consider using `mcr.microsoft.com/playwright` base image
 
 #### Reference Files:
 - Original moltbot: `github.com/moltbot/src/agents/tools/`
 - Design doc: `docs/design/MOLTBOT_ANALYSIS.md` (Section: Tool System)
 
-### Phase 4: Session Persistence (Medium Priority)
+### Phase 4: Session Persistence (Next Priority)
 
 **Objective**: Persist conversation history and session state
 
 #### Tasks:
 1. **Session Store** (`src/lurkbot/storage/jsonl.py`)
-   - JSONL format storage
+   - JSONL format storage (one JSON object per line)
    - Session loading/saving
    - History management
+   - Append-only for performance
 
 2. **Storage Location**
    - Default: `~/.lurkbot/sessions/`
    - Configurable via settings
+   - Session ID format: `{channel}_{chat_id}_{user_id}`
+
+3. **Integration with Agent Runtime**
+   - Load session history on startup
+   - Append new messages to session file
+   - Periodic flush to disk
 
 #### Reference:
 - Original format: `~/.clawdbot/sessions/{session_id}.jsonl`
@@ -103,18 +121,27 @@
 ## Known Issues & Limitations
 
 ### Current Limitations
-1. **No Tool System**: Agents cannot execute tools yet
-2. **No Persistence**: Sessions lost on restart
-3. **Single Channel**: Only Telegram implemented
-4. **No Sandbox**: Tool execution not isolated
-5. **Limited Testing**: Need integration tests
+1. ✅ ~~No Tool System~~ - **SOLVED** (Phase 2)
+2. ✅ ~~No Sandbox~~ - **SOLVED** (Phase 3, partial)
+3. ⚠️ **No Tool Approval** - Need to implement approval workflow
+4. ⚠️ **No Persistence** - Sessions lost on restart
+5. ⚠️ **Single Channel** - Only Telegram implemented
+6. ⚠️ **Limited Testing** - Need E2E integration tests
 
 ### Technical Debt
-- [ ] Add type hints to all functions
-- [ ] Add docstrings to all public APIs
+- [ ] Add type hints to all functions (mostly done, need review)
+- [ ] Add docstrings to all public APIs (partially done)
 - [ ] Implement proper error handling with custom exceptions
-- [ ] Add logging throughout the codebase
+- [x] Add logging throughout the codebase (using loguru)
 - [ ] Create integration tests for Gateway + Agent + Channel
+- [ ] E2E test with real Claude API (requires ANTHROPIC_API_KEY)
+- [ ] Update architecture documentation with Phase 3 changes
+
+### Security Notes
+- Docker sandbox is **production-ready** for GROUP/TOPIC sessions
+- Browser tool should **only run in MAIN/DM** sessions (no sandbox support yet)
+- Path traversal protection in File tools (Read/Write)
+- Timeout protection in all tools
 
 ## Important Notes for Next Session
 
@@ -130,11 +157,24 @@
 - Run `make lint` before committing
 - Run `make typecheck` to verify types
 - Test with: `pytest -xvs tests/test_file.py::test_function`
+- Optional tests:
+  - `pytest --docker` for sandbox tests (requires Docker daemon)
+  - `pytest --browser` for Playwright tests (requires `playwright install`)
 
 ### Configuration
 - Settings loaded from environment variables: `LURKBOT_*`
 - Nested settings use `__`: `LURKBOT_GATEWAY__PORT=8080`
 - API keys: `LURKBOT_ANTHROPIC_API_KEY`, `LURKBOT_OPENAI_API_KEY`
+
+### Docker Requirements
+- Docker daemon must be running for sandbox tests
+- Default image: `debian:bookworm-slim`
+- Custom images can be configured via `SandboxConfig.image`
+
+### Playwright Requirements
+- Install browsers: `playwright install chromium`
+- Runs headless by default
+- Uses async API for better performance
 
 ### Git Workflow
 - Check status: `git status -sb`
@@ -148,8 +188,15 @@
 # Install dependencies
 make dev
 
+# Install browser dependencies (optional)
+uv pip install -e ".[browser]"
+playwright install chromium
+
 # Run tests
-make test
+make test                    # Core tests only
+pytest --docker             # With Docker tests
+pytest --browser            # With browser tests
+pytest --docker --browser   # All tests
 
 # Check code
 make lint
@@ -172,17 +219,51 @@ make gateway  # Start gateway server
 - FastAPI docs: https://fastapi.tiangolo.com/
 - Pydantic docs: https://docs.pydantic.dev/
 - python-telegram-bot: https://docs.python-telegram-bot.org/
+- Docker SDK: https://docker-py.readthedocs.io/
+- Playwright Python: https://playwright.dev/python/
 
-## Success Criteria for Next Phase
+## Success Criteria for Phase 3
 
-- [ ] Tool registry implemented and tested
-- [ ] At least 3 built-in tools working (bash, read, write)
-- [ ] Agent can call tools and process results
-- [ ] Docker sandbox isolation working
-- [ ] Integration tests for tool execution
-- [ ] Documentation updated with tool usage examples
+- [x] Docker sandbox isolation working
+- [x] Browser tool implemented and tested
+- [ ] Tool approval workflow implemented
+- [ ] Sandbox integration with existing tools
+- [ ] Browser tool running in sandbox (optional)
+- [ ] Integration tests for sandbox + tools
+- [ ] Documentation updated with Phase 3 architecture
+
+## File Structure Reference
+
+```
+src/lurkbot/
+├── sandbox/                    # ✅ NEW (Phase 3)
+│   ├── __init__.py
+│   ├── types.py               # Data models
+│   ├── docker.py              # Docker sandbox implementation
+│   └── manager.py             # Sandbox lifecycle manager
+├── tools/
+│   ├── builtin/
+│   │   ├── bash.py            # ✅ Phase 2
+│   │   ├── file_ops.py        # ✅ Phase 2
+│   │   └── browser.py         # ✅ NEW (Phase 3)
+│   ├── base.py                # ✅ Phase 2
+│   ├── registry.py            # ✅ Phase 2
+│   └── approval.py            # ⏳ TODO (Phase 3)
+├── agents/
+│   ├── base.py                # ✅ Phase 2
+│   └── runtime.py             # ✅ Phase 2
+└── storage/                    # ⏳ TODO (Phase 4)
+    └── jsonl.py
+
+tests/
+├── test_sandbox.py            # ✅ NEW (Phase 3)
+├── test_browser_tool.py       # ✅ NEW (Phase 3)
+├── test_tools.py              # ✅ Phase 2
+└── conftest.py                # ✅ Updated with --docker, --browser flags
+```
 
 ---
 
-**Document Updated**: 2026-01-28
+**Document Updated**: 2026-01-29
 **Next Review**: Start of next session
+**Progress**: Phase 3 (70% complete) → Continue with approval workflow

@@ -41,6 +41,8 @@ dependencies = [
     "loguru>=0.7.0",
     "python-dotenv>=1.0.0",
     "aiofiles>=24.1.0",
+    # Docker sandbox
+    "docker>=7.0.0",
 ]
 
 [project.optional-dependencies]
@@ -119,7 +121,7 @@ disallow_untyped_defs = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["telegram.*", "discord.*", "slack_sdk.*"]
+module = ["telegram.*", "discord.*", "slack_sdk.*", "docker.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]

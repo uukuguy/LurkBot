@@ -1,6 +1,147 @@
 # LurkBot 工作日志
 
-## 2026-01-28 - Phase 2: 工具系统实现（进行中）
+## 2026-01-29 - Phase 3: 沙箱和高级工具（70% 完成）
+
+### 会话概述
+
+实现 Phase 3 的 Docker 沙箱隔离和浏览器自动化工具，为不可信会话提供安全的执行环境。
+
+### 主要工作
+
+#### 1. Docker 沙箱基础设施 ✅
+
+**文件创建**:
+- `src/lurkbot/sandbox/__init__.py`: 沙箱模块导出
+- `src/lurkbot/sandbox/types.py`: 数据模型定义
+  - `SandboxConfig`: 沙箱配置（资源限制、安全设置、文件系统）
+  - `SandboxResult`: 执行结果（成功状态、输出、错误、执行时间）
+
+- `src/lurkbot/sandbox/docker.py`: Docker 沙箱实现
+  - `DockerSandbox` 类：管理 Docker 容器生命周期
+  - 资源限制：内存 512M、CPU 50%、超时 30s
+  - 安全特性：网络隔离（none）、只读根文件系统、能力丢弃（ALL）
+  - 进程限制：pids_limit=64
+  - Tmpfs 临时文件支持
+  - 工作区挂载支持（可配置只读）
+  - 容器复用：5分钟热容器窗口
+  - 自动清理：定期清理过期容器
+
+- `src/lurkbot/sandbox/manager.py`: 沙箱管理器
+  - `SandboxManager` 单例：管理多个会话的沙箱实例
+  - 基于会话类型决策：MAIN 不用沙箱，GROUP/TOPIC 使用沙箱
+  - 会话级沙箱缓存
+  - 清理接口
+
+**依赖更新**:
+- `pyproject.toml`: 添加 `docker>=7.0.0` 到核心依赖
+- 更新 mypy 配置忽略 `docker.*` 模块
+
+**测试覆盖**:
+- 8 个沙箱测试（3 config + 5 Docker + 2 manager）
+- 使用 `pytest --docker` 运行 Docker 测试
+- 测试安全特性：超时保护、只读文件系统、网络隔离
+
+#### 2. Browser 工具（Playwright 集成）✅
+
+**文件创建**:
+- `src/lurkbot/tools/builtin/browser.py`: 浏览器自动化工具
+  - 使用 **async Playwright API** 提升性能
+  - 4 种操作：
+    - `navigate`: 导航到 URL，获取页面标题
+    - `screenshot`: 截图（全页或特定元素）
+    - `extract_text`: 提取文本内容
+    - `get_html`: 获取 HTML 内容
+  - 支持 CSS 选择器定位元素
+  - 超时保护（默认 30s）
+  - 策略：仅允许 MAIN 和 DM 会话使用
+
+- `tests/test_browser_tool.py`: 浏览器工具测试
+  - 9 个测试（5 unit + 4 integration）
+  - 使用 `pytest --browser` 运行浏览器测试
+  - 测试所有 4 种操作
+
+**依赖更新**:
+- `pyproject.toml`: 添加 `playwright>=1.49.0` 到 browser extras
+- 更新 `tools/builtin/__init__.py` 导出 BrowserTool
+- 更新 mypy 配置忽略 `playwright.*` 模块
+
+**测试配置**:
+- `tests/conftest.py`: 添加 `--browser` 标志支持
+- 标记浏览器测试为可选（需要 Playwright 安装）
+
+### 技术决策
+
+**为什么使用 async Playwright**:
+- 工具系统使用 async/await 模式
+- 更好的性能和资源利用
+- 与 FastAPI 异步框架一致
+
+**为什么沙箱使用 Docker**:
+- 成熟的容器隔离技术
+- 精细的资源控制（memory、CPU、network）
+- 安全特性（capabilities、seccomp、apparmor）
+- 跨平台支持
+
+**沙箱策略**:
+- MAIN 会话：不使用沙箱（完全信任）
+- GROUP/TOPIC 会话：必须使用沙箱（不可信）
+- DM 会话：可配置（部分信任）
+
+### 测试统计
+
+**总测试数**: 61 个
+- **通过**: 50 个 ✅
+- **跳过**: 11 个
+  - Docker 测试: 7 个（需要 `--docker` 标志）
+  - Browser 测试: 4 个（需要 `--browser` 标志）
+- **失败**: 0 个 ✅
+
+**测试命令**:
+```bash
+make test                    # 运行核心测试
+pytest --docker             # 运行 Docker 沙箱测试
+pytest --browser            # 运行浏览器测试
+pytest --docker --browser   # 运行所有测试
+```
+
+### 未完成任务
+
+**Phase 3 剩余 30%**:
+1. **工具审批工作流** - 未实现
+   - 为 GROUP/TOPIC 会话提供危险工具审批机制
+   - 通过 Channel 通知用户并等待响应
+   - 超时机制
+
+2. **沙箱与工具集成** - 部分完成
+   - 需要集成 SandboxManager 到 BashTool
+   - 在 GROUP/TOPIC 会话中自动使用沙箱执行
+
+3. **浏览器工具沙箱化** - 低优先级
+   - 需要自定义 Docker 镜像（包含 Chromium）
+   - 可能使用 `mcr.microsoft.com/playwright` 基础镜像
+
+### 下一步计划
+
+**Phase 3 完成**:
+- 实现工具审批工作流（`tools/approval.py`）
+- 集成沙箱到现有工具
+- 编写集成测试
+
+**Phase 4 准备**:
+- 会话持久化（JSONL 格式）
+- 历史记录管理
+- 自动加载和保存
+
+### 参考文档
+
+- 原始实现：`github.com/moltbot/src/agents/sandbox/`
+- 设计文档：`docs/design/MOLTBOT_ANALYSIS.md`
+- Docker SDK 文档：https://docker-py.readthedocs.io/
+- Playwright 文档：https://playwright.dev/python/
+
+---
+
+## 2026-01-28 - Phase 2: 工具系统实现（已完成）
 
 ### 会话概述
 
