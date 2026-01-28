@@ -1,11 +1,11 @@
 [project]
 name = "lurkbot"
 version = "0.1.0"
-description = "A multi-channel AI assistant platform - Python rewrite of moltbot"
+description = "Python port of viral AI assistant Moltbot — Multi-channel, multi-model, actually does things. FastAPI + Claude/GPT + Telegram/Discord/Slack."
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.12"
-authors = [{ name = "LurkBot Team" }]
+authors = [{ name = "SpeechlessAI Team" }]
 keywords = ["ai", "assistant", "chatbot", "telegram", "discord", "slack", "whatsapp"]
 classifiers = [
     "Development Status :: 3 - Alpha",

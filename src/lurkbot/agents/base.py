@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from lurkbot.tools.base import SessionType
+
 
 class ChatMessage(BaseModel):
     """A chat message in a conversation."""
@@ -28,6 +30,7 @@ class AgentContext:
     workspace: str | None = None
     messages: list[ChatMessage] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    session_type: SessionType = SessionType.MAIN  # NEW: Add session type for tool policies
 
 
 class Agent(ABC):

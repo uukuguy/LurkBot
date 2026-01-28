@@ -1,5 +1,161 @@
 # LurkBot 工作日志
 
+## 2026-01-28 - Phase 2: 工具系统实现（进行中）
+
+### 会话概述
+
+实现 Phase 2 工具系统的核心功能，使 AI Agent 能够执行 bash 命令、文件读写等操作。
+
+### 主要工作
+
+#### 1. 工具系统基础设施 ✅
+
+**文件创建**:
+- `src/lurkbot/tools/base.py`: 工具基类、策略、会话类型定义
+  - `SessionType` 枚举: MAIN/GROUP/DM/TOPIC
+  - `ToolPolicy`: 定义工具执行策略（允许的会话类型、审批需求、沙箱要求）
+  - `Tool` 抽象基类: 所有工具的基类
+  - `ToolResult`: 工具执行结果模型
+
+- `src/lurkbot/tools/registry.py`: 工具注册表和策略管理
+  - 工具注册和发现
+  - 基于会话类型的策略检查
+  - 为 AI 模型生成工具 schemas
+
+**测试覆盖**:
+- 10 个基础设施测试全部通过
+- 测试工具注册、策略过滤、schema 生成
+
+#### 2. 内置工具实现 ✅
+
+**BashTool** (`src/lurkbot/tools/builtin/bash.py`):
+- 执行 shell 命令
+- 超时保护（30秒默认）
+- 工作目录支持
+- 只允许 MAIN 会话使用
+- 需要用户审批
+- **测试**: 8个测试全部通过（包括超时测试）
+
+**ReadFileTool** (`src/lurkbot/tools/builtin/file_ops.py`):
+- 读取文件内容
+- 路径遍历防护（Path.resolve() + 相对路径验证）
+- 允许 MAIN 和 DM 会话
+- 不需要审批
+- **测试**: 7个测试全部通过（包括安全测试）
+
+**WriteFileTool** (`src/lurkbot/tools/builtin/file_ops.py`):
+- 写入文件内容
+- 自动创建父目录
+- 路径遍历防护
+- 只允许 MAIN 会话
+- 需要用户审批
+- **测试**: 7个测试全部通过（包括安全测试）
+
+**安全措施**:
+- ✅ 路径遍历攻击防护（所有文件操作）
+- ✅ 命令超时保护（bash工具）
+- ✅ 会话类型策略限制
+- ✅ Unicode 解码错误处理
+
+#### 3. Agent Runtime 集成 ✅
+
+**修改文件**:
+- `src/lurkbot/agents/base.py`:
+  - 导入 `SessionType`
+  - 为 `AgentContext` 添加 `session_type` 字段
+
+- `src/lurkbot/agents/runtime.py`:
+  - `AgentRuntime.__init__`: 初始化 `ToolRegistry`，注册内置工具
+  - `AgentRuntime.get_or_create_session`: 支持 `session_type` 参数
+  - `AgentRuntime.get_agent`: 传递 `tool_registry` 给 Agent
+  - `ClaudeAgent.__init__`: 接收 `tool_registry` 参数
+  - `ClaudeAgent.chat`: 实现工具调用循环
+    - 获取可用工具 schemas
+    - 检测 `tool_use` stop_reason
+    - 执行工具并收集结果
+    - 发送 tool_result 继续对话
+    - 最多迭代10次防止无限循环
+
+**工具调用流程**:
+1. 用户发送消息
+2. Agent 调用 Claude API，传入工具 schemas
+3. Claude 返回 `tool_use` 响应
+4. Agent 从 registry 获取工具
+5. 检查工具策略（session_type）
+6. 执行工具，获取 ToolResult
+7. 将 tool_result 发送回 Claude
+8. Claude 返回最终文本响应
+
+**Context7 使用**:
+- 查询了 `anthropic-sdk-python` 和 `anthropic-cookbook`
+- 学习了正确的工具调用格式和处理流程
+- 参考了官方示例实现工具执行循环
+
+#### 4. 测试结果 ✅
+
+**总测试数**: 41个
+- Config 测试: 3个
+- Protocol 测试: 6个
+- 工具系统测试: 32个（新增22个）
+
+**覆盖范围**:
+- 工具注册和发现
+- 策略过滤和检查
+- Bash 命令执行（成功/失败/超时）
+- 文件读写（成功/失败/安全）
+- 路径遍历防护
+
+### 技术亮点
+
+1. **类型安全**: 全面使用 Python 3.12+ 类型注解
+2. **异步优先**: 所有 I/O 操作使用 async/await
+3. **安全防护**:
+   - Path.resolve() 防止路径遍历
+   - asyncio.wait_for() 防止超时
+   - 会话类型策略限制工具访问
+4. **可扩展性**:
+   - Tool 抽象基类易于扩展
+   - ToolRegistry 支持动态注册
+   - 策略系统灵活可配置
+
+### 下一步计划
+
+- [ ] 创建集成测试（Agent + Tools 端到端）
+- [ ] 通过 Telegram 手动测试工具调用
+- [ ] 实现 EditFileTool（可选）
+- [ ] 更新架构设计文档
+- [ ] Phase 3: Docker 沙箱系统
+
+### 遇到的问题与解决
+
+1. **问题**: 测试时出现 `ModuleNotFoundError: No module named 'lurkbot'`
+   - **解决**: 使用 `uv pip install -e .` 安装可编辑模式
+
+2. **问题**: 不确定 Claude API 工具调用格式
+   - **解决**: 使用 Context7 查询 anthropic-sdk-python 文档
+   - 学习了 `tools` 参数格式、`tool_use` 响应处理、`tool_result` 发送
+
+3. **问题**: 路径遍历攻击防护实现
+   - **解决**: 使用 `Path.resolve()` + `relative_to()` 验证路径在 workspace 内
+
+### 文件变更统计
+
+**新增文件**:
+- `src/lurkbot/tools/base.py` (147 行)
+- `src/lurkbot/tools/registry.py` (106 行)
+- `src/lurkbot/tools/builtin/bash.py` (124 行)
+- `src/lurkbot/tools/builtin/file_ops.py` (229 行)
+- `tests/test_tools.py` (274 行)
+
+**修改文件**:
+- `src/lurkbot/tools/__init__.py` (+14 行)
+- `src/lurkbot/agents/base.py` (+2 行)
+- `src/lurkbot/agents/runtime.py` (+144 行, 大幅重构)
+
+**总代码行数**: ~1,040 行（不含空行和注释）
+
+---
+
 ## 2026-01-28 - 项目初始化
 
 ### 会话概述

@@ -3,126 +3,91 @@
 ## Session Context
 
 **Last Session Date**: 2026-01-28
-**Phase Completed**: Project Initialization
-**Status**: ✅ Foundation Complete
+**Phase Completed**: Phase 2 - Tool System (90% complete)
+**Status**: ✅ Core Tool System Implemented
 
 ## What Was Accomplished
 
-### 1. Project Structure ✅
-- Created complete Python project structure with `uv` package manager
-- Implemented core modules: gateway, agents, channels, config, cli, utils
-- Set up development tooling: Makefile, pyproject.toml, .gitignore
-- All tests passing (9/9)
+### Phase 2: Tool System Implementation ✅
 
-### 2. Core Implementations ✅
+**1. Tool Infrastructure** ✅
+- Created `tools/base.py` with Tool, ToolPolicy, SessionType, ToolResult
+- Created `tools/registry.py` for tool registration and policy enforcement
+- 10 infrastructure tests passing
 
-**Gateway Module** (`src/lurkbot/gateway/`):
-- WebSocket server using FastAPI
-- Protocol definitions (Message types, RPC framework)
-- Connection management
+**2. Built-in Tools** ✅
+- `BashTool`: Execute shell commands with timeout protection (8 tests)
+- `ReadFileTool`: Read files with path traversal protection (7 tests)
+- `WriteFileTool`: Write files with directory creation (7 tests)
+- All security measures implemented
 
-**Agent Module** (`src/lurkbot/agents/`):
-- Base Agent class with abstract methods
-- Claude integration (streaming support)
-- Session management
-- AgentRuntime for session lifecycle
+**3. Agent Integration** ✅
+- Modified `agents/base.py` to add SessionType to AgentContext
+- Modified `agents/runtime.py` to integrate ToolRegistry
+- Implemented tool calling loop in ClaudeAgent.chat()
+- Used Context7 to query Anthropic API documentation
+- All 41 tests passing (32 tool tests + 9 existing tests)
 
-**Channel Module** (`src/lurkbot/channels/`):
-- Base Channel abstraction
-- Telegram adapter (python-telegram-bot)
-
-**Config Module** (`src/lurkbot/config/`):
-- Pydantic Settings-based configuration
-- Environment variable support
-- Nested configuration structure
-
-**CLI Module** (`src/lurkbot/cli/`):
-- Typer-based command-line interface
-- Commands: gateway, channels, config
-- Rich terminal output
-
-### 3. Documentation ✅
-
-**Design Documents** (bilingual):
-- `ARCHITECTURE_DESIGN.md` / `.zh.md` - System architecture
-- `MOLTBOT_ANALYSIS.md` / `.zh.md` - Original project in-depth analysis
-- `WORK_LOG.md` - Development log (Chinese)
-
-**Project Documents**:
-- `README.md` - Project overview (English)
-- `CLAUDE.md` - Project instructions for Claude (English)
-
-## Current State
-
-### Working Features
-- ✅ Configuration loading (env vars + settings)
-- ✅ Gateway WebSocket server
-- ✅ Claude agent (chat + streaming)
-- ✅ Telegram channel adapter
-- ✅ Basic CLI commands
+**4. Testing** ✅
+- Comprehensive unit tests for all tools
+- Integration test script (`tests/integration_test_tools.py`)
+- Path traversal attack prevention verified
+- Timeout protection verified
 
 ### Test Coverage
-- Config tests: 3/3 passing
-- Protocol tests: 6/6 passing
-- Total: 9/9 passing
+- Total tests: 41/41 passing ✅
+- Tool system tests: 32 tests
+- Integration tests: Manual verification ✅
 
 ## Next Phase Priorities
 
-### Phase 2: Tool System Implementation (High Priority)
+### Phase 2 Completion (10% remaining)
 
-**Objective**: Implement the tool execution framework to enable AI agents to perform actions.
+**Objective**: Complete end-to-end testing with real Claude API
 
 #### Tasks:
-1. **Tool Registry** (`src/lurkbot/tools/registry.py`)
-   - Tool registration and discovery
-   - Tool policy enforcement
-   - Execution context management
+1. **E2E Test with Claude API** (High Priority)
+   - Create test script that calls AgentRuntime with real API
+   - Test tool calling with actual Claude responses
+   - Verify tool execution loop works correctly
+   - **Requires**: ANTHROPIC_API_KEY environment variable
 
-2. **Built-in Tools**
-   - `bash.py` - Shell command execution
-   - `read.py` / `write.py` / `edit.py` - File operations
-   - `browser.py` - Browser automation (Playwright)
+2. **Documentation Updates** (Medium Priority)
+   - Update `docs/design/ARCHITECTURE_DESIGN.md` with tool system architecture
+   - Add tool system section with architecture diagram
+   - Document tool calling flow
 
-3. **Sandbox System** (`src/lurkbot/tools/sandbox.py`)
-   - Docker container management
-   - Workspace mounting
-   - Resource limits
-   - Security isolation
+### Phase 3: Sandbox & Advanced Tools (Next Priority)
 
-4. **Agent Tool Integration**
-   - Update Agent base class to support tool calls
-   - Implement tool call parsing from Claude responses
-   - Tool execution loop
+**Objective**: Docker container isolation for untrusted sessions and browser automation
+
+#### Tasks:
+1. **Docker Sandbox** (`src/lurkbot/sandbox/docker.py`)
+   - Docker container management for GROUP/TOPIC sessions
+   - Workspace mounting (read-only)
+   - Resource limits (memory, CPU, timeout)
+   - Tool execution in isolated environment
+
+2. **Browser Tool** (`src/lurkbot/tools/builtin/browser.py`)
+   - Playwright integration
+   - Navigate, screenshot, extract text
+   - Safe browsing in sandbox
+
+3. **Tool Approval Workflow** (`src/lurkbot/tools/approval.py`)
+   - Store pending tool approvals
+   - Notify user via channel
+   - Handle approval/denial responses
 
 #### Reference Files:
 - Original moltbot: `github.com/moltbot/src/agents/tools/`
-- Design doc: `docs/design/MOLTBOT_ANALYSIS.md` (Section: Agent Module - Tool System)
-
-### Phase 3: Additional Channels (Medium Priority)
-
-**Objective**: Expand channel support beyond Telegram.
-
-#### Tasks:
-1. **Discord Channel** (`src/lurkbot/channels/discord.py`)
-   - discord.py integration
-   - Mention gating
-   - Guild/channel permissions
-
-2. **Slack Channel** (`src/lurkbot/channels/slack.py`)
-   - slack-sdk integration
-   - Socket Mode support
-   - Thread handling
-
-#### Reference Files:
-- Original moltbot: `github.com/moltbot/src/discord/`, `src/slack/`
-- Design doc: `docs/design/MOLTBOT_ANALYSIS.md` (Section: Channel Module)
+- Design doc: `docs/design/MOLTBOT_ANALYSIS.md` (Section: Tool System)
 
 ### Phase 4: Session Persistence (Medium Priority)
 
-**Objective**: Persist conversation history and session state.
+**Objective**: Persist conversation history and session state
 
 #### Tasks:
-1. **Session Store** (`src/lurkbot/agents/session_store.py`)
+1. **Session Store** (`src/lurkbot/storage/jsonl.py`)
    - JSONL format storage
    - Session loading/saving
    - History management
