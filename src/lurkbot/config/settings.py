@@ -60,6 +60,18 @@ class StorageSettings(BaseSettings):
     max_messages: int = 1000  # Max messages to keep per session
 
 
+class SkillSettings(BaseSettings):
+    """Skills system settings."""
+
+    enabled: bool = True
+    # Allowlist for bundled skills (None = all, empty list = none)
+    allow_bundled: list[str] | None = None
+    # Additional directories to load skills from
+    extra_dirs: list[Path] = Field(default_factory=list)
+    # Per-skill configuration (skill_name -> config dict)
+    entries: dict[str, dict] = Field(default_factory=dict)
+
+
 class Settings(BaseSettings):
     """Main application settings."""
 
@@ -88,6 +100,9 @@ class Settings(BaseSettings):
     # Storage
     storage: StorageSettings = Field(default_factory=StorageSettings)
 
+    # Skills
+    skills: SkillSettings = Field(default_factory=SkillSettings)
+
     # AI Provider API Keys
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
@@ -96,6 +111,11 @@ class Settings(BaseSettings):
     def sessions_dir(self) -> Path:
         """Get the sessions directory path."""
         return self.data_dir / "sessions"
+
+    @property
+    def skills_dir(self) -> Path:
+        """Get the managed skills directory path."""
+        return self.data_dir / "config" / "skills"
 
 
 @lru_cache
