@@ -3,7 +3,7 @@
 ## Session Context
 
 **Last Session Date**: 2026-01-30
-**Current Status**: Phase 20 完成，Phase 5-20 全部完成 (除 Phase 21-23)
+**Current Status**: Phase 21 完成，Phase 5-21 全部完成 (除 Phase 22-23)
 **Design Document**: `docs/design/LURKBOT_COMPLETE_DESIGN.md` (v2.3)
 **Architecture Document**: `docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md` (v3.0, 32 章节)
 
@@ -11,66 +11,61 @@
 
 ### 今日完成的工作
 
-1. **Phase 20 TUI 终端界面系统** - 全部完成：
+1. **Phase 21 TTS 语音合成系统** - 全部完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
-   | 类型定义 | `tui/types.py` | ✅ 完成 |
-   | 流式组装器 | `tui/stream_assembler.py` | ✅ 完成 |
-   | 格式化器 | `tui/formatters.py` | ✅ 完成 |
-   | 快捷键绑定 | `tui/keybindings.py` | ✅ 完成 |
-   | Gateway 通信 | `tui/gateway_chat.py` | ✅ 完成 |
-   | 命令处理器 | `tui/commands.py` | ✅ 完成 |
-   | 事件处理器 | `tui/events.py` | ✅ 完成 |
-   | 聊天日志组件 | `tui/components/chat_log.py` | ✅ 完成 |
-   | Thinking 组件 | `tui/components/thinking.py` | ✅ 完成 |
-   | 输入框组件 | `tui/components/input_box.py` | ✅ 完成 |
-   | 主应用 | `tui/app.py` | ✅ 完成 |
-   | 模块导出 | `tui/__init__.py` | ✅ 完成 |
-   | 单元测试 | `tests/main/test_phase20_tui.py` | ✅ 通过 (85 tests) |
+   | 类型定义 | `tts/types.py` | ✅ 完成 |
+   | 用户偏好系统 | `tts/prefs.py` | ✅ 完成 |
+   | Directive 解析器 | `tts/directive_parser.py` | ✅ 完成 |
+   | 文本摘要器 | `tts/summarizer.py` | ✅ 完成 |
+   | Provider 基类 | `tts/providers/base.py` | ✅ 完成 |
+   | OpenAI Provider | `tts/providers/openai.py` | ✅ 完成 |
+   | ElevenLabs Provider | `tts/providers/elevenlabs.py` | ✅ 完成 |
+   | Edge Provider | `tts/providers/edge.py` | ✅ 完成 |
+   | TTS 引擎 | `tts/engine.py` | ✅ 完成 |
+   | TTS 工具 | `tools/tts_tool.py` | ✅ 更新 |
+   | 模块导出 | `tts/__init__.py` | ✅ 完成 |
+   | 单元测试 | `tests/main/test_phase21_tts.py` | ✅ 通过 (57 tests) |
 
-## TUI 终端界面系统功能 (Phase 20)
+## TTS 语音合成系统功能 (Phase 21)
 
 ### 核心功能
-- **交互式聊天**: 实时聊天界面，支持流式响应
-- **命令系统**: /help, /status, /agent, /model, /think, /sessions 等
-- **快捷键**: 完整的键盘绑定支持
-- **Gateway 通信**: WebSocket 连接 Gateway 服务器
-- **流式响应**: 分离 thinking/content 块的流式组装
+- **多 Provider 支持**: OpenAI TTS, ElevenLabs, Edge TTS (免费)
+- **Directive 解析**: `[[tts:provider=openai voice=nova]]` 内联指令
+- **文本摘要**: 长文本自动截断/分割
+- **用户偏好**: 持久化 TTS 设置
+- **Provider 回退**: 自动切换到可用 provider
 
-### 命令系统
-| 命令 | 功能 |
-|------|------|
-| `/help` | 显示帮助 |
-| `/status` | 网关状态 |
-| `/agent [id]` | 切换 Agent |
-| `/model [ref]` | 设置模型 |
-| `/think <level>` | 设置 thinking 级别 (off/low/medium/high) |
-| `/sessions` | 列出会话 |
-| `/new` | 重置会话 |
-| `/abort` | 中止运行 |
-| `/clear` | 清除显示 |
-| `/tools` | 切换工具详情 |
-| `/exit` | 退出 TUI |
-| `!command` | 执行 bash 命令 |
+### Provider 配置
+| Provider | 模型 | 特点 |
+|----------|------|------|
+| OpenAI | gpt-4o-mini-tts, tts-1, tts-1-hd | 高质量，需 API Key |
+| ElevenLabs | eleven_multilingual_v2 | 多语言，需 API Key |
+| Edge | 多种声音 | 免费，无需 API Key |
+
+### Directive 语法
+```
+[[tts:provider=openai voice=nova]]
+[[tts:text]]自定义 TTS 文本[[/tts:text]]
+[[tts:provider=elevenlabs voice_id=xxx model_id=xxx]]
+```
 
 ### 组件结构
 ```
-src/lurkbot/tui/
+src/lurkbot/tts/
 ├── __init__.py              # 模块导出
-├── types.py                 # 类型定义 (TuiState, ActivityStatus, etc.)
-├── stream_assembler.py      # 流式响应组装器
-├── formatters.py            # Rich 格式化器
-├── keybindings.py           # 快捷键定义
-├── gateway_chat.py          # Gateway WebSocket 通信
-├── commands.py              # 命令处理器
-├── events.py                # 事件处理器
-├── app.py                   # TUI 主应用
-└── components/
+├── types.py                 # 类型定义 (TtsProvider, TtsConfig, etc.)
+├── prefs.py                 # 用户偏好管理
+├── directive_parser.py      # [[tts:...]] 指令解析器
+├── summarizer.py            # 文本摘要器
+├── engine.py                # TTS 引擎
+└── providers/
     ├── __init__.py
-    ├── chat_log.py          # 聊天日志组件
-    ├── thinking.py          # Thinking 指示器
-    └── input_box.py         # 输入框组件
+    ├── base.py              # Provider 基类
+    ├── openai.py            # OpenAI TTS Provider
+    ├── elevenlabs.py        # ElevenLabs TTS Provider
+    └── edge.py              # Edge TTS Provider (免费)
 ```
 
 ## Implementation Plan (23 Phases)
@@ -97,7 +92,7 @@ src/lurkbot/tui/
 | **Phase 18** | ACP 协议系统 | ✅ 完成 |
 | **Phase 19** | Browser 浏览器自动化 | ✅ 完成 |
 | **Phase 20** | TUI 终端界面 | ✅ 完成 |
-| **Phase 21** | TTS 语音合成 | ⏳ 待开始 |
+| **Phase 21** | TTS 语音合成 | ✅ 完成 |
 | **Phase 22** | Wizard 配置向导 | ⏳ 待开始 |
 | **Phase 23** | Infra 基础设施 | ⏳ 待开始 |
 
@@ -107,33 +102,32 @@ src/lurkbot/tui/
 # 1. 运行测试确认当前状态
 python -m pytest tests/main/ -xvs
 
-# 2. 验证 Phase 20 TUI 模块
-python -c "from lurkbot.tui import TuiApp, run_tui, CommandHandler; print('TUI OK')"
+# 2. 验证 Phase 21 TTS 模块
+python -c "from lurkbot.tts import TtsEngine, TtsSummarizer, parse_tts_directives; print('TTS OK')"
 
 # 3. 选择下一步方向：
-# 方案 A: 开始 Phase 21 - TTS 语音合成 (推荐)
-# 方案 B: 开始 Phase 22 - Wizard 配置向导
-# 方案 C: 开始 Phase 23 - Infra 基础设施
+# 方案 A: 开始 Phase 22 - Wizard 配置向导 (推荐)
+# 方案 B: 开始 Phase 23 - Infra 基础设施
 ```
 
-## Phase 20 完成的目录结构
+## Phase 21 完成的目录结构
 ```
 src/lurkbot/
-├── tui/                         # Phase 20 [新增]
+├── tts/                         # Phase 21 [新增]
 │   ├── __init__.py             # 模块导出
-│   ├── types.py                # TUI 类型定义
-│   ├── stream_assembler.py     # 流式响应组装器
-│   ├── formatters.py           # Rich 格式化器
-│   ├── keybindings.py          # 快捷键定义
-│   ├── gateway_chat.py         # Gateway WebSocket 通信
-│   ├── commands.py             # 命令处理器
-│   ├── events.py               # 事件处理器
-│   ├── app.py                  # TUI 主应用
-│   └── components/
+│   ├── types.py                # TTS 类型定义
+│   ├── prefs.py                # 用户偏好管理
+│   ├── directive_parser.py     # [[tts:...]] 指令解析器
+│   ├── summarizer.py           # 文本摘要器
+│   ├── engine.py               # TTS 引擎
+│   └── providers/
 │       ├── __init__.py
-│       ├── chat_log.py         # 聊天日志组件
-│       ├── thinking.py         # Thinking 指示器
-│       └── input_box.py        # 输入框组件
+│       ├── base.py             # Provider 基类
+│       ├── openai.py           # OpenAI TTS Provider
+│       ├── elevenlabs.py       # ElevenLabs TTS Provider
+│       └── edge.py             # Edge TTS Provider
+├── tui/                         # Phase 20
+│   └── ...
 ├── browser/                     # Phase 19
 │   └── ...
 ├── acp/                         # Phase 18
@@ -177,7 +171,8 @@ tests/main/
 ├── test_phase17_security.py         # Phase 17 测试 (27 tests)
 ├── test_phase18_acp.py              # Phase 18 测试 (41 tests)
 ├── test_phase19_browser.py          # Phase 19 测试 (49 tests)
-└── test_phase20_tui.py              # Phase 20 测试 (85 tests) [新增]
+├── test_phase20_tui.py              # Phase 20 测试 (85 tests)
+└── test_phase21_tts.py              # Phase 21 测试 (57 tests) [新增]
 
 tests/
 └── test_media_understanding.py      # Phase 14 测试 (12 tests)
@@ -198,47 +193,37 @@ tests/
 - **CLI**: Typer
 - **日志**: Loguru
 - **TUI**: Rich (用于格式化输出)
+- **TTS**: edge-tts (免费), httpx (API 调用)
 
 ### 下一阶段建议优先级
 | Phase | 模块 | 优先级 | 理由 |
 |-------|------|--------|------|
-| Phase 21 | TTS 语音合成 | P1 | 多 Provider 文本转语音 |
-| Phase 22 | Wizard 配置向导 | P2 | 交互式配置系统 |
-| Phase 23 | Infra 基础设施 | P3 | 网络发现、SSH 隧道等 |
+| Phase 22 | Wizard 配置向导 | P1 | 交互式配置系统 |
+| Phase 23 | Infra 基础设施 | P2 | 网络发现、SSH 隧道等 |
 
-### Phase 21 TTS 语音合成设计预览
+### Phase 22 Wizard 配置向导设计预览
 
 模块结构:
 ```
-src/lurkbot/tts/
+src/lurkbot/wizard/
 ├── __init__.py
-├── engine.py                 # TTS 引擎
-├── directive_parser.py       # [[tts:...]] 解析
-├── summarizer.py             # 长文本摘要
-└── providers/
-    ├── __init__.py
-    ├── openai.py             # OpenAI TTS
-    ├── elevenlabs.py         # ElevenLabs TTS
-    └── edge.py               # 免费 Edge TTS
-```
-
-配置结构:
-```python
-@dataclass
-class TTSConfig:
-    auto: Literal["off", "always", "inbound", "tagged"] = "off"
-    mode: Literal["delta", "final"] = "final"
-    provider: Literal["openai", "elevenlabs", "edge"] = "openai"
-    summary_model: str | None = None
+├── types.py                  # Wizard 类型定义
+├── prompts.py                # 交互式提示
+├── validators.py             # 输入验证
+├── steps/
+│   ├── __init__.py
+│   ├── provider.py           # Provider 配置步骤
+│   ├── channel.py            # Channel 配置步骤
+│   └── tts.py                # TTS 配置步骤
+└── wizard.py                 # 主向导入口
 ```
 
 ---
 
 **Document Updated**: 2026-01-30
-**Progress**: 20/23 Phases 完成 (87.0%)
-**Total Tests**: 464 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26, Phase 14: 12, Phase 15: 24, Phase 16: 22, Phase 17: 27, Phase 18: 41, Phase 19: 49, Phase 20: 85), 2 skipped
+**Progress**: 21/23 Phases 完成 (91.3%)
+**Total Tests**: 521 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26, Phase 14: 12, Phase 15: 24, Phase 16: 22, Phase 17: 27, Phase 18: 41, Phase 19: 49, Phase 20: 85, Phase 21: 57), 2 skipped
 **Next Action**:
-1. 开始 Phase 21 - TTS 语音合成 (P1 优先级)
-2. 或开始 Phase 22 - Wizard 配置向导
-3. 或开始 Phase 23 - Infra 基础设施
-4. 阶段完成后与 MoltBot 对比验证
+1. 开始 Phase 22 - Wizard 配置向导 (P1 优先级)
+2. 或开始 Phase 23 - Infra 基础设施
+3. 阶段完成后与 MoltBot 对比验证

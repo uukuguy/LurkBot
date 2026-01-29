@@ -10,7 +10,7 @@ P0 - Core tools (✅ Implemented):
 - edit: Edit files with search/replace
 - apply_patch: Apply unified diff patches
 
-P1 - Session tools (⏳ Pending - depends on Phase 6):
+P1 - Session tools (✅ Implemented):
 - sessions_spawn: Create new agent sessions
 - sessions_send: Send messages to sessions
 - sessions_list: List agent sessions
@@ -29,18 +29,20 @@ P1 - Web tools (✅ Implemented):
 P1 - Message tool (✅ Implemented):
 - message: Send messages to channels
 
-P2 - Media tools (⏳ Pending):
-- browser: Browser automation
-- image: Image understanding
-- canvas: Canvas drawing
+P1 - Automation tools (✅ Implemented):
+- cron: Scheduled tasks management
+- gateway: Gateway API communication
 
-P2 - System tools (⏳ Pending):
-- nodes: Node management
-- gateway: Gateway communication
+P2 - Media tools (✅ Implemented):
+- image: Image understanding and generation
 
-P2 - Other tools (⏳ Pending):
-- cron: Scheduled tasks
-- tts: Text-to-speech
+P2 - System tools (✅ Implemented):
+- nodes: Node discovery and management
+- tts: Text-to-speech synthesis
+
+P2 - Pending tools:
+- browser: Browser automation (depends on Playwright)
+- canvas: Canvas drawing (depends on A2UI)
 """
 
 from lurkbot.tools.builtin.common import (
@@ -157,6 +159,90 @@ from lurkbot.tools.builtin.message_tool import (
     # Channel classes
     CLIChannel,
 )
+from lurkbot.tools.builtin.cron_tool import (
+    # Types
+    CronJob,
+    CronJobState,
+    CronParams,
+    CronRunResult,
+    CronSchedule,
+    CronServiceStatus,
+    # Functions
+    cron_tool,
+    create_cron_tool,
+    get_cron_store,
+)
+from lurkbot.tools.builtin.gateway_tool import (
+    # Types
+    GatewayConnection,
+    GatewayError,
+    GatewayParams,
+    GatewayRequest,
+    GatewayResponse,
+    # Functions
+    gateway_tool,
+    create_gateway_tool,
+    call_gateway,
+    configure_gateway,
+    get_gateway,
+)
+from lurkbot.tools.builtin.image_tool import (
+    # Types
+    ImageParams,
+    ImageToolConfig,
+    # Functions
+    image_tool,
+    create_image_tool,
+    configure_image_tool,
+    get_image_config,
+)
+from lurkbot.tools.builtin.nodes_tool import (
+    # Types
+    NodeExecResult,
+    NodeInfo,
+    NodeRegistry,
+    NodesParams,
+    # Functions
+    nodes_tool,
+    create_nodes_tool,
+    get_node_registry,
+)
+from lurkbot.tools.builtin.tts_tool import (
+    # Types
+    TTSConfig,
+    TTSDirective,
+    TTSParams,
+    TTSResult,
+    TTSVoice,
+    # Functions
+    tts_tool,
+    create_tts_tool,
+    configure_tts,
+    get_tts_config,
+)
+from lurkbot.tools.builtin.session_tools import (
+    # Types
+    SessionsSpawnParams,
+    SessionsSendParams,
+    SessionsListParams,
+    SessionsHistoryParams,
+    SessionStatusParams,
+    AgentsListParams,
+    # Functions
+    sessions_spawn_tool,
+    sessions_send_tool,
+    sessions_list_tool,
+    sessions_history_tool,
+    session_status_tool,
+    agents_list_tool,
+    # Factory functions
+    create_sessions_spawn_tool,
+    create_sessions_send_tool,
+    create_sessions_list_tool,
+    create_sessions_history_tool,
+    create_session_status_tool,
+    create_agents_list_tool,
+)
 
 __all__ = [
     # Common types
@@ -253,4 +339,23 @@ __all__ = [
     "get_channel",
     "create_message_tool",
     "CLIChannel",
+    # Session tools
+    "SessionsSpawnParams",
+    "SessionsSendParams",
+    "SessionsListParams",
+    "SessionsHistoryParams",
+    "SessionStatusParams",
+    "AgentsListParams",
+    "sessions_spawn_tool",
+    "sessions_send_tool",
+    "sessions_list_tool",
+    "sessions_history_tool",
+    "session_status_tool",
+    "agents_list_tool",
+    "create_sessions_spawn_tool",
+    "create_sessions_send_tool",
+    "create_sessions_list_tool",
+    "create_sessions_history_tool",
+    "create_session_status_tool",
+    "create_agents_list_tool",
 ]

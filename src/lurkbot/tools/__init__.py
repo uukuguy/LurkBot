@@ -2,6 +2,7 @@
 
 This module contains the tool infrastructure:
 - policy.py: Nine-layer tool policy system
+- tts_tool.py: TTS synthesis tool
 - registry.py: Tool registry [TODO]
 - builtin/: 22 native tools [TODO]
 """
