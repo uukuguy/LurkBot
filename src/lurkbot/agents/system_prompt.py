@@ -216,12 +216,41 @@ def _build_skills_section(
     is_minimal: bool,
     read_tool_name: str,
 ) -> list[str]:
-    """Build the Skills section (section 5)."""
+    """Build the Skills section (section 5).
+
+    如果 skills_prompt 为空，尝试自动从 SkillManager 加载技能列表。
+    """
     if is_minimal:
         return []
+
+    # 尝试使用提供的 skills_prompt
     trimmed = skills_prompt.strip() if skills_prompt else ""
+
+    # 如果没有提供 skills_prompt，尝试自动生成
+    if not trimmed:
+        try:
+            from lurkbot.skills import get_skill_manager
+
+            manager = get_skill_manager()
+            model_invocable_skills = manager.registry.find_model_invocable()
+
+            if model_invocable_skills:
+                # 生成技能列表
+                skill_lines = ["<available_skills>"]
+                for skill in model_invocable_skills:
+                    location = str(skill.file_path)
+                    description = skill.frontmatter.description
+                    skill_lines.append(f"- {skill.key}: {description}")
+                    skill_lines.append(f"  <location>{location}</location>")
+                skill_lines.append("</available_skills>")
+                trimmed = "\n".join(skill_lines)
+        except Exception:
+            # 如果加载失败，跳过技能章节
+            return []
+
     if not trimmed:
         return []
+
     return [
         "## Skills (mandatory)",
         "Before replying: scan <available_skills> <description> entries.",
