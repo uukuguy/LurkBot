@@ -3,7 +3,7 @@
 ## Session Context
 
 **Last Session Date**: 2026-01-30
-**Current Status**: Phase 21 完成，Phase 5-21 全部完成 (除 Phase 22-23)
+**Current Status**: Phase 22 完成，Phase 5-22 全部完成 (除 Phase 23)
 **Design Document**: `docs/design/LURKBOT_COMPLETE_DESIGN.md` (v2.3)
 **Architecture Document**: `docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md` (v3.0, 32 章节)
 
@@ -11,61 +11,54 @@
 
 ### 今日完成的工作
 
-1. **Phase 21 TTS 语音合成系统** - 全部完成：
+1. **Phase 22 Wizard 配置向导** - 全部完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
-   | 类型定义 | `tts/types.py` | ✅ 完成 |
-   | 用户偏好系统 | `tts/prefs.py` | ✅ 完成 |
-   | Directive 解析器 | `tts/directive_parser.py` | ✅ 完成 |
-   | 文本摘要器 | `tts/summarizer.py` | ✅ 完成 |
-   | Provider 基类 | `tts/providers/base.py` | ✅ 完成 |
-   | OpenAI Provider | `tts/providers/openai.py` | ✅ 完成 |
-   | ElevenLabs Provider | `tts/providers/elevenlabs.py` | ✅ 完成 |
-   | Edge Provider | `tts/providers/edge.py` | ✅ 完成 |
-   | TTS 引擎 | `tts/engine.py` | ✅ 完成 |
-   | TTS 工具 | `tools/tts_tool.py` | ✅ 更新 |
-   | 模块导出 | `tts/__init__.py` | ✅ 完成 |
-   | 单元测试 | `tests/main/test_phase21_tts.py` | ✅ 通过 (57 tests) |
+   | 类型定义 | `wizard/types.py` | ✅ 完成 |
+   | 提示器接口 | `wizard/prompts.py` | ✅ 完成 |
+   | 会话管理 | `wizard/session.py` | ✅ 完成 |
+   | Gateway 配置流程 | `wizard/flows/gateway.py` | ✅ 完成 |
+   | Onboarding 流程 | `wizard/flows/onboarding.py` | ✅ 完成 |
+   | Rich CLI 提示器 | `wizard/rich_prompter.py` | ✅ 完成 |
+   | CLI 命令集成 | `cli/main.py` | ✅ 完成 |
+   | 单元测试 | `tests/unit/wizard/test_wizard.py` | ✅ 通过 (25 tests) |
 
-## TTS 语音合成系统功能 (Phase 21)
+## Wizard 配置向导功能 (Phase 22)
 
 ### 核心功能
-- **多 Provider 支持**: OpenAI TTS, ElevenLabs, Edge TTS (免费)
-- **Directive 解析**: `[[tts:provider=openai voice=nova]]` 内联指令
-- **文本摘要**: 长文本自动截断/分割
-- **用户偏好**: 持久化 TTS 设置
-- **Provider 回退**: 自动切换到可用 provider
+- **交互式配置**: 引导用户完成 LurkBot 初始设置
+- **多种流程**: quickstart (快速) 和 advanced (高级) 模式
+- **Gateway 配置**: 本地/远程网关设置
+- **Session 管理**: 会话状态跟踪和错误处理
+- **Rich CLI 界面**: 美观的终端交互体验
 
-### Provider 配置
-| Provider | 模型 | 特点 |
-|----------|------|------|
-| OpenAI | gpt-4o-mini-tts, tts-1, tts-1-hd | 高质量，需 API Key |
-| ElevenLabs | eleven_multilingual_v2 | 多语言，需 API Key |
-| Edge | 多种声音 | 免费，无需 API Key |
+### CLI 命令
+```bash
+# 交互式配置向导
+lurkbot wizard                    # 完整交互式设置
+lurkbot wizard --flow quickstart  # 快速设置
+lurkbot wizard --mode local       # 本地网关设置
+lurkbot wizard --mode remote      # 远程网关设置
 
-### Directive 语法
-```
-[[tts:provider=openai voice=nova]]
-[[tts:text]]自定义 TTS 文本[[/tts:text]]
-[[tts:provider=elevenlabs voice_id=xxx model_id=xxx]]
+# 重置配置
+lurkbot reset                     # 交互式重置
+lurkbot reset --scope full        # 完全重置
+lurkbot reset --scope config -f   # 强制重置配置
 ```
 
 ### 组件结构
 ```
-src/lurkbot/tts/
+src/lurkbot/wizard/
 ├── __init__.py              # 模块导出
-├── types.py                 # 类型定义 (TtsProvider, TtsConfig, etc.)
-├── prefs.py                 # 用户偏好管理
-├── directive_parser.py      # [[tts:...]] 指令解析器
-├── summarizer.py            # 文本摘要器
-├── engine.py                # TTS 引擎
-└── providers/
+├── types.py                 # 类型定义 (SetupMode, SetupFlow, WizardStep, etc.)
+├── prompts.py               # 提示器接口 (Prompter 协议)
+├── session.py               # 会话管理 (WizardSession, Deferred)
+├── rich_prompter.py         # Rich CLI 提示器实现
+└── flows/
     ├── __init__.py
-    ├── base.py              # Provider 基类
-    ├── openai.py            # OpenAI TTS Provider
-    ├── elevenlabs.py        # ElevenLabs TTS Provider
-    └── edge.py              # Edge TTS Provider (免费)
+    ├── gateway.py           # Gateway 配置流程
+    └── onboarding.py        # Onboarding 主流程
 ```
 
 ## Implementation Plan (23 Phases)
@@ -93,7 +86,7 @@ src/lurkbot/tts/
 | **Phase 19** | Browser 浏览器自动化 | ✅ 完成 |
 | **Phase 20** | TUI 终端界面 | ✅ 完成 |
 | **Phase 21** | TTS 语音合成 | ✅ 完成 |
-| **Phase 22** | Wizard 配置向导 | ⏳ 待开始 |
+| **Phase 22** | Wizard 配置向导 | ✅ 完成 |
 | **Phase 23** | Infra 基础设施 | ⏳ 待开始 |
 
 ## Quick Start for Next Session
@@ -102,30 +95,30 @@ src/lurkbot/tts/
 # 1. 运行测试确认当前状态
 python -m pytest tests/main/ -xvs
 
-# 2. 验证 Phase 21 TTS 模块
-python -c "from lurkbot.tts import TtsEngine, TtsSummarizer, parse_tts_directives; print('TTS OK')"
+# 2. 验证 Phase 22 Wizard 模块
+python -m lurkbot.cli.main wizard --help
 
-# 3. 选择下一步方向：
-# 方案 A: 开始 Phase 22 - Wizard 配置向导 (推荐)
-# 方案 B: 开始 Phase 23 - Infra 基础设施
+# 3. 验证所有测试通过
+python -m pytest tests/unit/wizard/ -v
+
+# 4. 开始 Phase 23 - Infra 基础设施
 ```
 
-## Phase 21 完成的目录结构
+## Phase 22 完成的目录结构
 ```
 src/lurkbot/
-├── tts/                         # Phase 21 [新增]
+├── wizard/                      # Phase 22 [新增]
 │   ├── __init__.py             # 模块导出
-│   ├── types.py                # TTS 类型定义
-│   ├── prefs.py                # 用户偏好管理
-│   ├── directive_parser.py     # [[tts:...]] 指令解析器
-│   ├── summarizer.py           # 文本摘要器
-│   ├── engine.py               # TTS 引擎
-│   └── providers/
+│   ├── types.py                # Wizard 类型定义
+│   ├── prompts.py              # 提示器接口
+│   ├── session.py              # 会话管理
+│   ├── rich_prompter.py        # Rich CLI 提示器
+│   └── flows/
 │       ├── __init__.py
-│       ├── base.py             # Provider 基类
-│       ├── openai.py           # OpenAI TTS Provider
-│       ├── elevenlabs.py       # ElevenLabs TTS Provider
-│       └── edge.py             # Edge TTS Provider
+│       ├── gateway.py          # Gateway 配置流程
+│       └── onboarding.py       # Onboarding 流程
+├── tts/                         # Phase 21
+│   └── ...
 ├── tui/                         # Phase 20
 │   └── ...
 ├── browser/                     # Phase 19
@@ -172,7 +165,10 @@ tests/main/
 ├── test_phase18_acp.py              # Phase 18 测试 (41 tests)
 ├── test_phase19_browser.py          # Phase 19 测试 (49 tests)
 ├── test_phase20_tui.py              # Phase 20 测试 (85 tests)
-└── test_phase21_tts.py              # Phase 21 测试 (57 tests) [新增]
+└── test_phase21_tts.py              # Phase 21 测试 (57 tests)
+
+tests/unit/wizard/
+└── test_wizard.py                   # Phase 22 测试 (25 tests) [新增]
 
 tests/
 └── test_media_understanding.py      # Phase 14 测试 (12 tests)
@@ -198,32 +194,33 @@ tests/
 ### 下一阶段建议优先级
 | Phase | 模块 | 优先级 | 理由 |
 |-------|------|--------|------|
-| Phase 22 | Wizard 配置向导 | P1 | 交互式配置系统 |
-| Phase 23 | Infra 基础设施 | P2 | 网络发现、SSH 隧道等 |
+| Phase 23 | Infra 基础设施 | P1 | 最后一个阶段，网络发现、SSH 隧道等 |
 
-### Phase 22 Wizard 配置向导设计预览
+### Phase 23 Infra 基础设施设计预览
 
 模块结构:
 ```
-src/lurkbot/wizard/
+src/lurkbot/infra/
 ├── __init__.py
-├── types.py                  # Wizard 类型定义
-├── prompts.py                # 交互式提示
-├── validators.py             # 输入验证
-├── steps/
-│   ├── __init__.py
-│   ├── provider.py           # Provider 配置步骤
-│   ├── channel.py            # Channel 配置步骤
-│   └── tts.py                # TTS 配置步骤
-└── wizard.py                 # 主向导入口
+├── types.py                  # Infra 类型定义
+├── discovery.py              # 网络发现服务
+├── tunnel.py                 # SSH 隧道管理
+├── health.py                 # 健康检查
+└── metrics.py                # 指标收集
 ```
+
+主要功能:
+- **网络发现**: mDNS/Bonjour 服务发现
+- **SSH 隧道**: 远程端口转发
+- **健康检查**: 服务状态监控
+- **指标收集**: Prometheus 格式指标
 
 ---
 
 **Document Updated**: 2026-01-30
-**Progress**: 21/23 Phases 完成 (91.3%)
-**Total Tests**: 521 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26, Phase 14: 12, Phase 15: 24, Phase 16: 22, Phase 17: 27, Phase 18: 41, Phase 19: 49, Phase 20: 85, Phase 21: 57), 2 skipped
+**Progress**: 22/23 Phases 完成 (95.7%)
+**Total Tests**: 546 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26, Phase 14: 12, Phase 15: 24, Phase 16: 22, Phase 17: 27, Phase 18: 41, Phase 19: 49, Phase 20: 85, Phase 21: 57, Phase 22: 25), 2 skipped
 **Next Action**:
-1. 开始 Phase 22 - Wizard 配置向导 (P1 优先级)
-2. 或开始 Phase 23 - Infra 基础设施
-3. 阶段完成后与 MoltBot 对比验证
+1. 开始 Phase 23 - Infra 基础设施 (最后一个阶段)
+2. 阶段完成后与 MoltBot 对比验证
+3. 完成所有 23 个阶段后进行全面集成测试
