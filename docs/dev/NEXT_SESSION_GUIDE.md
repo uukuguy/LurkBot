@@ -4,15 +4,16 @@
 
 **Last Session Date**: 2026-01-29
 **Current Status**: 架构文档更新完成，Phase 5 部分完成
-**Design Document**: `docs/design/LURKBOT_COMPLETE_DESIGN.md` (v2.2)
-**Architecture Document**: `docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md` (已添加 7 个新章节)
+**Design Document**: `docs/design/LURKBOT_COMPLETE_DESIGN.md` (v2.3)
+**Architecture Document**: `docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md` (v3.0, 32 章节)
 
 ## What Was Accomplished
 
 ### 今日完成的工作
 
-1. **MoltBot 架构文档大幅更新** - 发现并记录了 7 个重要遗漏模块：
+1. **MoltBot 架构文档全面更新** - 发现并记录了全部遗漏模块：
 
+   **第一轮发现（7 个模块）**:
    | 章节 | 模块 | 代码量 |
    |------|------|--------|
    | 二十 | Auto-Reply 自动回复系统 | ~23K LOC |
@@ -23,15 +24,25 @@
    | 二十五 | Hooks 扩展系统 | ~30 文件 |
    | 二十六 | Security 安全审计系统 | ~11 文件 |
 
-2. **LurkBot 设计文档更新 (v2.2)**：
-   - 新增 Phase 12-17 实施计划
-   - 总实施周期从 13 周扩展到 18 周
-   - 功能检查清单从 27 项扩展到 37 项
-   - 关键文件清单新增 6 个模块目录
+   **第二轮发现（6 个模块）**:
+   | 章节 | 模块 | 代码量 |
+   |------|------|--------|
+   | 二十七 | ACP 协议系统 | ~13 文件 |
+   | 二十八 | Browser 浏览器自动化 | ~81 文件 |
+   | 二十九 | TUI 终端界面 | ~37 文件 |
+   | 三十 | TTS 语音合成 | ~2 文件 |
+   | 三十一 | Wizard 配置向导 | ~9 文件 |
+   | 三十二 | Infra 基础设施（8 子系统） | ~182 文件 |
 
-3. **文档覆盖率提升**: 从 ~30% 提升到 ~85%
+2. **LurkBot 设计文档更新 (v2.3)**：
+   - 新增 Phase 18-23 实施计划
+   - 总实施周期从 18 周扩展到 24 周
+   - 功能检查清单从 37 项扩展到 50 项
+   - 关键文件清单新增 12 个模块目录
 
-## Implementation Plan (17 Phases)
+3. **文档覆盖率提升**: 从 ~85% 提升到 ~95%+
+
+## Implementation Plan (23 Phases)
 
 | Phase | 内容 | 状态 |
 |-------|------|------|
@@ -46,45 +57,58 @@
 | **Phase 9** | Gateway WebSocket 协议 | ⏳ 待开始 |
 | **Phase 10** | 技能和插件系统 | ⏳ 待开始 |
 | **Phase 11** | A2UI Canvas Host | ⏳ 待开始 |
-| **Phase 12** | Auto-Reply + Routing | ⏳ **新增** |
-| **Phase 13** | Daemon 守护进程 | ⏳ **新增** |
-| **Phase 14** | Media Understanding | ⏳ **新增** |
-| **Phase 15** | Provider Usage 监控 | ⏳ **新增** |
-| **Phase 16** | Hooks 扩展系统 | ⏳ **新增** |
-| **Phase 17** | Security 安全审计 | ⏳ **新增** |
+| **Phase 12** | Auto-Reply + Routing | ⏳ 待开始 |
+| **Phase 13** | Daemon 守护进程 | ⏳ 待开始 |
+| **Phase 14** | Media Understanding | ⏳ 待开始 |
+| **Phase 15** | Provider Usage 监控 | ⏳ 待开始 |
+| **Phase 16** | Hooks 扩展系统 | ⏳ 待开始 |
+| **Phase 17** | Security 安全审计 | ⏳ 待开始 |
+| **Phase 18** | ACP 协议系统 | ⏳ **新增** |
+| **Phase 19** | Browser 浏览器自动化 | ⏳ **新增** |
+| **Phase 20** | TUI 终端界面 | ⏳ **新增** |
+| **Phase 21** | TTS 语音合成 | ⏳ **新增** |
+| **Phase 22** | Wizard 配置向导 | ⏳ **新增** |
+| **Phase 23** | Infra 基础设施 | ⏳ **新增** |
 
 ## 新增模块概述
 
-### Auto-Reply 系统 (Phase 12)
-- **Reply Directives**: `/think`, `/verbose`, `/reasoning`, `/elevated`
-- **Queue 模式**: steer, followup, collect, interrupt
-- **流式响应**: 三层架构（Agent Stream → Event Stream → Block Reply）
-- **命令注册**: ChatCommandDefinition 类型系统
+### ACP 协议系统 (Phase 18)
+- **Agent Control Protocol**: IDE 集成协议
+- **ndJSON 流**: stdin/stdout 双向通信
+- **会话隔离**: IDE 级别独立会话
+- **工具集**: text_editor, shell 等
 
-### Daemon 系统 (Phase 13)
-- **跨平台**: macOS (launchd), Linux (systemd), Windows (schtasks)
-- **统一接口**: GatewayService 抽象
-- **多实例**: CLAWDBOT_PROFILE 支持
+### Browser 浏览器自动化 (Phase 19)
+- **Playwright + CDP**: 双模式支持
+- **截图优化**: 智能裁剪、压缩
+- **Role/ARIA 快照**: 可访问性树提取
+- **扩展中继**: 浏览器扩展通信
 
-### Media Understanding (Phase 14)
-- **支持类型**: 图像、音频、视频、文档
-- **降级策略**: 云 API → 本地 CLI
-- **能力过滤**: 按模型能力选择处理器
+### TUI 终端界面 (Phase 20)
+- **pi-tui 风格**: 交互式终端
+- **流分离器**: thinking/content 分离
+- **命令处理器**: 快捷键和命令
 
-### Provider Usage (Phase 15)
-- **多窗口追踪**: 5h/7d/模型级
-- **重置倒计时**: 自动计算
-- **支持提供商**: Anthropic, OpenAI, Google, MiniMax 等
+### TTS 语音合成 (Phase 21)
+- **多提供商**: OpenAI, ElevenLabs, Edge TTS
+- **指令标签**: `[[tts:...]]` 解析
+- **自动摘要**: 长文本处理
 
-### Hooks 扩展 (Phase 16)
-- **事件类型**: command, session, agent, gateway
-- **发现机制**: workspace/hooks → ~/.clawdbot/hooks → bundled
-- **预装钩子**: session-memory, command-logger, boot-md
+### Wizard 配置向导 (Phase 22)
+- **Promise-based 会话**: 交互式引导
+- **QuickStart/Advanced**: 两种模式
+- **重置策略**: 配置迁移
 
-### Security 审计 (Phase 17)
-- **网络检查**: Gateway 绑定和认证
-- **DM 策略**: open/disabled/locked
-- **自动修复**: --fix 选项
+### Infra 基础设施 (Phase 23)
+8 个子系统：
+- **system-events**: 音频输入/剪贴板/文件变化
+- **system-presence**: 设备在线状态
+- **tailscale**: VPN 集成
+- **ssh-tunnel**: SSH 隧道管理
+- **bonjour**: mDNS 服务发现
+- **device-pairing**: PKI 设备配对
+- **exec-approvals**: 执行审批系统
+- **voicewake**: 语音唤醒
 
 ## Quick Start for Next Session
 
@@ -95,7 +119,7 @@ python -m pytest tests/ -xvs
 # 2. 查看更新后的设计文档
 cat docs/design/LURKBOT_COMPLETE_DESIGN.md | head -200
 
-# 3. 查看 MoltBot 架构文档（含新章节）
+# 3. 查看 MoltBot 架构文档（32 章节）
 cat docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md | head -50
 
 # 4. 选择下一步方向：
@@ -110,32 +134,39 @@ cat docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md | head -50
 ```
 docs/design/
 ├── MOLTBOT_ANALYSIS.md              # 基础分析
-├── MOLTBOT_COMPLETE_ARCHITECTURE.md # 完整架构（26 章 + 附录）
-└── LURKBOT_COMPLETE_DESIGN.md       # 复刻设计（v2.2, 17 阶段）
+├── MOLTBOT_COMPLETE_ARCHITECTURE.md # 完整架构（32 章节，v3.0）
+└── LURKBOT_COMPLETE_DESIGN.md       # 复刻设计（v2.3, 23 阶段）
 ```
 
 ### 新增模块目录结构预览
 ```
 src/lurkbot/
-├── auto_reply/          # Phase 12 [新增]
-│   ├── directives.py
-│   ├── queue/
-│   ├── streaming.py
-│   └── commands.py
-├── routing/             # Phase 12 [新增]
-│   ├── session_key.py
-│   └── dispatcher.py
-├── daemon/              # Phase 13 [新增]
-│   ├── service.py
-│   ├── launchd.py
-│   └── systemd.py
-├── media/               # Phase 14 [新增]
-│   └── understanding.py
-├── hooks/               # Phase 16 [新增]
-│   ├── registry.py
-│   └── events.py
-└── security/            # Phase 17 [新增]
-    └── audit.py
+├── acp/                 # Phase 18 [新增]
+│   ├── server.py
+│   ├── protocol.py
+│   └── session.py
+├── browser/             # Phase 19 [新增]
+│   ├── playwright_manager.py
+│   ├── cdp_client.py
+│   └── screenshot.py
+├── tui/                 # Phase 20 [新增]
+│   ├── app.py
+│   └── stream_assembler.py
+├── tts/                 # Phase 21 [新增]
+│   ├── engine.py
+│   └── providers/
+├── wizard/              # Phase 22 [新增]
+│   ├── session.py
+│   └── flows/
+└── infra/               # Phase 23 [扩展]
+    ├── system_events/
+    ├── system_presence/
+    ├── tailscale/
+    ├── ssh_tunnel/
+    ├── bonjour/
+    ├── device_pairing/
+    ├── exec_approvals/
+    └── voicewake/
 ```
 
 ## Important Notes
@@ -153,16 +184,18 @@ src/lurkbot/
 - **CLI**: Typer
 - **日志**: Loguru
 
-### 新发现的重要模块优先级
+### 新发现模块优先级
 | 模块 | 优先级 | 理由 |
 |------|--------|------|
 | Auto-Reply | **P0** | 消息处理核心，影响所有交互 |
+| ACP | **P1** | IDE 集成，开发者体验 |
+| Browser | P1 | 网页自动化能力 |
 | Daemon | P1 | 生产环境部署必需 |
 | Routing | P1 | 多渠道消息分发 |
-| Media | P1 | 多媒体支持 |
-| Hooks | P2 | 扩展性 |
-| Security | P2 | 安全审计 |
-| Provider Usage | P2 | 成本监控 |
+| TUI | P2 | 开发调试工具 |
+| TTS | P2 | 语音输出扩展 |
+| Wizard | P1 | 用户引导体验 |
+| Infra | P2 | 高级功能支撑 |
 
 ---
 
@@ -170,4 +203,5 @@ src/lurkbot/
 **Next Action**:
 1. 继续 Phase 5 或开始 Phase 6
 2. 考虑优先实现 Phase 12 (Auto-Reply) - 这是消息处理的核心
-3. 阶段完成后与 MoltBot 对比验证
+3. 考虑优先实现 Phase 18 (ACP) - IDE 集成支持
+4. 阶段完成后与 MoltBot 对比验证

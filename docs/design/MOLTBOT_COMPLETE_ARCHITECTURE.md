@@ -1,6 +1,6 @@
 # MoltBot 完整架构分析文档
 
-> **文档版本**: 2.0
+> **文档版本**: 3.0
 > **更新日期**: 2026-01-29
 > **基于**: MoltBot TypeScript 源码深度分析
 
@@ -34,6 +34,12 @@
 - [二十四、Routing 消息路由系统](#二十四routing-消息路由系统)
 - [二十五、Hooks 扩展系统](#二十五hooks-扩展系统)
 - [二十六、Security 安全审计系统](#二十六security-安全审计系统)
+- [二十七、ACP 协议系统](#二十七acp-协议系统)
+- [二十八、Browser 浏览器自动化](#二十八browser-浏览器自动化)
+- [二十九、TUI 终端界面](#二十九tui-终端界面)
+- [三十、TTS 语音合成](#三十tts-语音合成)
+- [三十一、Wizard 配置向导](#三十一wizard-配置向导)
+- [三十二、Infra 基础设施](#三十二infra-基础设施)
 - [附录：模块覆盖清单](#附录模块覆盖清单)
 
 ---
@@ -2888,46 +2894,637 @@ Security
 
 ---
 
+## 二十七、ACP 协议系统
+
+### 27.1 系统概述
+
+ACP（Agent Control Protocol）是 MoltBot 与 IDE 集成的标准协议实现，基于 `@agentclientprotocol/sdk`。
+
+#### 目录结构
+
+```
+src/acp/
+├── server.ts           # ACP 服务器
+├── translator.ts       # AcpGatewayAgent 翻译器
+├── session.ts          # 会话管理
+├── event-mapper.ts     # 事件映射
+├── session-mapper.ts   # 会话元数据映射
+├── meta.ts             # 提示元数据
+└── types.ts            # 类型定义
+```
+
+### 27.2 架构设计
+
+```
+┌─────────────────────────────────────────┐
+│         IDE / Client (stdIO)            │
+└─────────────────┬───────────────────────┘
+                  ↕ ndJSON 双向流
+┌─────────────────────────────────────────┐
+│    AgentSideConnection (ACP 协议层)     │
+└─────────────────┬───────────────────────┘
+                  ↕
+┌─────────────────────────────────────────┐
+│    AcpGatewayAgent (协议翻译器)         │
+└─────────────────┬───────────────────────┘
+                  ↕
+┌─────────────────────────────────────────┐
+│    GatewayClient (WebSocket)            │
+└─────────────────┬───────────────────────┘
+                  ↕
+┌─────────────────────────────────────────┐
+│    Moltbot Gateway                      │
+└─────────────────────────────────────────┘
+```
+
+### 27.3 核心数据结构
+
+```typescript
+// ACP 会话
+type AcpSession = {
+  sessionId: string;           // UUID
+  sessionKey: string;          // Gateway 会话键
+  cwd: string;                 // 工作目录
+  createdAt: number;
+  abortController: AbortController | null;
+  activeRunId: string | null;
+};
+
+// 待处理提示
+type PendingPrompt = {
+  sessionId: string;
+  sessionKey: string;
+  idempotencyKey: string;      // runId
+  resolve: (response) => void;
+  reject: (error) => void;
+  sentTextLength?: number;     // 增量追踪
+  toolCalls?: Set<string>;     // 工具调用追踪
+};
+```
+
+### 27.4 事件映射
+
+| Gateway 事件 | ACP 更新 |
+|-------------|----------|
+| `chat` + `delta` | `agent_message_chunk` |
+| `chat` + `final` | 完成，stopReason="end_turn" |
+| `chat` + `aborted` | 完成，stopReason="cancelled" |
+| `agent` + `tool:start` | `tool_call`（进行中）|
+| `agent` + `tool:result` | `tool_call_update`（完成）|
+
+### 27.5 功能声明
+
+```typescript
+// initialize() 响应
+{
+  protocolVersion: PROTOCOL_VERSION,
+  agentCapabilities: {
+    loadSession: true,
+    promptCapabilities: {
+      image: true,
+      audio: false,
+      embeddedContext: true,
+    },
+    mcpCapabilities: {
+      http: false,
+      sse: false,
+    },
+  },
+}
+```
+
+---
+
+## 二十八、Browser 浏览器自动化
+
+### 28.1 系统概述
+
+Browser 模块提供完整的浏览器自动化能力，支持 Playwright 和 CDP（Chrome DevTools Protocol）。
+
+#### 目录结构
+
+```
+src/browser/
+├── server.ts                 # Express 控制服务器
+├── config.ts                 # 配置解析
+├── chrome.ts                 # Chrome 启动管理
+├── cdp.ts                    # CDP 操作
+├── pw-session.ts             # Playwright 会话
+├── pw-role-snapshot.ts       # 角色快照
+├── screenshot.ts             # 截图处理
+├── extension-relay.ts        # 扩展中继
+└── routes/
+    ├── agent.act.ts          # /act 端点
+    ├── agent.navigate.ts     # /navigate 端点
+    └── ...
+```
+
+### 28.2 架构设计
+
+```
+┌────────────────────────────────────────────┐
+│    Browser Control Server (:controlPort)   │
+│  /act  /navigate  /screenshot  /snapshot   │
+└─────────────────┬──────────────────────────┘
+                  ↓
+        ┌─────────┴─────────┐
+        ↓                   ↓
+   ┌──────────┐      ┌───────────────┐
+   │Playwright│      │CDP Direct     │
+   │(Browser) │      │(Extension)    │
+   └────┬─────┘      └───────┬───────┘
+        └──────────┬─────────┘
+                   ↓
+         ┌─────────────────┐
+         │ Chrome/Chromium │
+         └─────────────────┘
+```
+
+### 28.3 配置结构
+
+```typescript
+type ResolvedBrowserConfig = {
+  enabled: boolean;
+  evaluateEnabled: boolean;      // 允许 JS 执行
+  controlPort: number;
+  cdpProtocol: "http" | "https";
+  cdpHost: string;
+  headless: boolean;
+  noSandbox: boolean;
+  attachOnly: boolean;           // 仅附加，不启动
+  defaultProfile: string;
+  profiles: Record<string, BrowserProfileConfig>;
+};
+
+type BrowserProfileConfig = {
+  name: string;
+  cdpPort: number;
+  driver: "clawd" | "extension";
+};
+```
+
+### 28.4 HTTP 路由
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/status` | GET | 浏览器状态 |
+| `/tabs` | GET/POST/DELETE | 标签页管理 |
+| `/act` | POST | 执行动作 |
+| `/navigate` | POST | 导航 |
+| `/screenshot` | POST | 截图 |
+| `/snapshot/role` | POST | 角色快照 |
+| `/snapshot/aria` | POST | ARIA 快照 |
+| `/evaluate` | POST | 执行 JavaScript |
+
+### 28.5 动作类型
+
+```typescript
+type BrowserAction =
+  | "click" | "doubleClick"
+  | "type" | "press"
+  | "drag" | "hover"
+  | "fill" | "selectOption"
+  | "wait";
+```
+
+### 28.6 截图优化
+
+```typescript
+// 自动压缩策略
+// maxSide: 2000px, maxBytes: 5MB
+// 质量网格: [85, 75, 65, 55, 45, 35]
+// 边长网格: [2000, 1800, 1600, 1400, 1200, 1000, 800]
+normalizeBrowserScreenshot(buffer, { maxSide, maxBytes });
+```
+
+---
+
+## 二十九、TUI 终端界面
+
+### 29.1 系统概述
+
+TUI 是基于 pi-tui 库的交互式终端界面，提供实时聊天、命令处理和多 Agent 支持。
+
+#### 目录结构
+
+```
+src/tui/
+├── tui.ts                    # 主入口
+├── tui-command-handlers.ts   # 命令处理
+├── tui-event-handlers.ts     # 事件处理
+├── tui-stream-assembler.ts   # 流式响应组装
+├── tui-formatters.ts         # 格式化
+├── gateway-chat.ts           # Gateway 通信
+├── components/
+│   ├── chat-log.ts
+│   ├── assistant-message.ts
+│   └── user-message.ts
+└── theme/
+    └── theme.js
+```
+
+### 29.2 核心状态
+
+```typescript
+type TuiStateAccess = {
+  agentDefaultId: string;
+  sessionMainKey: string;
+  currentAgentId: string;
+  currentSessionKey: string;
+  activeChatRunId: string | null;
+  isConnected: boolean;
+  toolsExpanded: boolean;
+  showThinking: boolean;
+  connectionStatus: string;
+  activityStatus: "idle" | "sending" | "waiting" | "streaming";
+};
+```
+
+### 29.3 命令系统
+
+| 命令 | 功能 |
+|------|------|
+| `/help` | 显示帮助 |
+| `/status` | 网关状态 |
+| `/agent [id]` | 切换 Agent |
+| `/model [ref]` | 设置模型 |
+| `/think <level>` | 设置 thinking 级别 |
+| `/sessions` | 列出会话 |
+| `/new` | 重置会话 |
+| `/abort` | 中止运行 |
+| `!command` | 执行 bash 命令 |
+
+### 29.4 流式响应组装
+
+```typescript
+class TuiStreamAssembler {
+  // 分离 thinking 块和 content 块
+  ingestDelta(runId, message, showThinking) {
+    // 1. 提取 thinking 块
+    // 2. 提取 content 块
+    // 3. 合成 displayText
+    return newDisplayText;
+  }
+
+  finalize(runId, message, showThinking) {
+    // 最终更新并清理
+    return finalText;
+  }
+}
+```
+
+---
+
+## 三十、TTS 语音合成
+
+### 30.1 系统概述
+
+TTS 是多 Provider 的文本转语音系统，支持 OpenAI、ElevenLabs、Edge TTS。
+
+#### 文件位置
+
+```
+src/tts/
+├── tts.ts                    # 核心实现
+└── tts.types.ts              # 类型定义
+```
+
+### 30.2 配置结构
+
+```typescript
+type ResolvedTtsConfig = {
+  auto: "off" | "always" | "inbound" | "tagged";
+  mode: "delta" | "final";
+  provider: "openai" | "elevenlabs" | "edge";
+  summaryModel?: string;
+  modelOverrides: {
+    allowText: boolean;
+    allowProvider: boolean;
+    allowVoice: boolean;
+  };
+  elevenlabs: {
+    apiKey?: string;
+    voiceId: string;
+    modelId: string;
+    voiceSettings: { stability, similarityBoost, style, speed };
+  };
+  openai: {
+    apiKey?: string;
+    model: string;
+    voice: string;  // alloy|ash|coral|echo|fable|onyx|nova|sage|shimmer
+  };
+  edge: {
+    enabled: boolean;
+    voice: string;
+    lang: string;
+    outputFormat: string;
+  };
+};
+```
+
+### 30.3 Directive 系统
+
+```
+[[tts:provider=openai voice=nova]]
+  <这段文本用 nova 合成>
+
+[[tts:text]]<自定义音频文本>[[/tts:text]]
+  <指定不同的 TTS 文本>
+```
+
+### 30.4 Provider 降级
+
+```typescript
+for (const provider of providerOrder) {
+  try {
+    if (provider === "edge") return await edgeTTS(...);
+    if (provider === "elevenlabs") return await elevenLabsTTS(...);
+    if (provider === "openai") return await openaiTTS(...);
+  } catch {
+    continue;  // 降级到下一个
+  }
+}
+```
+
+### 30.5 输出格式
+
+| 场景 | OpenAI | ElevenLabs |
+|------|--------|------------|
+| Telegram 语音 | opus | opus_48000_64 |
+| 默认 MP3 | mp3 | mp3_44100_128 |
+| 电话系统 | pcm@24kHz | pcm_22050 |
+
+---
+
+## 三十一、Wizard 配置向导
+
+### 31.1 系统概述
+
+Wizard 是分步式交互配置系统，用于初始化和配置 MoltBot。
+
+#### 目录结构
+
+```
+src/wizard/
+├── onboarding.ts             # 主流程
+├── session.ts                # 向导会话
+├── prompts.ts                # 交互提示
+└── onboarding.types.ts       # 类型定义
+```
+
+### 31.2 Session 架构
+
+```typescript
+class WizardSession {
+  async next(): Promise<WizardNextResult>;
+  async answer(stepId, value): Promise<void>;
+  cancel(): void;
+}
+
+// Runner 进程与 UI 进程解耦
+// Promise-based 异步等待
+```
+
+### 31.3 Prompter 接口
+
+```typescript
+type WizardPrompter = {
+  intro(title): Promise<void>;
+  outro(message): Promise<void>;
+  note(message, title?): Promise<void>;
+  select<T>(params): Promise<T>;
+  multiselect<T>(params): Promise<T[]>;
+  text(params): Promise<string>;
+  confirm(params): Promise<boolean>;
+  progress(label): WizardProgress;
+};
+```
+
+### 31.4 Onboarding 流程
+
+```
+1. 安全提示确认
+2. 加载/重置配置
+3. 选择模式 (QuickStart / Advanced)
+4. Gateway 配置 (端口、绑定、认证)
+5. Auth 选择 (Anthropic/OpenAI)
+6. 频道设置
+7. Skills 设置
+8. Hooks 设置
+9. 最终化
+```
+
+### 31.5 重置策略
+
+| 范围 | 操作 |
+|------|------|
+| `config` | 仅删除配置文件 |
+| `config+creds+sessions` | + 清除凭据和会话 |
+| `full` | + 删除工作空间 |
+
+---
+
+## 三十二、Infra 基础设施
+
+### 32.1 系统概述
+
+Infra 模块包含网络发现、安全认证、命令执行控制等核心基础设施。
+
+### 32.2 系统事件队列 (system-events.ts)
+
+```typescript
+// 轻量级内存事件总线
+type SystemEvent = { text: string; ts: number };
+
+// 每个 sessionKey 独立队列，最多 20 条
+// 自动去重连续相同事件
+enqueueSystemEvent(sessionKey, text);
+drainSystemEvents(sessionKey);
+```
+
+### 32.3 系统存在感 (system-presence.ts)
+
+```typescript
+// 分布式节点发现
+type SystemPresence = {
+  host?: string;
+  ip?: string;
+  version?: string;
+  platform?: string;
+  mode?: "gateway" | "node";
+  reason?: "self" | "discovered" | "imported";
+  roles?: string[];
+  scopes?: string[];
+};
+
+// 5 分钟 TTL，最多 200 节点 LRU
+updateSystemPresence(nodeId, presence);
+listSystemPresence();
+```
+
+### 32.4 Tailscale 集成 (tailscale.ts)
+
+```typescript
+// 二进制定位（4 层策略）
+findTailscaleBinary();  // which → macOS app → find → locate
+
+// Tailnet 主机名
+getTailnetHostname();
+
+// Funnel 公网穿透
+ensureFunnel(port);
+
+// 身份验证（60s 缓存）
+readTailscaleWhoisIdentity(ip);
+```
+
+### 32.5 SSH 隧道 (ssh-tunnel.ts)
+
+```typescript
+type SshTunnel = {
+  parsedTarget: { user?, host, port };
+  localPort: number;
+  remotePort: number;
+  pid: number | null;
+  stop: () => Promise<void>;
+};
+
+// SSH 参数
+// -N -L {local}:127.0.0.1:{remote}
+// -o ExitOnForwardFailure=yes
+// -o ConnectTimeout=5
+// -o ServerAliveInterval=15
+```
+
+### 32.6 mDNS 发现 (bonjour.ts)
+
+```typescript
+// 基于 @homebridge/ciao
+// 服务类型: moltbot-gw
+
+// TXT 记录
+{
+  role: "gateway",
+  gatewayPort: number,
+  lanHost: "{hostname}.local",
+  displayName: string,
+  gatewayTls?: "1",
+  canvasPort?: number,
+  tailnetDns?: string,
+}
+
+// 60 秒看门狗自动重新广告
+```
+
+### 32.7 设备配对 (device-pairing.ts)
+
+```typescript
+// PKI 和设备授权管理
+type PairedDevice = {
+  deviceId: string;
+  publicKey: string;
+  displayName?: string;
+  roles?: string[];
+  scopes?: string[];
+  tokens?: Record<string, DeviceAuthToken>;
+};
+
+// 流程: pending → approve → paired + token
+requestDevicePairing();
+approveDevicePairing();
+verifyDeviceToken();
+rotateDeviceToken();
+```
+
+### 32.8 执行审批 (exec-approvals.ts)
+
+```typescript
+// 命令执行安全网关
+type ExecSecure = "deny" | "allowlist" | "full";
+type ExecAsk = "off" | "on-miss" | "always";
+
+// 命令分析链
+splitCommandChain()      // &&, ||, ;
+  → splitShellPipeline() // |
+  → tokenizeShellSegment()
+  → resolveCommandResolution()
+
+// 安全二进制白名单
+["jq", "grep", "cut", "sort", "uniq", "head", "tail", "tr", "wc"]
+```
+
+### 32.9 语音唤醒 (voicewake.ts)
+
+```typescript
+type VoiceWakeConfig = {
+  triggers: string[];      // 唤醒词列表
+  updatedAtMs: number;
+};
+
+// 默认唤醒词
+["clawd", "claude", "computer"]
+
+loadVoiceWakeConfig();
+setVoiceWakeTriggers(triggers);
+```
+
+---
+
 ## 附录：模块覆盖清单
 
 ### 已完整覆盖的模块
 
 | 章节 | 模块 | 覆盖程度 |
 |------|------|----------|
-| 一 | Agent Runtime | ✅ 完整 |
-| 二 | Bootstrap 文件 | ✅ 完整 |
-| 三 | 系统提示生成器 | ✅ 完整 |
-| 四 | 工具系统 | ✅ 完整 |
-| 五 | 会话管理 | ✅ 完整 |
-| 六 | 子代理系统 | ✅ 完整 |
-| 七 | 心跳系统 | ✅ 完整 |
-| 八 | Cron 定时任务 | ✅ 完整 |
-| 九 | 认证配置 | ✅ 完整 |
-| 十 | 技能系统 | ✅ 完整 |
-| 十一 | 上下文压缩 | ✅ 完整 |
-| 十二 | Gateway 核心 | ✅ 完整 |
-| 十三 | 配置文件格式 | ✅ 完整 |
-| 十四 | 多通道支持 | ✅ 完整 |
+| 一 | 项目概述 | ✅ 完整 |
+| 二 | 核心架构概览 | ✅ 完整 |
+| 三 | Agent 运行时系统 | ✅ 完整 |
+| 四 | Bootstrap 文件系统 | ✅ 完整 |
+| 五 | 系统提示词生成 | ✅ 完整 |
+| 六 | 工具系统与九层策略 | ✅ 完整 |
+| 七 | 会话管理系统 | ✅ 完整 |
+| 八 | 子代理通信协议 | ✅ 完整 |
+| 九 | Heartbeat 心跳系统 | ✅ 完整 |
+| 十 | Cron 定时任务系统 | ✅ 完整 |
+| 十一 | 认证配置文件系统 | ✅ 完整 |
+| 十二 | 技能系统 | ✅ 完整 |
+| 十三 | 上下文压缩系统 | ✅ 完整 |
+| 十四 | Gateway 协议 | ✅ 完整 |
 | 十五 | 内存和向量搜索 | ✅ 完整 |
 | 十六 | 插件系统 | ✅ 完整 |
-| 十七 | 错误处理 | ✅ 完整 |
-| 十八 | 关键代码文件 | ✅ 完整 |
+| 十七 | 错误处理与重试 | ✅ 完整 |
+| 十八 | 关键文件清单 | ✅ 完整 |
 | 十九 | A2UI 界面系统 | ✅ 完整 |
-| 二十 | Auto-Reply 系统 | ✅ 完整 |
-| 二十一 | Daemon 系统 | ✅ 完整 |
-| 二十二 | Media Understanding | ✅ 完整 |
-| 二十三 | Provider Usage | ✅ 完整 |
-| 二十四 | Routing 系统 | ✅ 完整 |
-| 二十五 | Hooks 扩展 | ✅ 完整 |
-| 二十六 | Security 审计 | ✅ 完整 |
+| 二十 | Auto-Reply 自动回复系统 | ✅ 完整 |
+| 二十一 | Daemon 守护进程系统 | ✅ 完整 |
+| 二十二 | Media Understanding 多媒体理解 | ✅ 完整 |
+| 二十三 | Provider Usage 使用量监控 | ✅ 完整 |
+| 二十四 | Routing 消息路由系统 | ✅ 完整 |
+| 二十五 | Hooks 扩展系统 | ✅ 完整 |
+| 二十六 | Security 安全审计系统 | ✅ 完整 |
+| 二十七 | ACP 协议系统 | ✅ 完整 |
+| 二十八 | Browser 浏览器自动化 | ✅ 完整 |
+| 二十九 | TUI 终端界面 | ✅ 完整 |
+| 三十 | TTS 语音合成 | ✅ 完整 |
+| 三十一 | Wizard 配置向导 | ✅ 完整 |
+| 三十二 | Infra 基础设施 | ✅ 完整 |
 
 ### 估计覆盖率
 
-基于源代码分析，当前文档覆盖率约为 **85%+**。
+基于源代码分析，当前文档覆盖率约为 **95%+**。
 
-未覆盖的次要模块：
-- TUI (终端用户界面) - 开发工具
+共覆盖 **32 个章节**，涵盖：
+- 核心模块: Agent, Bootstrap, System Prompt, Tools, Sessions
+- 自主运行: Heartbeat, Cron, Subagent
+- 通信协议: Gateway, ACP, Routing
+- 扩展系统: Skills, Plugins, Hooks
+- 基础设施: Infra (8 子系统), Daemon, Security
+- 用户界面: A2UI, Browser, TUI, Wizard
+- 辅助功能: Media, TTS, Memory, Auth Profiles, Provider Usage
+
+未覆盖的次要模块（预计 5% 以内）：
 - 部分通道特定实现细节
+- 特定平台适配代码
 
 ---
 

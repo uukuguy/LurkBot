@@ -1,6 +1,6 @@
-# LurkBot 完整复刻设计方案 v2.2
+# LurkBot 完整复刻设计方案 v2.3
 
-> **文档版本**: 2.2
+> **文档版本**: 2.3
 > **更新日期**: 2026-01-29
 > **基于**: MOLTBOT_COMPLETE_ARCHITECTURE.md 深度分析
 > **核心原则**: 完全复刻 MoltBot，不遗漏任何功能
@@ -2765,6 +2765,19 @@ src/lurkbot/
 | 35 | Routing 消息路由 | routing/ | ✅ |
 | 36 | Hooks 扩展系统 | hooks/ | ✅ |
 | 37 | Security 安全审计 | security/ | ✅ |
+| 38 | ACP 协议系统 | acp/ | ⏳ |
+| 39 | Browser 浏览器自动化 | browser/ | ⏳ |
+| 40 | TUI 终端界面 | tui/ | ⏳ |
+| 41 | TTS 语音合成 | tts/ | ⏳ |
+| 42 | Wizard 配置向导 | wizard/ | ⏳ |
+| 43 | Infra 系统事件 | infra/system_events/ | ⏳ |
+| 44 | Infra 设备状态 | infra/system_presence/ | ⏳ |
+| 45 | Infra Tailscale | infra/tailscale/ | ⏳ |
+| 46 | Infra SSH 隧道 | infra/ssh_tunnel/ | ⏳ |
+| 47 | Infra mDNS 发现 | infra/bonjour/ | ⏳ |
+| 48 | Infra 设备配对 | infra/device_pairing/ | ⏳ |
+| 49 | Infra 执行审批 | infra/exec_approvals/ | ⏳ |
+| 50 | Infra 语音唤醒 | infra/voicewake/ | ⏳ |
 
 ### 5.2 待实现功能
 
@@ -2782,6 +2795,12 @@ src/lurkbot/
 | 10 | API 使用量追踪 | P2 | Phase 15 |
 | 11 | Hooks 事件驱动 | P2 | Phase 16 |
 | 12 | 安全审计功能 | P2 | Phase 17 |
+| 13 | ACP 协议系统 | P1 | Phase 18 |
+| 14 | Browser 浏览器自动化 | P1 | Phase 19 |
+| 15 | TUI 终端界面 | P2 | Phase 20 |
+| 16 | TTS 语音合成 | P2 | Phase 21 |
+| 17 | Wizard 配置向导 | P1 | Phase 22 |
+| 18 | Infra 基础设施 (8子系统) | P2 | Phase 23 |
 
 ---
 
@@ -2808,7 +2827,13 @@ src/lurkbot/
 | **Phase 15** | Provider Usage 监控 | 0.5周 | Phase 8 |
 | **Phase 16** | Hooks 扩展系统 | 1周 | Phase 10 |
 | **Phase 17** | Security 安全审计 | 0.5周 | Phase 9 |
-| **总计** | | **18周** | |
+| **Phase 18** | ACP 协议系统 | 1周 | Phase 9 |
+| **Phase 19** | Browser 浏览器自动化 | 1.5周 | Phase 5 |
+| **Phase 20** | TUI 终端界面 | 1周 | Phase 6 |
+| **Phase 21** | TTS 语音合成 | 0.5周 | Phase 5 |
+| **Phase 22** | Wizard 配置向导 | 1周 | Phase 9 |
+| **Phase 23** | Infra 基础设施 | 2周 | Phase 9 |
+| **总计** | | **24周** | |
 
 ### 6.2 新增模块说明
 
@@ -2901,6 +2926,147 @@ src/lurkbot/
 └── warnings.py          # 警告生成
 ```
 
+#### Phase 18: ACP 协议系统
+
+**目标**: IDE 集成协议（Agent Control Protocol）
+
+```python
+# lurkbot/acp/
+├── server.py            # ndJSON 流服务器
+├── protocol.py          # 协议消息定义
+├── session.py           # 会话隔离
+├── events.py            # 事件映射
+└── tools/
+    ├── text_editor.py   # 文件编辑工具
+    ├── text_editor_file_tool.py
+    └── shell.py         # Shell 执行工具
+```
+
+**关键特性**:
+- ndJSON 双向流通信（stdin/stdout）
+- IDE 级会话隔离
+- 代码编辑工具集
+
+#### Phase 19: Browser 浏览器自动化
+
+**目标**: 网页自动化和截图
+
+```python
+# lurkbot/browser/
+├── playwright_manager.py  # Playwright 实例管理
+├── cdp_client.py          # Chrome DevTools Protocol
+├── screenshot.py          # 截图优化
+├── snapshot.py            # Role/ARIA 快照
+├── routes.py              # HTTP 端点
+├── extension_relay.py     # 浏览器扩展通信
+└── actions/
+    ├── navigate.py
+    ├── click.py
+    ├── scroll.py
+    └── type.py
+```
+
+**关键特性**:
+- Playwright + CDP 双模式
+- 智能截图裁剪
+- 浏览器扩展中继
+
+#### Phase 20: TUI 终端界面
+
+**目标**: 交互式终端 UI
+
+```python
+# lurkbot/tui/
+├── app.py               # TUI 主应用
+├── widgets/
+│   ├── chat.py          # 聊天窗口
+│   ├── thinking.py      # 思考指示器
+│   └── input.py         # 输入框
+├── stream_assembler.py  # thinking/content 分离
+├── keybindings.py       # 快捷键定义
+└── commands/
+    ├── registry.py
+    └── handlers.py
+```
+
+**关键特性**:
+- 基于 pi-tui 风格
+- thinking/content 流分离
+- 命令快捷键
+
+#### Phase 21: TTS 语音合成
+
+**目标**: 多提供商语音输出
+
+```python
+# lurkbot/tts/
+├── engine.py            # TTS 引擎
+├── providers/
+│   ├── openai.py
+│   ├── elevenlabs.py
+│   └── edge.py          # 免费 Edge TTS
+├── directive_parser.py  # [[tts:...]] 解析
+└── summarizer.py        # 长文本摘要
+```
+
+**关键特性**:
+- 多提供商支持（OpenAI/ElevenLabs/Edge）
+- `[[tts:tag]]` 指令标签
+- 自动长文本摘要
+
+#### Phase 22: Wizard 配置向导
+
+**目标**: 交互式配置引导
+
+```python
+# lurkbot/wizard/
+├── session.py           # Promise-based 会话
+├── flows/
+│   ├── quickstart.py    # 快速开始
+│   ├── advanced.py      # 高级配置
+│   └── channel.py       # 通道配置
+├── prompts.py           # 交互提示
+└── reset.py             # 重置策略
+```
+
+**关键特性**:
+- QuickStart vs Advanced 模式
+- 分步交互式配置
+- 配置重置/迁移
+
+#### Phase 23: Infra 基础设施
+
+**目标**: 8 个核心基础设施子系统
+
+```python
+# lurkbot/infra/
+├── system_events/       # 系统事件（音频输入/剪贴板/文件变化）
+│   ├── audio.py
+│   ├── clipboard.py
+│   └── file_watch.py
+├── system_presence/     # 设备在线状态
+│   └── presence.py
+├── tailscale/           # Tailscale VPN 集成
+│   └── client.py
+├── ssh_tunnel/          # SSH 隧道
+│   └── manager.py
+├── bonjour/             # mDNS 服务发现
+│   └── discovery.py
+├── device_pairing/      # PKI 设备配对
+│   ├── keypair.py
+│   ├── exchange.py
+│   └── trust.py
+├── exec_approvals/      # 执行审批系统
+│   └── approver.py
+└── voicewake/           # 语音唤醒
+    └── detector.py
+```
+
+**关键特性**:
+- 8 个独立子系统
+- 安全的设备配对
+- 系统级事件监听
+
 ### 6.3 关键文件清单（完整版）
 
 ```
@@ -2951,7 +3117,32 @@ src/lurkbot/
 │   ├── registry.py
 │   ├── events.py
 │   └── bundled/
-├── security/                # 安全审计 [新增]
+├── security/                # 安全审计
+│   ├── audit.py
+│   └── policies.py
+├── acp/                     # ACP 协议 [新增]
+│   ├── server.py
+│   ├── protocol.py
+│   ├── session.py
+│   └── tools/
+├── browser/                 # 浏览器自动化 [新增]
+│   ├── playwright_manager.py
+│   ├── cdp_client.py
+│   ├── screenshot.py
+│   ├── snapshot.py
+│   └── routes.py
+├── tui/                     # 终端界面 [新增]
+│   ├── app.py
+│   ├── widgets/
+│   └── stream_assembler.py
+├── tts/                     # 语音合成 [新增]
+│   ├── engine.py
+│   ├── providers/
+│   └── directive_parser.py
+├── wizard/                  # 配置向导 [新增]
+│   ├── session.py
+│   ├── flows/
+│   └── prompts.py
 │   ├── audit.py
 │   └── policies.py
 ├── sessions/
@@ -2973,7 +3164,15 @@ src/lurkbot/
 │   └── store.py             # 内存存储（向量搜索）
 ├── infra/
 │   ├── retry.py             # 重试策略
-│   └── provider_usage/      # 使用量监控 [新增]
+│   ├── provider_usage/      # 使用量监控
+│   ├── system_events/       # 系统事件 [新增]
+│   ├── system_presence/     # 设备状态 [新增]
+│   ├── tailscale/           # VPN 集成 [新增]
+│   ├── ssh_tunnel/          # SSH 隧道 [新增]
+│   ├── bonjour/             # mDNS 发现 [新增]
+│   ├── device_pairing/      # 设备配对 [新增]
+│   ├── exec_approvals/      # 执行审批 [新增]
+│   └── voicewake/           # 语音唤醒 [新增]
 └── config/
     └── settings.py          # 配置管理
 ```
@@ -3030,10 +3229,11 @@ pytest tests/test_canvas_tool.py -xvs
 ---
 
 **文档完成**: 2026-01-29
-**文档版本**: 2.2
+**文档版本**: 2.3
 **文档类型**: 完整复刻设计方案
 **更新内容**:
 - v2.0: 初始完整设计
 - v2.1: 添加 A2UI 界面系统设计（第四章）
 - v2.2: 添加 Auto-Reply、Daemon、Media、Hooks、Security 等新发现模块（Phase 12-17）
+- v2.3: 添加 ACP、Browser、TUI、TTS、Wizard、Infra 等模块（Phase 18-23），功能检查清单从 37 项扩展到 50 项
 **下一步**: 按 Phase 顺序实施，每阶段完成后与 MoltBot 对比验证
