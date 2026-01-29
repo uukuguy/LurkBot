@@ -1,5 +1,110 @@
 # LurkBot 工作日志
 
+## 2026-01-29 (续-17) - Phase 8 Auth Profile + Context Compaction 完成
+
+### 会话概述
+
+完成 Phase 8 的全部实现，包括 Auth Profile 凭据管理系统和 Context Compaction 上下文压缩系统。所有 29 个单元测试通过。
+
+### 主要工作
+
+#### 1. Auth Profile 凭据管理系统 ✅
+
+**文件**: `src/lurkbot/auth/profiles.py`
+
+**核心组件**:
+| 组件 | 说明 |
+|------|------|
+| `AuthCredential` | 凭据数据结构（api_key/token/oauth） |
+| `ProfileUsageStats` | 使用统计和冷却管理 |
+| `AuthProfileStore` | Profile 存储（profiles + usage_stats + order） |
+
+**核心功能**:
+- **冷却算法**: 指数退避 `min(1h, 60s × 5^(errorCount-1))`
+  - errorCount=1 → 60s
+  - errorCount=2 → 300s (5m)
+  - errorCount=3 → 1500s (25m)
+  - errorCount=4+ → 3600s (1h) 上限
+- **Profile 优先级排序**:
+  - 可用的按 lastUsed 排序（最旧优先 = 轮换）
+  - 冷却中的按冷却结束时间排序
+  - 支持 preferred_profile 优先
+- **凭据验证**:
+  - API Key: 检查 key 存在
+  - Token: 检查 token 存在且未过期
+  - OAuth: 检查 access token 存在
+- **JSONL 持久化**: load/save_auth_profiles()
+- **轮换逻辑**: rotate_auth_profile() 循环到下一个可用 Profile
+
+**对标**: MoltBot `auth/profiles.ts`
+
+#### 2. Context Compaction 上下文压缩系统 ✅
+
+**文件**: `src/lurkbot/agents/compaction.py`
+
+**核心常量**:
+| 常量 | 值 | 说明 |
+|------|-----|------|
+| `BASE_CHUNK_RATIO` | 0.4 | 40% 保留最近历史 |
+| `MIN_CHUNK_RATIO` | 0.15 | 最小 15% |
+| `SAFETY_MARGIN` | 1.2 | 20% 估算缓冲 |
+| `DEFAULT_CONTEXT_TOKENS` | 128000 | 默认上下文窗口 |
+
+**核心功能**:
+- **Token 估算**:
+  - `estimate_tokens()`: ~4 chars = 1 token
+  - `estimate_messages_tokens()`: 支持多模态内容
+- **消息分割**:
+  - `split_messages_by_token_share()`: 按 token 比例分割
+  - `chunk_messages_by_max_tokens()`: 按最大 token 分块
+- **自适应分块比例**:
+  - `compute_adaptive_chunk_ratio()`: 根据平均消息大小调整
+  - 如果平均消息 > 上下文的 10%，减少保留比例
+- **分阶段摘要**:
+  - `summarize_in_stages()`: 多部分摘要 + 合并
+  - 支持 LLM 客户端协议（Protocol）
+- **压缩入口**:
+  - `compact_messages()`: 主压缩函数
+  - 返回 [摘要消息] + [保留的最近消息]
+
+**对标**: MoltBot `agents/compaction.ts`
+
+### 测试结果
+
+**文件**: `tests/main/test_phase8_auth_compaction.py`
+
+**测试统计**: 29 个测试全部通过 ✅
+
+**测试覆盖**:
+- Auth Profile: 18 tests
+  - 冷却算法: 2 tests
+  - 辅助函数: 7 tests
+  - 状态管理: 2 tests
+  - 顺序解析: 4 tests
+  - 轮换逻辑: 3 tests
+  - 持久化: 2 tests
+- Context Compaction: 11 tests
+  - Token 估算: 3 tests
+  - 消息分割: 2 tests
+  - 自适应比例: 3 tests
+  - 压缩功能: 2 tests
+
+### 技术亮点
+
+1. **冷却算法精确实现**: 完全对标 MoltBot 的指数退避公式
+2. **Profile 轮换策略**: lastUsed 最旧优先，确保负载均衡
+3. **自适应压缩**: 根据消息大小动态调整保留比例
+4. **Protocol 设计**: LLMClient 使用 Protocol 实现松耦合
+
+### 下一步计划
+
+根据 `docs/dev/NEXT_SESSION_GUIDE.md`:
+- **Phase 9**: Gateway WebSocket 协议
+- **Phase 12**: Auto-Reply 系统（消息处理核心，P0 优先级）
+- **Phase 10**: 技能和插件系统
+
+---
+
 ## 2026-01-29 (续-16) - Phase 7 Heartbeat + Cron 自主运行系统完成
 
 ### 会话概述

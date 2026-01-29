@@ -6,7 +6,7 @@ This module contains the core agent infrastructure for LurkBot:
 - api.py: FastAPI HTTP/SSE endpoints
 - bootstrap.py: Bootstrap file system (8 files)
 - system_prompt.py: System prompt generator (23 sections)
-- compaction.py: Context compaction [TODO]
+- compaction.py: Context compaction system
 - subagent.py: Subagent communication [TODO]
 """
 
@@ -82,6 +82,21 @@ from lurkbot.agents.system_prompt import (
     list_deliverable_message_channels,
 )
 
+from lurkbot.agents.compaction import (
+    BASE_CHUNK_RATIO,
+    DEFAULT_CONTEXT_TOKENS,
+    MERGE_SUMMARIES_INSTRUCTIONS,
+    MIN_CHUNK_RATIO,
+    SAFETY_MARGIN,
+    chunk_messages_by_max_tokens,
+    compact_messages,
+    compute_adaptive_chunk_ratio,
+    estimate_messages_tokens,
+    estimate_tokens,
+    split_messages_by_token_share,
+    summarize_in_stages,
+)
+
 __all__ = [
     # Types
     "AgentContext",
@@ -150,4 +165,18 @@ __all__ = [
     "build_runtime_line",
     "is_silent_reply_text",
     "list_deliverable_message_channels",
+    # Compaction - Constants
+    "BASE_CHUNK_RATIO",
+    "DEFAULT_CONTEXT_TOKENS",
+    "MERGE_SUMMARIES_INSTRUCTIONS",
+    "MIN_CHUNK_RATIO",
+    "SAFETY_MARGIN",
+    # Compaction - Functions
+    "chunk_messages_by_max_tokens",
+    "compact_messages",
+    "compute_adaptive_chunk_ratio",
+    "estimate_messages_tokens",
+    "estimate_tokens",
+    "split_messages_by_token_share",
+    "summarize_in_stages",
 ]
