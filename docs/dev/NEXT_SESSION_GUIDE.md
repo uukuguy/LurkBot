@@ -3,7 +3,7 @@
 ## Session Context
 
 **Last Session Date**: 2026-01-29
-**Current Status**: Phase 16 完成，Phase 5-13, 16 全部完成
+**Current Status**: Phase 14 完成，Phase 5-14, 16-17 全部完成
 **Design Document**: `docs/design/LURKBOT_COMPLETE_DESIGN.md` (v2.3)
 **Architecture Document**: `docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md` (v3.0, 32 章节)
 
@@ -11,7 +11,32 @@
 
 ### 今日完成的工作
 
-1. **Phase 16 Hooks 扩展系统** - 全部完成：
+1. **Phase 14 Media Understanding 媒体理解系统** - 全部完成：
+
+   | 组件 | 文件 | 状态 |
+   |------|------|------|
+   | 核心理解逻辑 | `media/understand.py` | ✅ 完成 |
+   | 配置系统 | `media/config.py` | ✅ 完成 |
+   | OpenAI 提供商 | `media/providers/openai.py` | ✅ 完成 |
+   | Anthropic 提供商 | `media/providers/anthropic.py` | ✅ 完成 |
+   | Gemini 提供商 | `media/providers/gemini.py` | ✅ 完成 |
+   | 本地降级提供商 | `media/providers/local.py` | ✅ 完成 |
+   | 模块导出 | `media/__init__.py` | ✅ 完成 |
+   | 单元测试 | `tests/test_media_understanding.py` | ✅ 通过 (12 tests) |
+
+2. **Phase 17 Security 安全审计系统** - 全部完成：
+
+   | 组件 | 文件 | 状态 |
+   |------|------|------|
+   | 安全审计核心 | `security/audit.py` | ✅ 完成 |
+   | DM 策略检查 | `security/dm_policy.py` | ✅ 完成 |
+   | 模型安全检查 | `security/model_check.py` | ✅ 完成 |
+   | 警告格式化 | `security/warnings.py` | ✅ 完成 |
+   | CLI 命令 | `cli/security.py` | ✅ 完成 |
+   | 模块导出 | `security/__init__.py` | ✅ 完成 |
+   | 单元测试 | `tests/main/test_phase17_security.py` | ✅ 通过 (27 tests) |
+
+2. **Phase 16 Hooks 扩展系统** - 全部完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
@@ -24,7 +49,7 @@
    | 模块导出 | `hooks/__init__.py` | ✅ 完成 |
    | 单元测试 | `tests/main/test_phase16_hooks.py` | ✅ 通过 (22 tests) |
 
-2. **Phase 13 Daemon 守护进程系统** - 全部完成：
+3. **Phase 13 Daemon 守护进程系统** - 全部完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
@@ -39,7 +64,7 @@
    | 模块导出 | `daemon/__init__.py` | ✅ 完成 |
    | 单元测试 | `tests/main/test_phase13_daemon.py` | ✅ 通过 (26 tests) |
 
-2. **Phase 11 A2UI Canvas Host 系统** - 全部完成：
+4. **Phase 11 A2UI Canvas Host 系统** - 全部完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
@@ -49,7 +74,7 @@
    | 模块导出 | `canvas/__init__.py` | ✅ 完成 |
    | 单元测试 | `tests/main/test_phase11_canvas.py` | ✅ 通过 (34 tests) |
 
-2. **Phase 10 技能和插件系统** - 全部完成：
+5. **Phase 10 技能和插件系统** - 全部完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
@@ -62,7 +87,7 @@
    | 系统提示词集成 | `agents/system_prompt.py` | ✅ 完成 |
    | 单元测试 | `tests/main/test_phase10_skills_plugins.py` | ✅ 通过 (23 tests) |
 
-2. **Phase 12 Auto-Reply + Routing 系统** - 全部完成：
+6. **Phase 12 Auto-Reply + Routing 系统** - 全部完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
@@ -73,7 +98,7 @@
    | Router | `routing/router.py` | ✅ 完成 |
    | 单元测试 | `tests/main/test_phase12_auto_reply_routing.py` | ✅ 通过 (38 tests) |
 
-2. **Phase 9 Gateway WebSocket 协议** - 全部完成：
+7. **Phase 9 Gateway WebSocket 协议** - 全部完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
@@ -87,7 +112,7 @@
    | GatewayServer | `gateway/server.py` | ✅ 完成 |
    | 单元测试 | `tests/main/test_phase9_gateway.py` | ✅ 通过 (12 tests) |
 
-2. **Phase 8 Auth Profile + Context Compaction** - 已完成：
+8. **Phase 8 Auth Profile + Context Compaction** - 已完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
@@ -105,7 +130,16 @@
    | compact_messages | `agents/compaction.py` | ✅ 完成 |
    | 单元测试 | `tests/main/test_phase8_auth_compaction.py` | ✅ 通过 (29 tests) |
 
-2. **Gateway WebSocket 协议功能**:
+2. **Security 安全审计系统功能** (Phase 17):
+   - 安全审计: audit_security() 主函数，支持标准/深度模式
+   - Gateway 网络暴露检查: 检测 bind 配置和认证状态
+   - DM 策略检查: 多用户会话隔离策略验证
+   - 模型安全检查: 危险工具权限、文件系统/网络访问检查
+   - 自动修复: apply_fixes() 自动应用关键安全修复
+   - CLI 命令: security audit, check-dm-policy, check-gateway
+   - 警告格式化: Rich 格式化输出，严重级别统计
+
+3. **Gateway WebSocket 协议功能**:
    - 协议帧结构: Hello/HelloOk 握手, Event/Request/Response 帧
    - 错误码系统: 7 种错误类型 (NOT_LINKED, AGENT_TIMEOUT, METHOD_NOT_FOUND 等)
    - 事件广播: 订阅/发布机制, sessionKey 过滤, 事件类型过滤
@@ -113,7 +147,7 @@
    - WebSocket 服务器: 连接管理, 握手流程, 消息路由
    - 协议版本: v1, 支持多客户端连接
 
-3. **Auth Profile 系统功能** (Phase 8):
+4. **Auth Profile 系统功能** (Phase 8):
    - 凭据类型支持: API Key, Token, OAuth
    - 冷却算法: 指数退避 (60s → 300s → 1500s → 3600s)
    - Profile 优先级排序: lastUsed 轮换 + 冷却分离
@@ -121,27 +155,27 @@
    - JSONL 持久化存储
    - 凭据验证和过期检查
 
-4. **Context Compaction 系统功能** (Phase 8):
+5. **Context Compaction 系统功能** (Phase 8):
    - Token 估算: ~4 chars = 1 token
    - 自适应分块比例: 40% → 15% (根据消息大小)
    - 消息分割: 按 token 比例 / 最大 token 数
    - 分阶段摘要: 多部分摘要 + 合并
    - 压缩入口: compact_messages() 主函数
 
-5. **技能系统功能** (Phase 10):
+6. **技能系统功能** (Phase 10):
    - YAML Frontmatter 解析: 元数据、调用策略、依赖要求
    - 技能加载优先级: 工作区 > 受管 > 打包 > 额外目录
    - 技能注册表: 按 key、tag 查询，用户/模型可调用过滤
    - 自动集成到系统提示词: 动态生成 &lt;available_skills&gt; 列表
 
-6. **插件系统功能** (Phase 10):
+7. **插件系统功能** (Phase 10):
    - Manifest 验证: plugin.json 解析和格式验证
    - 插件发现: .plugins/, node_modules/@lurkbot/plugin-*
    - 动态加载: Python 模块导入、依赖检查、沙箱隔离
    - 生命周期管理: load/unload/enable/disable
    - 版本去重: 保留最新版本
 
-7. **A2UI Canvas Host 系统功能** (Phase 11):
+8. **A2UI Canvas Host 系统功能** (Phase 11):
    - A2UI 协议定义: 10 种 Surface 组件类型 (Text, Image, Button, Input, Container 等)
    - 5 种消息类型: SurfaceUpdate, DataModelUpdate, DeleteSurface, BeginRendering, Reset
    - Canvas Host 服务器: WebSocket 连接管理、状态维护、消息广播
@@ -149,7 +183,7 @@
    - JSONL 解析和序列化: parse_jsonl(), to_jsonl()
    - 多会话隔离: 每个会话独立的 Surface 和数据模型状态
 
-8. **Daemon 守护进程系统功能** (Phase 13):
+9. **Daemon 守护进程系统功能** (Phase 13):
    - 跨平台服务管理: macOS (launchd), Linux (systemd), Windows (schtasks)
    - 统一服务接口: install, uninstall, start, stop, restart, is_loaded, get_runtime
    - 服务状态查询: 运行状态、PID、退出状态、平台特定状态
@@ -157,7 +191,7 @@
    - 诊断工具: 服务状态诊断、日志检查、端口可用性检查
    - 检查工具: 服务信息查询、格式化输出
 
-9. **Hooks 扩展系统功能** (Phase 16):
+10. **Hooks 扩展系统功能** (Phase 16):
    - 钩子事件类型: command, session, agent, gateway
    - 钩子注册表: 优先级排序、模式匹配、触发器管理
    - 钩子发现机制: workspace > user > bundled 优先级
@@ -165,6 +199,17 @@
    - 预装钩子: session-memory, command-logger, boot-md
    - 依赖检查: bins, env, python_packages
    - Hooks 工具: list, trigger, discover, info 命令
+
+11. **Media Understanding 媒体理解系统功能** (Phase 14):
+   - 媒体类型支持: Image, Audio, Video, Document
+   - 多提供商架构: OpenAI, Anthropic, Gemini, Local
+   - 智能降级机制: 按优先级自动降级到下一个提供商
+   - 配置系统: 灵活的提供商配置和媒体类型设置
+   - 批量处理: 支持批量理解多个媒体文件
+   - OpenAI Provider: GPT-4 Vision (图片), Whisper (音频), GPT-4 (文档)
+   - Anthropic Provider: Claude Vision (图片), Claude (文档)
+   - Gemini Provider: Gemini Vision (图片), Gemini (音频/视频/文档)
+   - Local Provider: PIL (图片元数据), ffprobe (音频/视频), PyPDF2 (PDF)
 
 ## Implementation Plan (23 Phases)
 
@@ -184,9 +229,9 @@
 | **Phase 12** | Auto-Reply + Routing | ✅ 完成 |
 | **Phase 13** | Daemon 守护进程 | ✅ 完成 |
 | **Phase 16** | Hooks 扩展系统 | ✅ 完成 |
-| **Phase 14** | Media Understanding | ⏳ 待开始 |
+| **Phase 17** | Security 安全审计 | ✅ 完成 |
+| **Phase 14** | Media Understanding | ✅ 完成 |
 | **Phase 15** | Provider Usage 监控 | ⏳ 待开始 |
-| **Phase 17** | Security 安全审计 | ⏳ 待开始 |
 | **Phase 18** | ACP 协议系统 | ⏳ 待开始 |
 | **Phase 19** | Browser 浏览器自动化 | ⏳ 待开始 |
 | **Phase 20** | TUI 终端界面 | ⏳ 待开始 |
@@ -199,17 +244,78 @@
 ```bash
 # 1. 运行测试确认当前状态
 python -m pytest tests/main/ -xvs
+python -m pytest tests/test_media_understanding.py -v
 
-# 2. 验证 Phase 16 模块
-python -c "from lurkbot.hooks import register_bundled_hooks, trigger_internal_hook; print('Hooks OK')"
+# 2. 验证 Phase 14 模块
+python -c "from lurkbot.media import understand_media, get_default_config; print('Media Understanding OK')"
 
 # 3. 选择下一步方向：
-# 方案 A: 开始 Phase 14 - Media Understanding
-# 方案 B: 开始 Phase 15 - Provider Usage 监控
-# 方案 C: 开始 Phase 17 - Security 安全审计
+# 方案 A: 开始 Phase 15 - Provider Usage 监控 (推荐)
+# 方案 B: 开始 Phase 18 - ACP 协议系统
+# 方案 C: 开始 Phase 19 - Browser 浏览器自动化
 ```
 
 ## 新增模块结构
+
+### Phase 14 完成的目录结构
+```
+src/lurkbot/
+├── media/                       # Phase 14 [新增]
+│   ├── __init__.py             # 模块导出
+│   ├── understand.py           # 核心理解逻辑
+│   ├── config.py               # 配置系统
+│   └── providers/              # 提供商实现
+│       ├── __init__.py
+│       ├── openai.py           # OpenAI 提供商
+│       ├── anthropic.py        # Anthropic 提供商
+│       ├── gemini.py           # Gemini 提供商
+│       └── local.py            # 本地降级提供商
+├── security/                    # Phase 17
+│   ├── __init__.py
+│   ├── audit.py
+│   ├── dm_policy.py
+│   ├── model_check.py
+│   └── warnings.py
+├── hooks/                       # Phase 16
+│   ├── __init__.py
+│   ├── types.py
+│   ├── registry.py
+│   ├── discovery.py
+│   └── bundled/
+│       └── __init__.py
+├── daemon/                      # Phase 13
+│   ├── __init__.py
+│   ├── service.py
+│   ├── constants.py
+│   ├── paths.py
+│   ├── launchd.py
+│   ├── systemd.py
+│   ├── schtasks.py
+│   ├── diagnostics.py
+│   └── inspect.py
+├── canvas/                      # Phase 11
+│   ├── __init__.py
+│   ├── protocol.py
+│   ├── server.py
+│   └── client.py
+├── skills/                      # Phase 10
+│   ├── __init__.py
+│   ├── frontmatter.py
+│   ├── workspace.py
+│   └── registry.py
+├── plugins/                     # Phase 10
+│   ├── __init__.py
+│   ├── manifest.py
+│   ├── schema_validator.py
+│   └── loader.py
+└── gateway/                     # Phase 9
+    ├── __init__.py
+    ├── protocol/
+    │   └── frames.py
+    ├── events.py
+    ├── methods.py
+    └── server.py
+```
 
 ### Phase 16 完成的目录结构
 ```
@@ -404,7 +510,11 @@ tests/main/
 ├── test_phase11_canvas.py           # Phase 11 测试 (34 tests)
 ├── test_phase12_auto_reply_routing.py # Phase 12 测试 (38 tests)
 ├── test_phase13_daemon.py           # Phase 13 测试 (26 tests)
-└── test_phase16_hooks.py            # Phase 16 测试 (22 tests)
+├── test_phase16_hooks.py            # Phase 16 测试 (22 tests)
+└── test_phase17_security.py         # Phase 17 测试 (27 tests)
+
+tests/
+└── test_media_understanding.py      # Phase 14 测试 (12 tests)
 ```
 
 ## Important Notes
@@ -425,17 +535,17 @@ tests/main/
 ### 下一阶段建议优先级
 | Phase | 模块 | 优先级 | 理由 |
 |-------|------|--------|------|
-| Phase 14 | Media Understanding | P2 | 媒体理解，多提供商集成 |
 | Phase 15 | Provider Usage | P2 | 使用监控，成本追踪 |
-| Phase 17 | Security | P1 | 安全审计，网络暴露检查 |
+| Phase 18 | ACP 协议系统 | P2 | 代理间通信协议 |
+| Phase 19 | Browser 浏览器自动化 | P2 | 浏览器控制和自动化 |
 
 ---
 
 **Document Updated**: 2026-01-29
-**Progress**: 14/28 Phases 完成 (50%)
-**Total Tests**: 238 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26, Phase 16: 22, 2 skipped)
+**Progress**: 15/28 Phases 完成 (53.6%)
+**Total Tests**: 250 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26, Phase 14: 12, Phase 16: 22, 2 skipped)
 **Next Action**:
-1. 开始 Phase 14 - Media Understanding (P2 优先级，多媒体理解)
-2. 或开始 Phase 15 - Provider Usage 监控 (P2 优先级，成本追踪)
-3. 或开始 Phase 17 - Security 安全审计 (P1 优先级，安全检查)
+1. 开始 Phase 15 - Provider Usage 监控 (P2 优先级，成本追踪)
+2. 或开始 Phase 18 - ACP 协议系统 (代理间通信协议)
+3. 或开始 Phase 19 - Browser 浏览器自动化
 4. 阶段完成后与 MoltBot 对比验证
