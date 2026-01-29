@@ -3,7 +3,7 @@
 ## Session Context
 
 **Last Session Date**: 2026-01-29
-**Current Status**: 架构文档更新完成，Phase 5 部分完成
+**Current Status**: Phase 7 完成，Phase 5-7 全部完成
 **Design Document**: `docs/design/LURKBOT_COMPLETE_DESIGN.md` (v2.3)
 **Architecture Document**: `docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md` (v3.0, 32 章节)
 
@@ -11,36 +11,35 @@
 
 ### 今日完成的工作
 
-1. **MoltBot 架构文档全面更新** - 发现并记录了全部遗漏模块：
+1. **Phase 7 Heartbeat + Cron 自主运行系统** - 全部完成：
 
-   **第一轮发现（7 个模块）**:
-   | 章节 | 模块 | 代码量 |
-   |------|------|--------|
-   | 二十 | Auto-Reply 自动回复系统 | ~23K LOC |
-   | 二十一 | Daemon 守护进程系统 | ~33 文件 |
-   | 二十二 | Media Understanding 多媒体理解 | ~22 文件 |
-   | 二十三 | Provider Usage 使用量监控 | ~19 文件 |
-   | 二十四 | Routing 消息路由系统 | ~6 文件 |
-   | 二十五 | Hooks 扩展系统 | ~30 文件 |
-   | 二十六 | Security 安全审计系统 | ~11 文件 |
+   | 组件 | 文件 | 状态 |
+   |------|------|------|
+   | HeartbeatConfig | `autonomous/heartbeat/__init__.py` | ✅ 完成 |
+   | HeartbeatEventPayload | `autonomous/heartbeat/__init__.py` | ✅ 完成 |
+   | HeartbeatRunner | `autonomous/heartbeat/__init__.py` | ✅ 完成 |
+   | ActiveHours | `autonomous/heartbeat/__init__.py` | ✅ 完成 |
+   | CronSchedule (at/every/cron) | `autonomous/cron/__init__.py` | ✅ 完成 |
+   | CronPayload (systemEvent/agentTurn) | `autonomous/cron/__init__.py` | ✅ 完成 |
+   | CronJob | `autonomous/cron/__init__.py` | ✅ 完成 |
+   | CronService | `autonomous/cron/__init__.py` | ✅ 完成 |
+   | 单元测试 | `tests/main/test_phase7_autonomous.py` | ✅ 通过 (40 tests) |
 
-   **第二轮发现（6 个模块）**:
-   | 章节 | 模块 | 代码量 |
-   |------|------|--------|
-   | 二十七 | ACP 协议系统 | ~13 文件 |
-   | 二十八 | Browser 浏览器自动化 | ~81 文件 |
-   | 二十九 | TUI 终端界面 | ~37 文件 |
-   | 三十 | TTS 语音合成 | ~2 文件 |
-   | 三十一 | Wizard 配置向导 | ~9 文件 |
-   | 三十二 | Infra 基础设施（8 子系统） | ~182 文件 |
+2. **Heartbeat 系统功能**:
+   - 周期性心跳检查 (configurable interval)
+   - 活动时间窗口支持 (active hours)
+   - HEARTBEAT_OK token 处理 (静默确认)
+   - 24 小时内重复消息抑制
+   - 事件发射和监听器系统
+   - HEARTBEAT.md 文件读取
 
-2. **LurkBot 设计文档更新 (v2.3)**：
-   - 新增 Phase 18-23 实施计划
-   - 总实施周期从 18 周扩展到 24 周
-   - 功能检查清单从 37 项扩展到 50 项
-   - 关键文件清单新增 12 个模块目录
-
-3. **文档覆盖率提升**: 从 ~85% 提升到 ~95%+
+3. **Cron 系统功能**:
+   - 三种调度类型: at (单次), every (周期), cron (表达式)
+   - 两种 Payload 类型: systemEvent (轻量级), agentTurn (重量级)
+   - Job CRUD 操作: add, update, remove, list, get
+   - 执行控制: run (due/force), wake
+   - JSONL 持久化存储
+   - 调度循环 (scheduler loop)
 
 ## Implementation Plan (23 Phases)
 
@@ -50,9 +49,9 @@
 | **Phase 2** | PydanticAI 核心框架集成 | ✅ 完成 |
 | **Phase 3** | Bootstrap 文件系统 + 系统提示词 | ✅ 完成 |
 | **Phase 4** | 九层工具策略系统 | ✅ 完成 |
-| **Phase 5** | 22 个原生工具实现 | 🔄 进行中 |
-| **Phase 6** | 会话管理 + 子代理系统 | ⏳ 待开始 |
-| **Phase 7** | Heartbeat + Cron 自主运行系统 | ⏳ 待开始 |
+| **Phase 5** | 22 个原生工具实现 | ✅ 完成 |
+| **Phase 6** | 会话管理 + 子代理系统 | ✅ 完成 |
+| **Phase 7** | Heartbeat + Cron 自主运行系统 | ✅ 完成 |
 | **Phase 8** | Auth Profile + Context Compaction | ⏳ 待开始 |
 | **Phase 9** | Gateway WebSocket 协议 | ⏳ 待开始 |
 | **Phase 10** | 技能和插件系统 | ⏳ 待开始 |
@@ -63,69 +62,52 @@
 | **Phase 15** | Provider Usage 监控 | ⏳ 待开始 |
 | **Phase 16** | Hooks 扩展系统 | ⏳ 待开始 |
 | **Phase 17** | Security 安全审计 | ⏳ 待开始 |
-| **Phase 18** | ACP 协议系统 | ⏳ **新增** |
-| **Phase 19** | Browser 浏览器自动化 | ⏳ **新增** |
-| **Phase 20** | TUI 终端界面 | ⏳ **新增** |
-| **Phase 21** | TTS 语音合成 | ⏳ **新增** |
-| **Phase 22** | Wizard 配置向导 | ⏳ **新增** |
-| **Phase 23** | Infra 基础设施 | ⏳ **新增** |
-
-## 新增模块概述
-
-### ACP 协议系统 (Phase 18)
-- **Agent Control Protocol**: IDE 集成协议
-- **ndJSON 流**: stdin/stdout 双向通信
-- **会话隔离**: IDE 级别独立会话
-- **工具集**: text_editor, shell 等
-
-### Browser 浏览器自动化 (Phase 19)
-- **Playwright + CDP**: 双模式支持
-- **截图优化**: 智能裁剪、压缩
-- **Role/ARIA 快照**: 可访问性树提取
-- **扩展中继**: 浏览器扩展通信
-
-### TUI 终端界面 (Phase 20)
-- **pi-tui 风格**: 交互式终端
-- **流分离器**: thinking/content 分离
-- **命令处理器**: 快捷键和命令
-
-### TTS 语音合成 (Phase 21)
-- **多提供商**: OpenAI, ElevenLabs, Edge TTS
-- **指令标签**: `[[tts:...]]` 解析
-- **自动摘要**: 长文本处理
-
-### Wizard 配置向导 (Phase 22)
-- **Promise-based 会话**: 交互式引导
-- **QuickStart/Advanced**: 两种模式
-- **重置策略**: 配置迁移
-
-### Infra 基础设施 (Phase 23)
-8 个子系统：
-- **system-events**: 音频输入/剪贴板/文件变化
-- **system-presence**: 设备在线状态
-- **tailscale**: VPN 集成
-- **ssh-tunnel**: SSH 隧道管理
-- **bonjour**: mDNS 服务发现
-- **device-pairing**: PKI 设备配对
-- **exec-approvals**: 执行审批系统
-- **voicewake**: 语音唤醒
+| **Phase 18** | ACP 协议系统 | ⏳ 待开始 |
+| **Phase 19** | Browser 浏览器自动化 | ⏳ 待开始 |
+| **Phase 20** | TUI 终端界面 | ⏳ 待开始 |
+| **Phase 21** | TTS 语音合成 | ⏳ 待开始 |
+| **Phase 22** | Wizard 配置向导 | ⏳ 待开始 |
+| **Phase 23** | Infra 基础设施 | ⏳ 待开始 |
 
 ## Quick Start for Next Session
 
 ```bash
 # 1. 运行测试确认当前状态
-python -m pytest tests/ -xvs
+python -m pytest tests/main/ -xvs
 
-# 2. 查看更新后的设计文档
-cat docs/design/LURKBOT_COMPLETE_DESIGN.md | head -200
+# 2. 验证 autonomous 模块
+python -c "from lurkbot.autonomous import HeartbeatRunner, CronService; print('OK')"
 
-# 3. 查看 MoltBot 架构文档（32 章节）
-cat docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md | head -50
-
-# 4. 选择下一步方向：
-# 方案 A: 继续 Phase 5 - 完成剩余工具
-# 方案 B: 开始 Phase 6 - 会话管理系统
+# 3. 选择下一步方向：
+# 方案 A: 开始 Phase 8 - Auth Profile + Context Compaction
+# 方案 B: 开始 Phase 9 - Gateway WebSocket 协议
 # 方案 C: 跳到 Phase 12 - Auto-Reply 系统（消息处理核心）
+```
+
+## 新增模块结构
+
+### Phase 7 完成的目录结构
+```
+src/lurkbot/
+├── autonomous/                  # Phase 7 [新增/更新]
+│   ├── __init__.py             # 模块导出
+│   ├── heartbeat/
+│   │   └── __init__.py         # HeartbeatConfig, HeartbeatRunner, HeartbeatEventPayload
+│   └── cron/
+│       └── __init__.py         # CronSchedule, CronPayload, CronJob, CronService
+├── sessions/                    # Phase 6 [已完成]
+│   ├── __init__.py             # 模块导出
+│   ├── types.py                # SessionEntry, MessageEntry
+│   ├── store.py                # SessionStore (JSONL 持久化)
+│   └── manager.py              # SessionManager (生命周期管理)
+├── agents/
+│   ├── subagent/               # Phase 6 [已完成]
+│   │   └── __init__.py         # 子代理系统
+│   └── types.py                # AgentContext, SessionType
+└── tools/builtin/
+    ├── session_tools.py        # Phase 6 - 6 个 Session 工具
+    ├── cron_tool.py            # Phase 5 - Cron 工具
+    └── __init__.py             # 工具导出
 ```
 
 ## Key References
@@ -138,35 +120,11 @@ docs/design/
 └── LURKBOT_COMPLETE_DESIGN.md       # 复刻设计（v2.3, 23 阶段）
 ```
 
-### 新增模块目录结构预览
+### 测试文件
 ```
-src/lurkbot/
-├── acp/                 # Phase 18 [新增]
-│   ├── server.py
-│   ├── protocol.py
-│   └── session.py
-├── browser/             # Phase 19 [新增]
-│   ├── playwright_manager.py
-│   ├── cdp_client.py
-│   └── screenshot.py
-├── tui/                 # Phase 20 [新增]
-│   ├── app.py
-│   └── stream_assembler.py
-├── tts/                 # Phase 21 [新增]
-│   ├── engine.py
-│   └── providers/
-├── wizard/              # Phase 22 [新增]
-│   ├── session.py
-│   └── flows/
-└── infra/               # Phase 23 [扩展]
-    ├── system_events/
-    ├── system_presence/
-    ├── tailscale/
-    ├── ssh_tunnel/
-    ├── bonjour/
-    ├── device_pairing/
-    ├── exec_approvals/
-    └── voicewake/
+tests/main/
+├── test_phase6_sessions.py     # Phase 6 测试 (16 tests)
+└── test_phase7_autonomous.py   # Phase 7 测试 (40 tests)
 ```
 
 ## Important Notes
@@ -184,24 +142,19 @@ src/lurkbot/
 - **CLI**: Typer
 - **日志**: Loguru
 
-### 新发现模块优先级
-| 模块 | 优先级 | 理由 |
-|------|--------|------|
-| Auto-Reply | **P0** | 消息处理核心，影响所有交互 |
-| ACP | **P1** | IDE 集成，开发者体验 |
-| Browser | P1 | 网页自动化能力 |
-| Daemon | P1 | 生产环境部署必需 |
-| Routing | P1 | 多渠道消息分发 |
-| TUI | P2 | 开发调试工具 |
-| TTS | P2 | 语音输出扩展 |
-| Wizard | P1 | 用户引导体验 |
-| Infra | P2 | 高级功能支撑 |
+### 下一阶段建议优先级
+| Phase | 模块 | 优先级 | 理由 |
+|-------|------|--------|------|
+| Phase 8 | Auth Profile + Compaction | P1 | 凭据管理和上下文优化 |
+| Phase 9 | Gateway | P1 | 多端通信协议 |
+| Phase 12 | Auto-Reply | **P0** | 消息处理核心 |
 
 ---
 
 **Document Updated**: 2026-01-29
+**Progress**: 7/23 Phases 完成 (30%)
+**Total Tests**: 56 passing (Phase 6: 16, Phase 7: 40)
 **Next Action**:
-1. 继续 Phase 5 或开始 Phase 6
-2. 考虑优先实现 Phase 12 (Auto-Reply) - 这是消息处理的核心
-3. 考虑优先实现 Phase 18 (ACP) - IDE 集成支持
-4. 阶段完成后与 MoltBot 对比验证
+1. 开始 Phase 8 - Auth Profile + Context Compaction
+2. 或跳到 Phase 12 (Auto-Reply) - 消息处理核心
+3. 阶段完成后与 MoltBot 对比验证

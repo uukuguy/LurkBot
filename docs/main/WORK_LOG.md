@@ -1,5 +1,329 @@
 # LurkBot 工作日志
 
+## 2026-01-29 (续-16) - Phase 7 Heartbeat + Cron 自主运行系统完成
+
+### 会话概述
+
+完成 Phase 7 的全部实现，包括 Heartbeat 心跳系统和 Cron 定时任务系统。所有 40 个单元测试通过。
+
+### 主要工作
+
+#### 1. Heartbeat 心跳系统 ✅
+
+**文件**: `src/lurkbot/autonomous/heartbeat/__init__.py`
+
+**核心组件**:
+| 组件 | 说明 |
+|------|------|
+| `HeartbeatConfig` | 心跳配置（interval, target, active_hours 等） |
+| `HeartbeatEventPayload` | 心跳事件（sent, ok-empty, ok-token, skipped, failed） |
+| `HeartbeatRunner` | 心跳运行器 |
+| `ActiveHours` | 活动时间窗口配置 |
+
+**核心功能**:
+- 周期性心跳检查 (configurable interval: "5m", "30s", "1h")
+- 活动时间窗口支持 (active hours with timezone)
+- HEARTBEAT_OK token 处理 (静默确认)
+- 24 小时内重复消息抑制 (hash-based deduplication)
+- 事件发射和监听器系统
+- HEARTBEAT.md 文件读取和解析
+
+#### 2. Cron 定时任务系统 ✅
+
+**文件**: `src/lurkbot/autonomous/cron/__init__.py`
+
+**调度类型**:
+| 类型 | 类 | 说明 |
+|------|-----|------|
+| at | `CronScheduleAt` | 单次执行（指定时间戳） |
+| every | `CronScheduleEvery` | 周期执行（间隔毫秒） |
+| cron | `CronScheduleCron` | Cron 表达式调度 |
+
+**Payload 类型**:
+| 类型 | 类 | 说明 |
+|------|-----|------|
+| systemEvent | `SystemEventPayload` | 向主会话注入系统事件（轻量级） |
+| agentTurn | `AgentTurnPayload` | 运行隔离会话中的代理任务（重量级） |
+
+**CronService 功能**:
+- Job CRUD 操作: add, update, remove, list, get
+- 执行控制: run (due/force), wake
+- 调度循环 (scheduler loop with configurable tick interval)
+- JSONL 持久化存储
+- 验证规则: main session 必须用 systemEvent，isolated 必须用 agentTurn
+
+#### 3. 单元测试 ✅
+
+**文件**: `tests/main/test_phase7_autonomous.py`
+
+**测试覆盖**:
+- TestHeartbeatConfig: 3 个测试（默认配置、自定义配置、活动时间）
+- TestHeartbeatRunner: 11 个测试（初始化、解析、空检测、token、重复检测等）
+- TestCronSchedules: 3 个测试（at、every、cron）
+- TestCronPayloads: 2 个测试（systemEvent、agentTurn）
+- TestCronService: 15 个测试（CRUD、执行、持久化、delete_after_run 等）
+- TestCronJobState: 2 个测试（默认状态、带值状态）
+- TestAutonomousIntegration: 2 个测试（心跳回调、服务生命周期）
+
+**结果**: 40 tests passed
+
+### 技术细节
+
+#### 目录结构
+```
+src/lurkbot/autonomous/
+├── __init__.py              # 模块导出
+├── heartbeat/
+│   └── __init__.py          # HeartbeatConfig, HeartbeatRunner, HeartbeatEventPayload
+└── cron/
+    └── __init__.py          # CronSchedule, CronPayload, CronJob, CronService
+```
+
+#### Heartbeat 运行流程 (对标 MoltBot runHeartbeatOnce)
+```
+1. 检查是否启用 → skipped:disabled
+2. 检查活动时间窗口 → skipped:quiet-hours
+3. 检查请求进行中 → skipped:requests-in-flight
+4. 读取 HEARTBEAT.md → skipped:no-heartbeat-file
+5. 检查内容是否为空 → ok-empty
+6. 构建提示词并调用 LLM
+7. 检查 HEARTBEAT_OK token → ok-token
+8. 检查 24h 内重复 → skipped:duplicate
+9. 投递消息 → sent
+```
+
+#### Cron Job 验证规则
+```python
+# main 会话只能用 systemEvent
+if job.session_target == "main":
+    assert isinstance(job.payload, SystemEventPayload)
+
+# isolated 会话只能用 agentTurn
+if job.session_target == "isolated":
+    assert isinstance(job.payload, AgentTurnPayload)
+```
+
+### 下一步计划
+
+1. **Phase 8**: Auth Profile + Context Compaction
+2. **Phase 9**: Gateway WebSocket 协议
+3. **Phase 12**: Auto-Reply + Routing（消息处理核心，P0 优先级）
+
+### 进度统计
+
+- **已完成**: Phase 1-7 (7/23 = 30%)
+- **剩余**: Phase 8-23 (16 个阶段)
+- **总测试数**: 56 passing (Phase 6: 16 + Phase 7: 40)
+
+---
+
+## 2026-01-29 (续-15) - Phase 6 会话管理 + 子代理系统完成
+
+### 会话概述
+
+完成 Phase 6 的全部实现，包括会话管理系统和子代理协议。所有 16 个单元测试通过。
+
+### 主要工作
+
+#### 1. 会话管理系统 ✅
+
+**创建的文件**:
+```
+src/lurkbot/sessions/
+├── __init__.py         # 模块导出
+├── types.py            # SessionEntry, MessageEntry, SubagentResult 等数据结构
+├── store.py            # SessionStore - JSONL 持久化存储
+└── manager.py          # SessionManager - 会话生命周期管理
+```
+
+**核心功能**:
+- SessionEntry: 会话元数据（ID、Key、类型、状态、Token 统计等）
+- MessageEntry: 消息记录（支持多种角色和内容类型）
+- SessionStore: JSONL 格式的会话和历史持久化
+- SessionManager: 会话创建、获取、更新、删除、垃圾回收
+
+#### 2. 子代理系统 ✅
+
+**文件**: `src/lurkbot/agents/subagent/__init__.py`
+
+**核心功能**:
+- `spawn_subagent()`: 创建子代理会话
+- `build_subagent_system_prompt()`: 生成子代理专用系统提示词
+- `run_announce_flow()`: 子代理结果汇报流程
+- `SUBAGENT_DENY_LIST`: 子代理禁用的工具列表
+- 子代理深度限制（防止无限递归）
+
+#### 3. Session 工具 ✅
+
+**文件**: `src/lurkbot/tools/builtin/session_tools.py`
+
+**实现的 6 个工具**:
+| 工具 | 功能 |
+|------|------|
+| `sessions_spawn` | 创建子代理会话 |
+| `sessions_send` | 跨会话发送消息 |
+| `sessions_list` | 列出会话 |
+| `sessions_history` | 获取会话历史 |
+| `session_status` | 查询会话状态 |
+| `agents_list` | 列出代理 |
+
+#### 4. 单元测试 ✅
+
+**文件**: `tests/main/test_phase6_sessions.py`
+
+**测试覆盖**:
+- TestSessionStore: 8 个测试（CRUD、历史、最新回复）
+- TestSessionManager: 3 个测试（创建、子代理、深度限制）
+- TestSubagentSystem: 2 个测试（提示词、禁用列表）
+- TestSessionTools: 1 个测试（sessions_list）
+- TestHelperFunctions: 2 个测试（ID 生成）
+
+**结果**: 16 tests passed
+
+### 技术细节
+
+#### 会话存储结构
+```
+~/.lurkbot/agents/{agentId}/
+├── sessions.json          # 所有会话元数据
+├── {sessionId_1}.jsonl    # 会话 1 的对话历史
+├── {sessionId_2}.jsonl    # 会话 2 的对话历史
+└── ...
+```
+
+#### 会话 Key 格式
+```
+agent:{id}:main                    # 主会话
+agent:{id}:group:{channel}:{group} # 群组会话
+agent:{id}:dm:{channel}:{partner}  # 私信会话
+agent:{id}:subagent:{subagent_id}  # 子代理会话
+```
+
+### 下一步计划
+
+1. **Phase 7**: Heartbeat + Cron 自主运行系统
+2. **Phase 9**: Gateway WebSocket 协议
+3. **Phase 12**: Auto-Reply + Routing（消息处理核心）
+
+### 进度统计
+
+- **已完成**: Phase 1-6 (6/23 = 26%)
+- **剩余**: Phase 7-23 (17 个阶段)
+
+---
+
+## 2026-01-29 (续-14) - 架构重新设计与实施计划 v3.0
+
+### 会话概述
+
+根据 MoltBot v3.0 架构文档（32 章节），全面更新 LurkBot 设计文档和实施计划。
+
+### 主要工作
+
+#### 1. 创建新模块目录结构 ✅
+
+**创建的目录**（14 个新模块 + 子目录）:
+```
+src/lurkbot/
+├── auto_reply/queue/        # Auto-Reply 自动回复系统
+├── daemon/                  # Daemon 守护进程系统
+├── media/providers/         # Media Understanding 多媒体理解
+├── usage/providers/         # Provider Usage 使用量监控
+├── routing/                 # Routing 消息路由系统
+├── hooks/bundled/           # Hooks 扩展系统
+├── security/                # Security 安全审计系统
+├── acp/                     # ACP 协议系统
+├── browser/routes/          # Browser 浏览器自动化
+├── canvas/                  # A2UI Canvas 界面系统
+├── tui/components/          # TUI 终端界面
+├── tts/providers/           # TTS 语音合成
+├── wizard/flows/            # Wizard 配置向导
+├── agents/subagent/         # 子代理系统
+└── infra/                   # Infra 基础设施（8 个子模块）
+    ├── system_events/
+    ├── system_presence/
+    ├── tailscale/
+    ├── ssh_tunnel/
+    ├── bonjour/
+    ├── device_pairing/
+    ├── exec_approvals/
+    └── voicewake/
+```
+
+**创建的 `__init__.py` 文件**: 45 个
+
+#### 2. 更新设计文档 ✅
+
+**文件**: `docs/design/LURKBOT_COMPLETE_DESIGN.md`
+
+**主要变更**:
+- 版本从 v2.3 升级到 v3.0
+- 目录结构从 7 个章节扩展到 20 个章节 + 附录
+- 添加 14 个新模块的详细设计（第五至十七章）
+- 功能检查清单从 50 项扩展到 53 项
+- 实施计划从 23 个阶段扩展到 28 个阶段
+
+**新增章节设计**:
+| 章节 | 模块 | 关键内容 |
+|------|------|----------|
+| 第五章 | Auto-Reply | 指令系统、队列处理、流式响应、Silent Reply |
+| 第六章 | Routing | 6 层路由决策、Session Key、广播 |
+| 第七章 | Daemon | 跨平台服务接口、launchd/systemd/schtasks |
+| 第八章 | Hooks | 事件类型、钩子注册、发现机制 |
+| 第九章 | Security | 审计范围、DM 策略、CLI 命令 |
+| 第十章 | Infra | 系统事件队列、存在感、Tailscale |
+| 第十一章 | Media | 处理流程、配置策略 |
+| 第十二章 | Usage | 使用量监控、格式化输出 |
+| 第十三章 | ACP | 协议架构、会话管理、事件映射 |
+| 第十四章 | Browser | HTTP 路由、Playwright 集成 |
+| 第十五章 | TUI | 命令系统、流式响应组装 |
+| 第十六章 | TTS | 配置结构、Directive 系统 |
+| 第十七章 | Wizard | Session 架构、Onboarding 流程 |
+
+#### 3. 更新实施阶段规划 ✅
+
+**从 23 阶段扩展到 28 阶段**:
+
+| 优先级 | 阶段范围 | 模块数 | 状态 |
+|--------|----------|--------|------|
+| P0 | Phase 1-8 | 8 | Phase 1-4 已完成，Phase 5 进行中 |
+| P1 | Phase 9-18 | 10 | 待开始 |
+| P2 | Phase 19-28 | 10 | 待开始 |
+
+**当前阶段**: Phase 5 - 剩余内置工具 (15个)
+
+### 技术决策
+
+1. **模块组织**: 严格对齐 MoltBot v3.0 的 32 章节结构
+2. **设计文档**: 每个新模块包含完整的 Python 代码示例
+3. **实施优先级**: P0 核心基础设施 → P1 核心功能 → P2 扩展功能
+
+### 文件变更清单
+
+| 操作 | 文件/目录 |
+|------|----------|
+| 创建 | 14 个新模块目录 + 子目录 |
+| 创建 | 45 个 `__init__.py` 文件 |
+| 更新 | `docs/design/LURKBOT_COMPLETE_DESIGN.md` (v2.3 → v3.0) |
+| 更新 | `docs/main/WORK_LOG.md` |
+
+### 下一步计划
+
+1. **Phase 5**: 完成剩余 15 个内置工具实现
+   - sessions_list, sessions_history, sessions_send, sessions_spawn
+   - session_status, agents_list, cron, gateway
+   - browser, canvas, image, nodes, tts
+
+2. **Phase 6**: 会话管理系统
+   - JSONL 持久化
+   - 5 种会话类型支持
+
+3. **Phase 7**: 子代理系统
+   - Spawn 工作流
+   - 结果汇报流程
+
+---
+
 ## 2026-01-29 (续-13) - Phase 4: 九层工具策略系统（100% 完成）
 
 ### 会话概述
