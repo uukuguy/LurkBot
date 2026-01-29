@@ -433,7 +433,7 @@ tests/main/
 
 **Document Updated**: 2026-01-29
 **Progress**: 14/28 Phases 完成 (50%)
-**Total Tests**: 240 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26, Phase 16: 22)
+**Total Tests**: 238 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26, Phase 16: 22, 2 skipped)
 **Next Action**:
 1. 开始 Phase 14 - Media Understanding (P2 优先级，多媒体理解)
 2. 或开始 Phase 15 - Provider Usage 监控 (P2 优先级，成本追踪)
