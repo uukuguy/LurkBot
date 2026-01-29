@@ -3,7 +3,7 @@
 ## Session Context
 
 **Last Session Date**: 2026-01-29
-**Current Status**: Phase 11 完成，Phase 5-12 + Phase 11 全部完成
+**Current Status**: Phase 13 完成，Phase 5-13 全部完成
 **Design Document**: `docs/design/LURKBOT_COMPLETE_DESIGN.md` (v2.3)
 **Architecture Document**: `docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md` (v3.0, 32 章节)
 
@@ -11,7 +11,22 @@
 
 ### 今日完成的工作
 
-1. **Phase 11 A2UI Canvas Host 系统** - 全部完成：
+1. **Phase 13 Daemon 守护进程系统** - 全部完成：
+
+   | 组件 | 文件 | 状态 |
+   |------|------|------|
+   | 统一服务接口 | `daemon/service.py` | ✅ 完成 |
+   | 常量定义 | `daemon/constants.py` | ✅ 完成 |
+   | 路径工具 | `daemon/paths.py` | ✅ 完成 |
+   | macOS Launchd | `daemon/launchd.py` | ✅ 完成 |
+   | Linux Systemd | `daemon/systemd.py` | ✅ 完成 |
+   | Windows Schtasks | `daemon/schtasks.py` | ✅ 完成 |
+   | 诊断工具 | `daemon/diagnostics.py` | ✅ 完成 |
+   | 检查工具 | `daemon/inspect.py` | ✅ 完成 |
+   | 模块导出 | `daemon/__init__.py` | ✅ 完成 |
+   | 单元测试 | `tests/main/test_phase13_daemon.py` | ✅ 通过 (26 tests) |
+
+2. **Phase 11 A2UI Canvas Host 系统** - 全部完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
@@ -121,6 +136,14 @@
    - JSONL 解析和序列化: parse_jsonl(), to_jsonl()
    - 多会话隔离: 每个会话独立的 Surface 和数据模型状态
 
+8. **Daemon 守护进程系统功能** (Phase 13):
+   - 跨平台服务管理: macOS (launchd), Linux (systemd), Windows (schtasks)
+   - 统一服务接口: install, uninstall, start, stop, restart, is_loaded, get_runtime
+   - 服务状态查询: 运行状态、PID、退出状态、平台特定状态
+   - 路径管理: 日志目录、运行时目录、配置文件路径
+   - 诊断工具: 服务状态诊断、日志检查、端口可用性检查
+   - 检查工具: 服务信息查询、格式化输出
+
 ## Implementation Plan (23 Phases)
 
 | Phase | 内容 | 状态 |
@@ -137,7 +160,7 @@
 | **Phase 10** | 技能和插件系统 | ✅ 完成 |
 | **Phase 11** | A2UI Canvas Host | ✅ 完成 |
 | **Phase 12** | Auto-Reply + Routing | ✅ 完成 |
-| **Phase 13** | Daemon 守护进程 | ⏳ 待开始 |
+| **Phase 13** | Daemon 守护进程 | ✅ 完成 |
 | **Phase 14** | Media Understanding | ⏳ 待开始 |
 | **Phase 15** | Provider Usage 监控 | ⏳ 待开始 |
 | **Phase 16** | Hooks 扩展系统 | ⏳ 待开始 |
@@ -155,16 +178,53 @@
 # 1. 运行测试确认当前状态
 python -m pytest tests/main/ -xvs
 
-# 2. 验证 Phase 11 模块
-python -c "from lurkbot.canvas import CanvasHost, CanvasClient, parse_jsonl; print('Canvas OK')"
+# 2. 验证 Phase 13 模块
+python -c "from lurkbot.daemon import resolve_gateway_service, diagnose_service; print('Daemon OK')"
 
 # 3. 选择下一步方向：
-# 方案 A: 开始 Phase 13 - Daemon 守护进程
-# 方案 B: 开始 Phase 14 - Media Understanding
-# 方案 C: 开始 Phase 15 - Provider Usage 监控
+# 方案 A: 开始 Phase 14 - Media Understanding
+# 方案 B: 开始 Phase 15 - Provider Usage 监控
+# 方案 C: 开始 Phase 16 - Hooks 扩展系统
 ```
 
 ## 新增模块结构
+
+### Phase 13 完成的目录结构
+```
+src/lurkbot/
+├── daemon/                      # Phase 13 [新增]
+│   ├── __init__.py             # 模块导出
+│   ├── service.py              # 统一服务接口
+│   ├── constants.py            # 常量定义
+│   ├── paths.py                # 路径工具
+│   ├── launchd.py              # macOS Launchd 实现
+│   ├── systemd.py              # Linux Systemd 实现
+│   ├── schtasks.py             # Windows Schtasks 实现
+│   ├── diagnostics.py          # 诊断工具
+│   └── inspect.py              # 检查工具
+├── canvas/                      # Phase 11
+│   ├── __init__.py
+│   ├── protocol.py
+│   ├── server.py
+│   └── client.py
+├── skills/                      # Phase 10
+│   ├── __init__.py
+│   ├── frontmatter.py
+│   ├── workspace.py
+│   └── registry.py
+├── plugins/                     # Phase 10
+│   ├── __init__.py
+│   ├── manifest.py
+│   ├── schema_validator.py
+│   └── loader.py
+└── gateway/                     # Phase 9
+    ├── __init__.py
+    ├── protocol/
+    │   └── frames.py
+    ├── events.py
+    ├── methods.py
+    └── server.py
+```
 
 ### Phase 11 完成的目录结构
 ```
@@ -276,7 +336,8 @@ tests/main/
 ├── test_phase9_gateway.py           # Phase 9 测试 (12 tests)
 ├── test_phase10_skills_plugins.py   # Phase 10 测试 (23 tests)
 ├── test_phase11_canvas.py           # Phase 11 测试 (34 tests)
-└── test_phase12_auto_reply_routing.py # Phase 12 测试 (38 tests)
+├── test_phase12_auto_reply_routing.py # Phase 12 测试 (38 tests)
+└── test_phase13_daemon.py           # Phase 13 测试 (26 tests)
 ```
 
 ## Important Notes
@@ -297,17 +358,17 @@ tests/main/
 ### 下一阶段建议优先级
 | Phase | 模块 | 优先级 | 理由 |
 |-------|------|--------|------|
-| Phase 13 | Daemon | P2 | 守护进程 |
 | Phase 14 | Media Understanding | P2 | 媒体理解 |
 | Phase 15 | Provider Usage | P2 | 使用监控 |
+| Phase 16 | Hooks | P2 | 扩展系统 |
 
 ---
 
 **Document Updated**: 2026-01-29
-**Progress**: 12/28 Phases 完成 (43%)
-**Total Tests**: 192 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38)
+**Progress**: 13/28 Phases 完成 (46%)
+**Total Tests**: 218 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26)
 **Next Action**:
-1. 开始 Phase 13 - Daemon 守护进程 (P2 优先级)
-2. 或开始 Phase 14 - Media Understanding (P2 优先级)
-3. 或开始 Phase 15 - Provider Usage 监控 (P2 优先级)
+1. 开始 Phase 14 - Media Understanding (P2 优先级)
+2. 或开始 Phase 15 - Provider Usage 监控 (P2 优先级)
+3. 或开始 Phase 16 - Hooks 扩展系统 (P2 优先级)
 4. 阶段完成后与 MoltBot 对比验证
