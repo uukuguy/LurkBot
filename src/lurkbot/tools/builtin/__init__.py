@@ -1,12 +1,256 @@
 """Built-in tools (22 native tools).
 
-Session tools (6): sessions_spawn, sessions_send, sessions_list, sessions_history, session_status, agents_list
-Cron tool (1): cron
-Message tool (1): message
-Web tools (2): web_search, web_fetch
-Media tools (3): browser, image, canvas
-Memory tools (2): memory_search, memory_get
-System tools (2): nodes, gateway
-TTS tool (1): tts
-Coding tools (4): bash, read, write, edit/apply_patch
+This module provides all native tools for the LurkBot agent:
+
+P0 - Core tools (✅ Implemented):
+- exec: Execute shell commands
+- process: Manage background processes
+- read: Read file contents
+- write: Write to files
+- edit: Edit files with search/replace
+- apply_patch: Apply unified diff patches
+
+P1 - Session tools (⏳ Pending - depends on Phase 6):
+- sessions_spawn: Create new agent sessions
+- sessions_send: Send messages to sessions
+- sessions_list: List agent sessions
+- sessions_history: Get session history
+- session_status: Get session status
+- agents_list: List available agents
+
+P1 - Memory tools (✅ Implemented):
+- memory_search: Semantic search in memory
+- memory_get: Read from memory files
+
+P1 - Web tools (✅ Implemented):
+- web_search: Search the web
+- web_fetch: Fetch web page content
+
+P1 - Message tool (✅ Implemented):
+- message: Send messages to channels
+
+P2 - Media tools (⏳ Pending):
+- browser: Browser automation
+- image: Image understanding
+- canvas: Canvas drawing
+
+P2 - System tools (⏳ Pending):
+- nodes: Node management
+- gateway: Gateway communication
+
+P2 - Other tools (⏳ Pending):
+- cron: Scheduled tasks
+- tts: Text-to-speech
 """
+
+from lurkbot.tools.builtin.common import (
+    # Types
+    ActionGate,
+    ParamError,
+    ToolResult,
+    ToolResultContent,
+    ToolResultContentType,
+    # Result helpers
+    error_result,
+    image_result,
+    json_result,
+    text_result,
+    # Parameter helpers
+    read_bool_param,
+    read_dict_param,
+    read_number_param,
+    read_string_array_param,
+    read_string_or_number_param,
+    read_string_param,
+    # Utility functions
+    chunk_string,
+    clamp_number,
+    coerce_env,
+    create_action_gate,
+    truncate_middle,
+)
+from lurkbot.tools.builtin.exec_tool import (
+    # Types
+    ExecAsk,
+    ExecHost,
+    ExecSecurity,
+    ExecStatus,
+    ExecToolDefaults,
+    ExecParams,
+    ProcessParams,
+    ProcessSession,
+    # Functions
+    exec_tool,
+    process_tool,
+    create_exec_tool,
+    create_process_tool,
+    # Session registry
+    add_session,
+    get_session,
+    remove_session,
+    kill_session,
+)
+from lurkbot.tools.builtin.fs_safe import (
+    SafeOpenError,
+    SafeOpenErrorCode,
+    SafeOpenResult,
+    is_path_within_root,
+    open_file_within_root,
+    open_file_within_root_sync,
+    resolve_safe_path,
+)
+from lurkbot.tools.builtin.fs_tools import (
+    # Types
+    ReadParams,
+    WriteParams,
+    EditParams,
+    ApplyPatchParams,
+    # Functions
+    read_tool,
+    write_tool,
+    edit_tool,
+    apply_patch_tool,
+    create_read_tool,
+    create_write_tool,
+    create_edit_tool,
+    create_apply_patch_tool,
+)
+from lurkbot.tools.builtin.memory_tools import (
+    # Types
+    MemorySearchParams,
+    MemoryGetParams,
+    MemorySearchConfig,
+    MemorySearchResult,
+    MemoryManager,
+    # Functions
+    memory_search_tool,
+    memory_get_tool,
+    get_memory_manager,
+    create_memory_search_tool,
+    create_memory_get_tool,
+)
+from lurkbot.tools.builtin.web_tools import (
+    # Types
+    WebFetchParams,
+    WebSearchParams,
+    WebFetchConfig,
+    WebSearchConfig,
+    SearchResult,
+    # Functions
+    web_fetch_tool,
+    web_search_tool,
+    html_to_markdown,
+    create_web_fetch_tool,
+    create_web_search_tool,
+)
+from lurkbot.tools.builtin.message_tool import (
+    # Types
+    MessageAction,
+    MessageConfig,
+    MessageChannel,
+    MessageParams,
+    # Functions
+    message_tool,
+    register_channel,
+    get_channel,
+    create_message_tool,
+    # Channel classes
+    CLIChannel,
+)
+
+__all__ = [
+    # Common types
+    "ActionGate",
+    "ParamError",
+    "ToolResult",
+    "ToolResultContent",
+    "ToolResultContentType",
+    # Common result helpers
+    "error_result",
+    "image_result",
+    "json_result",
+    "text_result",
+    # Common parameter helpers
+    "read_bool_param",
+    "read_dict_param",
+    "read_number_param",
+    "read_string_array_param",
+    "read_string_or_number_param",
+    "read_string_param",
+    # Common utility functions
+    "chunk_string",
+    "clamp_number",
+    "coerce_env",
+    "create_action_gate",
+    "truncate_middle",
+    # Exec tool
+    "ExecAsk",
+    "ExecHost",
+    "ExecSecurity",
+    "ExecStatus",
+    "ExecToolDefaults",
+    "ExecParams",
+    "ProcessParams",
+    "ProcessSession",
+    "exec_tool",
+    "process_tool",
+    "create_exec_tool",
+    "create_process_tool",
+    "add_session",
+    "get_session",
+    "remove_session",
+    "kill_session",
+    # FS safe
+    "SafeOpenError",
+    "SafeOpenErrorCode",
+    "SafeOpenResult",
+    "is_path_within_root",
+    "open_file_within_root",
+    "open_file_within_root_sync",
+    "resolve_safe_path",
+    # FS tools
+    "ReadParams",
+    "WriteParams",
+    "EditParams",
+    "ApplyPatchParams",
+    "read_tool",
+    "write_tool",
+    "edit_tool",
+    "apply_patch_tool",
+    "create_read_tool",
+    "create_write_tool",
+    "create_edit_tool",
+    "create_apply_patch_tool",
+    # Memory tools
+    "MemorySearchParams",
+    "MemoryGetParams",
+    "MemorySearchConfig",
+    "MemorySearchResult",
+    "MemoryManager",
+    "memory_search_tool",
+    "memory_get_tool",
+    "get_memory_manager",
+    "create_memory_search_tool",
+    "create_memory_get_tool",
+    # Web tools
+    "WebFetchParams",
+    "WebSearchParams",
+    "WebFetchConfig",
+    "WebSearchConfig",
+    "SearchResult",
+    "web_fetch_tool",
+    "web_search_tool",
+    "html_to_markdown",
+    "create_web_fetch_tool",
+    "create_web_search_tool",
+    # Message tool
+    "MessageAction",
+    "MessageConfig",
+    "MessageChannel",
+    "MessageParams",
+    "message_tool",
+    "register_channel",
+    "get_channel",
+    "create_message_tool",
+    "CLIChannel",
+]
