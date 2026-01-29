@@ -3,7 +3,7 @@
 ## Session Context
 
 **Last Session Date**: 2026-01-29
-**Current Status**: Phase 13 完成，Phase 5-13 全部完成
+**Current Status**: Phase 16 完成，Phase 5-13, 16 全部完成
 **Design Document**: `docs/design/LURKBOT_COMPLETE_DESIGN.md` (v2.3)
 **Architecture Document**: `docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md` (v3.0, 32 章节)
 
@@ -11,7 +11,20 @@
 
 ### 今日完成的工作
 
-1. **Phase 13 Daemon 守护进程系统** - 全部完成：
+1. **Phase 16 Hooks 扩展系统** - 全部完成：
+
+   | 组件 | 文件 | 状态 |
+   |------|------|------|
+   | 钩子类型定义 | `hooks/types.py` | ✅ 完成 |
+   | 钩子注册表 | `hooks/registry.py` | ✅ 完成 |
+   | 钩子发现机制 | `hooks/discovery.py` | ✅ 完成 |
+   | 预装钩子 | `hooks/bundled/__init__.py` | ✅ 完成 |
+   | Hooks 工具 | `tools/builtin/hooks_tool.py` | ✅ 完成 |
+   | 示例钩子 | `docs/examples/hooks/example-hook/` | ✅ 完成 |
+   | 模块导出 | `hooks/__init__.py` | ✅ 完成 |
+   | 单元测试 | `tests/main/test_phase16_hooks.py` | ✅ 通过 (22 tests) |
+
+2. **Phase 13 Daemon 守护进程系统** - 全部完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
@@ -144,6 +157,15 @@
    - 诊断工具: 服务状态诊断、日志检查、端口可用性检查
    - 检查工具: 服务信息查询、格式化输出
 
+9. **Hooks 扩展系统功能** (Phase 16):
+   - 钩子事件类型: command, session, agent, gateway
+   - 钩子注册表: 优先级排序、模式匹配、触发器管理
+   - 钩子发现机制: workspace > user > bundled 优先级
+   - 钩子包结构: HOOK.md (frontmatter) + handler.py
+   - 预装钩子: session-memory, command-logger, boot-md
+   - 依赖检查: bins, env, python_packages
+   - Hooks 工具: list, trigger, discover, info 命令
+
 ## Implementation Plan (23 Phases)
 
 | Phase | 内容 | 状态 |
@@ -161,9 +183,9 @@
 | **Phase 11** | A2UI Canvas Host | ✅ 完成 |
 | **Phase 12** | Auto-Reply + Routing | ✅ 完成 |
 | **Phase 13** | Daemon 守护进程 | ✅ 完成 |
+| **Phase 16** | Hooks 扩展系统 | ✅ 完成 |
 | **Phase 14** | Media Understanding | ⏳ 待开始 |
 | **Phase 15** | Provider Usage 监控 | ⏳ 待开始 |
-| **Phase 16** | Hooks 扩展系统 | ⏳ 待开始 |
 | **Phase 17** | Security 安全审计 | ⏳ 待开始 |
 | **Phase 18** | ACP 协议系统 | ⏳ 待开始 |
 | **Phase 19** | Browser 浏览器自动化 | ⏳ 待开始 |
@@ -178,16 +200,60 @@
 # 1. 运行测试确认当前状态
 python -m pytest tests/main/ -xvs
 
-# 2. 验证 Phase 13 模块
-python -c "from lurkbot.daemon import resolve_gateway_service, diagnose_service; print('Daemon OK')"
+# 2. 验证 Phase 16 模块
+python -c "from lurkbot.hooks import register_bundled_hooks, trigger_internal_hook; print('Hooks OK')"
 
 # 3. 选择下一步方向：
 # 方案 A: 开始 Phase 14 - Media Understanding
 # 方案 B: 开始 Phase 15 - Provider Usage 监控
-# 方案 C: 开始 Phase 16 - Hooks 扩展系统
+# 方案 C: 开始 Phase 17 - Security 安全审计
 ```
 
 ## 新增模块结构
+
+### Phase 16 完成的目录结构
+```
+src/lurkbot/
+├── hooks/                       # Phase 16 [新增]
+│   ├── __init__.py             # 模块导出
+│   ├── types.py                # 钩子类型定义
+│   ├── registry.py             # 钩子注册表
+│   ├── discovery.py            # 钩子发现机制
+│   └── bundled/                # 预装钩子
+│       └── __init__.py         # 预装钩子实现
+├── daemon/                      # Phase 13
+│   ├── __init__.py
+│   ├── service.py
+│   ├── constants.py
+│   ├── paths.py
+│   ├── launchd.py
+│   ├── systemd.py
+│   ├── schtasks.py
+│   ├── diagnostics.py
+│   └── inspect.py
+├── canvas/                      # Phase 11
+│   ├── __init__.py
+│   ├── protocol.py
+│   ├── server.py
+│   └── client.py
+├── skills/                      # Phase 10
+│   ├── __init__.py
+│   ├── frontmatter.py
+│   ├── workspace.py
+│   └── registry.py
+├── plugins/                     # Phase 10
+│   ├── __init__.py
+│   ├── manifest.py
+│   ├── schema_validator.py
+│   └── loader.py
+└── gateway/                     # Phase 9
+    ├── __init__.py
+    ├── protocol/
+    │   └── frames.py
+    ├── events.py
+    ├── methods.py
+    └── server.py
+```
 
 ### Phase 13 完成的目录结构
 ```
@@ -337,7 +403,8 @@ tests/main/
 ├── test_phase10_skills_plugins.py   # Phase 10 测试 (23 tests)
 ├── test_phase11_canvas.py           # Phase 11 测试 (34 tests)
 ├── test_phase12_auto_reply_routing.py # Phase 12 测试 (38 tests)
-└── test_phase13_daemon.py           # Phase 13 测试 (26 tests)
+├── test_phase13_daemon.py           # Phase 13 测试 (26 tests)
+└── test_phase16_hooks.py            # Phase 16 测试 (22 tests)
 ```
 
 ## Important Notes
@@ -358,17 +425,17 @@ tests/main/
 ### 下一阶段建议优先级
 | Phase | 模块 | 优先级 | 理由 |
 |-------|------|--------|------|
-| Phase 14 | Media Understanding | P2 | 媒体理解 |
-| Phase 15 | Provider Usage | P2 | 使用监控 |
-| Phase 16 | Hooks | P2 | 扩展系统 |
+| Phase 14 | Media Understanding | P2 | 媒体理解，多提供商集成 |
+| Phase 15 | Provider Usage | P2 | 使用监控，成本追踪 |
+| Phase 17 | Security | P1 | 安全审计，网络暴露检查 |
 
 ---
 
 **Document Updated**: 2026-01-29
-**Progress**: 13/28 Phases 完成 (46%)
-**Total Tests**: 218 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26)
+**Progress**: 14/28 Phases 完成 (50%)
+**Total Tests**: 240 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26, Phase 16: 22)
 **Next Action**:
-1. 开始 Phase 14 - Media Understanding (P2 优先级)
-2. 或开始 Phase 15 - Provider Usage 监控 (P2 优先级)
-3. 或开始 Phase 16 - Hooks 扩展系统 (P2 优先级)
+1. 开始 Phase 14 - Media Understanding (P2 优先级，多媒体理解)
+2. 或开始 Phase 15 - Provider Usage 监控 (P2 优先级，成本追踪)
+3. 或开始 Phase 17 - Security 安全审计 (P1 优先级，安全检查)
 4. 阶段完成后与 MoltBot 对比验证
