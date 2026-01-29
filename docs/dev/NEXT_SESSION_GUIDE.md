@@ -3,7 +3,7 @@
 ## Session Context
 
 **Last Session Date**: 2026-01-29
-**Current Status**: Phase 14 完成，Phase 5-14, 16-17 全部完成
+**Current Status**: Phase 15 完成，Phase 5-17 全部完成 (除 Phase 18-23)
 **Design Document**: `docs/design/LURKBOT_COMPLETE_DESIGN.md` (v2.3)
 **Architecture Document**: `docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md` (v3.0, 32 章节)
 
@@ -11,7 +11,18 @@
 
 ### 今日完成的工作
 
-1. **Phase 14 Media Understanding 媒体理解系统** - 全部完成：
+1. **Phase 15 Provider Usage 监控系统** - 全部完成：
+
+   | 组件 | 文件 | 状态 |
+   |------|------|------|
+   | 类型定义 | `usage/types.py` | ✅ 完成 |
+   | 使用量跟踪 | `usage/tracker.py` | ✅ 完成 |
+   | 成本数据存储 | `usage/store.py` | ✅ 完成 |
+   | 格式化输出 | `usage/formatter.py` | ✅ 完成 |
+   | 模块导出 | `usage/__init__.py` | ✅ 完成 |
+   | 单元测试 | `tests/main/test_phase15_usage.py` | ✅ 通过 (24 tests) |
+
+2. **Phase 14 Media Understanding 媒体理解系统** - 全部完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
@@ -36,7 +47,7 @@
    | 模块导出 | `security/__init__.py` | ✅ 完成 |
    | 单元测试 | `tests/main/test_phase17_security.py` | ✅ 通过 (27 tests) |
 
-2. **Phase 16 Hooks 扩展系统** - 全部完成：
+3. **Phase 16 Hooks 扩展系统** - 全部完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
@@ -211,6 +222,16 @@
    - Gemini Provider: Gemini Vision (图片), Gemini (音频/视频/文档)
    - Local Provider: PIL (图片元数据), ffprobe (音频/视频), PyPDF2 (PDF)
 
+12. **Provider Usage 监控系统功能** (Phase 15):
+   - 实时配额监控: 追踪 API 使用量和限制 (5h, Week, Model-specific)
+   - 成本估算: 基于 token 使用量估算成本
+   - 多提供商支持: Anthropic, OpenAI, Google, GitHub Copilot 等
+   - 会话成本追踪: 每会话和每日成本汇总
+   - 使用量归一化: 统一不同 SDK 的命名约定
+   - 成本计算: ModelCostConfig 配置 + 自动估算
+   - 格式化输出: USD 金额、token 数量、重置时间格式化
+   - JSONL 解析: 从会话文件中提取使用量和成本数据
+
 ## Implementation Plan (23 Phases)
 
 | Phase | 内容 | 状态 |
@@ -231,7 +252,7 @@
 | **Phase 16** | Hooks 扩展系统 | ✅ 完成 |
 | **Phase 17** | Security 安全审计 | ✅ 完成 |
 | **Phase 14** | Media Understanding | ✅ 完成 |
-| **Phase 15** | Provider Usage 监控 | ⏳ 待开始 |
+| **Phase 15** | Provider Usage 监控 | ✅ 完成 |
 | **Phase 18** | ACP 协议系统 | ⏳ 待开始 |
 | **Phase 19** | Browser 浏览器自动化 | ⏳ 待开始 |
 | **Phase 20** | TUI 终端界面 | ⏳ 待开始 |
@@ -244,32 +265,37 @@
 ```bash
 # 1. 运行测试确认当前状态
 python -m pytest tests/main/ -xvs
-python -m pytest tests/test_media_understanding.py -v
 
-# 2. 验证 Phase 14 模块
-python -c "from lurkbot.media import understand_media, get_default_config; print('Media Understanding OK')"
+# 2. 验证 Phase 15 模块
+python -c "from lurkbot.usage import load_provider_usage_summary, format_usage_summary_line; print('Provider Usage OK')"
 
 # 3. 选择下一步方向：
-# 方案 A: 开始 Phase 15 - Provider Usage 监控 (推荐)
-# 方案 B: 开始 Phase 18 - ACP 协议系统
-# 方案 C: 开始 Phase 19 - Browser 浏览器自动化
+# 方案 A: 开始 Phase 18 - ACP 协议系统 (推荐)
+# 方案 B: 开始 Phase 19 - Browser 浏览器自动化
+# 方案 C: 开始 Phase 20 - TUI 终端界面
 ```
 
 ## 新增模块结构
 
-### Phase 14 完成的目录结构
+### Phase 15 完成的目录结构
 ```
 src/lurkbot/
-├── media/                       # Phase 14 [新增]
+├── usage/                       # Phase 15 [新增]
 │   ├── __init__.py             # 模块导出
-│   ├── understand.py           # 核心理解逻辑
-│   ├── config.py               # 配置系统
-│   └── providers/              # 提供商实现
+│   ├── types.py                # 类型定义
+│   ├── tracker.py              # 使用量跟踪
+│   ├── store.py                # 成本数据存储
+│   └── formatter.py            # 格式化输出
+├── media/                       # Phase 14
+│   ├── __init__.py
+│   ├── understand.py
+│   ├── config.py
+│   └── providers/
 │       ├── __init__.py
-│       ├── openai.py           # OpenAI 提供商
-│       ├── anthropic.py        # Anthropic 提供商
-│       ├── gemini.py           # Gemini 提供商
-│       └── local.py            # 本地降级提供商
+│       ├── openai.py
+│       ├── anthropic.py
+│       ├── gemini.py
+│       └── local.py
 ├── security/                    # Phase 17
 │   ├── __init__.py
 │   ├── audit.py
@@ -511,7 +537,8 @@ tests/main/
 ├── test_phase12_auto_reply_routing.py # Phase 12 测试 (38 tests)
 ├── test_phase13_daemon.py           # Phase 13 测试 (26 tests)
 ├── test_phase16_hooks.py            # Phase 16 测试 (22 tests)
-└── test_phase17_security.py         # Phase 17 测试 (27 tests)
+├── test_phase17_security.py         # Phase 17 测试 (27 tests)
+└── test_phase15_usage.py            # Phase 15 测试 (24 tests)
 
 tests/
 └── test_media_understanding.py      # Phase 14 测试 (12 tests)
@@ -535,17 +562,17 @@ tests/
 ### 下一阶段建议优先级
 | Phase | 模块 | 优先级 | 理由 |
 |-------|------|--------|------|
-| Phase 15 | Provider Usage | P2 | 使用监控，成本追踪 |
-| Phase 18 | ACP 协议系统 | P2 | 代理间通信协议 |
+| Phase 18 | ACP 协议系统 | P1 | IDE 集成协议，核心功能 |
 | Phase 19 | Browser 浏览器自动化 | P2 | 浏览器控制和自动化 |
+| Phase 20 | TUI 终端界面 | P2 | 交互式终端界面 |
 
 ---
 
 **Document Updated**: 2026-01-29
-**Progress**: 15/28 Phases 完成 (53.6%)
-**Total Tests**: 250 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26, Phase 14: 12, Phase 16: 22, 2 skipped)
+**Progress**: 16/23 Phases 完成 (69.6%)
+**Total Tests**: 289 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26, Phase 14: 12, Phase 15: 24, Phase 16: 22, Phase 17: 27), 2 skipped
 **Next Action**:
-1. 开始 Phase 15 - Provider Usage 监控 (P2 优先级，成本追踪)
-2. 或开始 Phase 18 - ACP 协议系统 (代理间通信协议)
-3. 或开始 Phase 19 - Browser 浏览器自动化
+1. 开始 Phase 18 - ACP 协议系统 (P1 优先级，IDE 集成)
+2. 或开始 Phase 19 - Browser 浏览器自动化 (浏览器控制)
+3. 或开始 Phase 20 - TUI 终端界面 (交互式终端)
 4. 阶段完成后与 MoltBot 对比验证
