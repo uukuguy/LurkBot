@@ -1,9 +1,11 @@
-# LurkBot 完整复刻设计方案 v2.3
+# LurkBot 完整复刻设计方案 v3.0
 
-> **文档版本**: 2.3
+> **文档版本**: 3.0
 > **更新日期**: 2026-01-29
-> **基于**: MOLTBOT_COMPLETE_ARCHITECTURE.md 深度分析
+> **基于**: MOLTBOT_COMPLETE_ARCHITECTURE.md v3.0 (32 章节) 深度分析
 > **核心原则**: 完全复刻 MoltBot，不遗漏任何功能
+> **模块总数**: 32 个模块（对齐 MoltBot 架构）
+> **实施阶段**: 28 个阶段
 
 ---
 
@@ -13,9 +15,23 @@
 - [二、框架选型最终决定](#二框架选型最终决定)
 - [三、核心模块设计](#三核心模块设计)
 - [四、A2UI 界面系统设计](#四a2ui-界面系统设计)
-- [五、功能完整性检查清单](#五功能完整性检查清单)
-- [六、实施计划](#六实施计划)
-- [七、验证策略](#七验证策略)
+- [五、Auto-Reply 自动回复系统设计](#五auto-reply-自动回复系统设计)
+- [六、Routing 消息路由系统设计](#六routing-消息路由系统设计)
+- [七、Daemon 守护进程系统设计](#七daemon-守护进程系统设计)
+- [八、Hooks 扩展系统设计](#八hooks-扩展系统设计)
+- [九、Security 安全审计系统设计](#九security-安全审计系统设计)
+- [十、Infra 基础设施设计](#十infra-基础设施设计)
+- [十一、Media Understanding 设计](#十一media-understanding-设计)
+- [十二、Provider Usage 设计](#十二provider-usage-设计)
+- [十三、ACP 协议系统设计](#十三acp-协议系统设计)
+- [十四、Browser 浏览器自动化设计](#十四browser-浏览器自动化设计)
+- [十五、TUI 终端界面设计](#十五tui-终端界面设计)
+- [十六、TTS 语音合成设计](#十六tts-语音合成设计)
+- [十七、Wizard 配置向导设计](#十七wizard-配置向导设计)
+- [十八、功能完整性检查清单](#十八功能完整性检查清单)
+- [十九、实施计划（28 阶段）](#十九实施计划28-阶段)
+- [二十、验证策略](#二十验证策略)
+- [附录：完整模块目录结构](#附录完整模块目录结构)
 
 ---
 
@@ -2722,466 +2738,1954 @@ src/lurkbot/
 
 ---
 
-## 五、功能完整性检查清单
+## 五、Auto-Reply 自动回复系统设计
 
-### 5.1 核心功能检查
+### 5.1 系统概述
 
-| # | MoltBot 功能 | LurkBot 设计 | 状态 |
-|---|-------------|-------------|------|
-| 1 | Pi SDK Agent Loop | PydanticAI Agent.run() | ✅ |
-| 2 | 8 个 Bootstrap 文件 | bootstrap.py | ✅ |
-| 3 | SUBAGENT_BOOTSTRAP_ALLOWLIST | bootstrap.py | ✅ |
-| 4 | 23 节系统提示词 | system_prompt.py | ✅ |
-| 5 | PromptMode (full/minimal/none) | system_prompt.py | ✅ |
-| 6 | Runtime 行格式 | build_runtime_line() | ✅ |
-| 7 | 22 原生工具 | tools/builtin/ | ✅ |
-| 8 | 九层工具策略 | policy.py | ✅ |
-| 9 | 工具分组和配置文件 | policy.py | ✅ |
-| 10 | 5 种会话类型 | sessions/manager.py | ✅ |
-| 11 | 会话 Key 格式 | build_session_key() | ✅ |
-| 12 | Subagent Spawn | subagent.py | ✅ |
-| 13 | Subagent Announce Flow | run_subagent_announce_flow() | ✅ |
-| 14 | Heartbeat 系统 | heartbeat.py | ✅ |
-| 15 | Heartbeat 事件 | HeartbeatEventPayload | ✅ |
-| 16 | HEARTBEAT_OK Token | heartbeat.py | ✅ |
-| 17 | Cron 调度类型 | cron.py | ✅ |
-| 18 | Cron Payload 类型 | CronPayload | ✅ |
-| 19 | Auth Profile 轮换 | profiles.py | ✅ |
-| 20 | 冷却计算 | calculate_cooldown_ms() | ✅ |
-| 21 | Context Compaction | compaction.py | ✅ |
-| 22 | 自适应分块比例 | compute_adaptive_chunk_ratio() | ✅ |
-| 23 | 分阶段摘要 | summarize_in_stages() | ✅ |
-| 24 | Human-in-the-Loop | DeferredToolRequests | ✅ |
-| 25 | A2UI Canvas Host | canvas_host/server.py | ✅ |
-| 26 | A2UI JSONL 验证 | canvas_host/validation.py | ✅ |
-| 27 | Canvas Tool | tools/builtin/canvas.py | ✅ |
-| 28 | Reply Directives | auto_reply/directives.py | ✅ |
-| 29 | Queue 处理机制 | auto_reply/queue/ | ✅ |
-| 30 | 流式响应递送 | auto_reply/streaming.py | ✅ |
-| 31 | 命令注册机制 | auto_reply/commands.py | ✅ |
-| 32 | Daemon 守护进程 | daemon/ | ✅ |
-| 33 | Media Understanding | media/ | ✅ |
-| 34 | Provider Usage 监控 | infra/provider_usage/ | ✅ |
-| 35 | Routing 消息路由 | routing/ | ✅ |
-| 36 | Hooks 扩展系统 | hooks/ | ✅ |
-| 37 | Security 安全审计 | security/ | ✅ |
-| 38 | ACP 协议系统 | acp/ | ⏳ |
-| 39 | Browser 浏览器自动化 | browser/ | ⏳ |
-| 40 | TUI 终端界面 | tui/ | ⏳ |
-| 41 | TTS 语音合成 | tts/ | ⏳ |
-| 42 | Wizard 配置向导 | wizard/ | ⏳ |
-| 43 | Infra 系统事件 | infra/system_events/ | ⏳ |
-| 44 | Infra 设备状态 | infra/system_presence/ | ⏳ |
-| 45 | Infra Tailscale | infra/tailscale/ | ⏳ |
-| 46 | Infra SSH 隧道 | infra/ssh_tunnel/ | ⏳ |
-| 47 | Infra mDNS 发现 | infra/bonjour/ | ⏳ |
-| 48 | Infra 设备配对 | infra/device_pairing/ | ⏳ |
-| 49 | Infra 执行审批 | infra/exec_approvals/ | ⏳ |
-| 50 | Infra 语音唤醒 | infra/voicewake/ | ⏳ |
+Auto-Reply 是 LurkBot 的消息处理核心，负责：
+- 消息接收和分发
+- 指令解析和处理
+- 流式响应递送
+- 队列管理
 
-### 5.2 待实现功能
+> **对标**: MoltBot `src/auto-reply/` (23,000+ 行 TypeScript 代码)
 
-| # | 功能 | 优先级 | Phase |
-|---|------|--------|-------|
-| 1 | Gateway WebSocket 协议 | P1 | Phase 9 |
-| 2 | 技能系统 | P1 | Phase 10 |
-| 3 | 插件系统 | P2 | Phase 10 |
-| 4 | 内存向量搜索 | P2 | Phase 10 |
-| 5 | 错误处理与重试 | P2 | Phase 8 |
-| 6 | A2UI 渲染器集成 | P2 | Phase 11 |
-| 7 | Auto-Reply 指令系统 | P1 | Phase 12 |
-| 8 | Daemon 跨平台服务 | P1 | Phase 13 |
-| 9 | 多媒体理解 | P1 | Phase 14 |
-| 10 | API 使用量追踪 | P2 | Phase 15 |
-| 11 | Hooks 事件驱动 | P2 | Phase 16 |
-| 12 | 安全审计功能 | P2 | Phase 17 |
-| 13 | ACP 协议系统 | P1 | Phase 18 |
-| 14 | Browser 浏览器自动化 | P1 | Phase 19 |
-| 15 | TUI 终端界面 | P2 | Phase 20 |
-| 16 | TTS 语音合成 | P2 | Phase 21 |
-| 17 | Wizard 配置向导 | P1 | Phase 22 |
-| 18 | Infra 基础设施 (8子系统) | P2 | Phase 23 |
+### 5.2 模块结构
+
+```
+src/lurkbot/auto_reply/
+├── __init__.py
+├── tokens.py                 # 回复令牌（HEARTBEAT_OK, NO_REPLY）
+├── directives.py             # 指令提取
+├── envelope.py               # 消息包装结构
+├── status.py                 # 状态管理
+├── inbound_debounce.py       # 消息防抖
+├── queue/
+│   ├── __init__.py
+│   ├── directive.py          # 队列指令
+│   ├── types.py              # 队列类型
+│   ├── enqueue.py            # 入队逻辑
+│   ├── drain.py              # 出队逻辑
+│   ├── state.py              # 状态管理
+│   └── cleanup.py            # 清理逻辑
+├── reply_tags.py             # [[reply_to_current]] 标签
+├── reply_directives.py       # 回复指令
+├── agent_runner.py           # Agent 运行时
+└── deliver.py                # 回复递送
+```
+
+### 5.3 Reply Directives 指令系统
+
+```python
+# 文件: src/lurkbot/auto_reply/directives.py
+
+from typing import Literal, TypedDict
+from dataclasses import dataclass
+import re
+
+# 思维级别
+ThinkLevel = Literal["off", "low", "medium", "high"]
+# 用法: /think:high 或 /t:medium
+
+# 冗余级别
+VerboseLevel = Literal["off", "low", "high"]
+# 用法: /verbose:high 或 /v:low
+
+# 推理级别
+ReasoningLevel = Literal["off", "on", "stream"]
+# 用法: /reasoning
+
+# 提权级别
+ElevatedLevel = Literal["off", "ask", "on", "full"]
+# 用法: /elevated:on
+
+@dataclass
+class DirectiveResult:
+    cleaned: str
+    level: str | None
+    has_directive: bool
+
+def extract_level_directive(
+    body: str,
+    names: list[str],
+    normalize_fn: callable,
+) -> DirectiveResult:
+    """
+    通用指令提取函数
+
+    对标 MoltBot extractLevelDirective()
+
+    匹配模式: /directive_name [: | space] optional_level
+    支持: /think, /think:medium, /think medium
+    """
+    pattern = rf"/({'|'.join(names)})\s*[:\s]?\s*(\w+)?"
+    match = re.search(pattern, body, re.IGNORECASE)
+
+    if not match:
+        return DirectiveResult(cleaned=body, level=None, has_directive=False)
+
+    raw_level = match.group(2)
+    level = normalize_fn(raw_level) if raw_level else normalize_fn("default")
+    cleaned = re.sub(pattern, "", body).strip()
+
+    return DirectiveResult(cleaned=cleaned, level=level, has_directive=True)
+
+def extract_think_directive(body: str) -> DirectiveResult:
+    """提取思维级别指令"""
+    def normalize(level: str) -> ThinkLevel:
+        mapping = {
+            "off": "off", "0": "off", "none": "off",
+            "low": "low", "1": "low", "l": "low",
+            "medium": "medium", "2": "medium", "m": "medium", "default": "medium",
+            "high": "high", "3": "high", "h": "high",
+        }
+        return mapping.get(level.lower(), "medium")
+
+    return extract_level_directive(body, ["think", "t"], normalize)
+
+def extract_verbose_directive(body: str) -> DirectiveResult:
+    """提取冗余级别指令"""
+    def normalize(level: str) -> VerboseLevel:
+        mapping = {
+            "off": "off", "0": "off", "none": "off", "default": "off",
+            "low": "low", "1": "low", "l": "low",
+            "high": "high", "2": "high", "h": "high",
+        }
+        return mapping.get(level.lower(), "off")
+
+    return extract_level_directive(body, ["verbose", "v"], normalize)
+```
+
+### 5.4 Queue 队列处理机制
+
+```python
+# 文件: src/lurkbot/auto_reply/queue/types.py
+
+from typing import Literal, TypedDict
+from dataclasses import dataclass
+from datetime import datetime
+
+# 队列模式
+QueueMode = Literal[
+    "steer",           # 引导模式：等待用户确认
+    "followup",        # 跟进模式：主 Agent 后自动执行
+    "collect",         # 收集模式：批处理多条消息
+    "steer-backlog",   # 引导+积压管理
+    "interrupt",       # 中断当前执行
+    "queue",           # 标准 FIFO
+]
+
+# 丢弃策略
+QueueDropPolicy = Literal[
+    "old",        # 丢弃最旧
+    "new",        # 丢弃最新
+    "summarize",  # 总结超出的消息
+]
+
+@dataclass
+class QueueDirective:
+    cleaned: str
+    queue_mode: QueueMode | None
+    queue_reset: bool
+    debounce_ms: int | None
+    cap: int | None
+    drop_policy: QueueDropPolicy | None
+
+@dataclass
+class QueueItem:
+    id: str
+    session_key: str
+    content: str
+    priority: int
+    created_at: datetime
+    metadata: dict
+```
+
+### 5.5 流式响应递送
+
+```python
+# 文件: src/lurkbot/auto_reply/deliver.py
+
+from typing import AsyncIterator, Literal
+import asyncio
+
+# 三层流式架构
+# Layer 1: Agent Runtime Stream - agent.run_stream()
+# Layer 2: Event Stream - partial_reply, tool_result, reasoning_stream
+# Layer 3: Block Reply Stream - 分块递送
+
+ChunkMode = Literal["length", "paragraph", "sentence"]
+
+async def deliver_block_reply(
+    reply_result: "ReplyPayload",
+    session_key: str,
+    text_limit: int = 4096,       # WhatsApp: 4096
+    chunk_mode: ChunkMode = "length",
+):
+    """
+    Block Reply 递送
+
+    对标 MoltBot deliverWebReply()
+    """
+    # 1. Markdown 表格转换
+    converted = convert_markdown_tables(reply_result.text)
+
+    # 2. 分块
+    chunks = chunk_markdown_text(converted, text_limit, chunk_mode)
+
+    # 3. 递送（带重试）
+    for chunk in chunks:
+        await send_with_retry(chunk, "text")
+
+    # 4. 媒体递送
+    for media_url in reply_result.media_list:
+        media = await load_media(media_url)
+        await send_media(media)
+
+def chunk_markdown_text(
+    text: str,
+    max_length: int,
+    mode: ChunkMode,
+) -> list[str]:
+    """按指定模式分块"""
+    if mode == "length":
+        return [text[i:i+max_length] for i in range(0, len(text), max_length)]
+    elif mode == "paragraph":
+        return _chunk_by_paragraph(text, max_length)
+    elif mode == "sentence":
+        return _chunk_by_sentence(text, max_length)
+```
+
+### 5.6 Silent Reply 机制
+
+```python
+# 文件: src/lurkbot/auto_reply/tokens.py
+
+# 特殊令牌
+SILENT_REPLY_TOKEN = "NO_REPLY"
+HEARTBEAT_TOKEN = "HEARTBEAT_OK"
+
+def is_silent_reply_text(text: str | None) -> bool:
+    """
+    检测静默回复
+
+    "/NO_REPLY" 或文本结尾有 "NO_REPLY"
+    用于避免重复回复（已通过 message 工具发送）
+    """
+    if not text:
+        return False
+    return text.strip().endswith(SILENT_REPLY_TOKEN) or text.startswith(f"/{SILENT_REPLY_TOKEN}")
+
+def is_heartbeat_ok(text: str | None) -> bool:
+    """检测心跳确认"""
+    if not text:
+        return False
+    return HEARTBEAT_TOKEN in text
+```
 
 ---
 
-## 六、实施计划
+## 六、Routing 消息路由系统设计
 
-### 6.1 阶段划分
+### 6.1 系统概述
 
-| Phase | 内容 | 时间 | 依赖 |
-|-------|------|------|------|
-| **Phase 1** | 项目重构 - 清理旧代码 | 3天 | - |
-| **Phase 2** | PydanticAI 核心框架 | 1周 | Phase 1 |
-| **Phase 3** | Bootstrap + 系统提示词 | 1周 | Phase 2 |
-| **Phase 4** | 九层工具策略 | 1周 | Phase 2 |
-| **Phase 5** | 22 原生工具实现 | 2周 | Phase 4 |
-| **Phase 6** | 会话管理 + 子代理 | 1周 | Phase 5 |
-| **Phase 7** | Heartbeat + Cron | 1.5周 | Phase 6 |
-| **Phase 8** | Auth Profile + Compaction | 1周 | Phase 2 |
-| **Phase 9** | Gateway 协议 | 1.5周 | Phase 6 |
-| **Phase 10** | 技能和插件系统 | 2周 | Phase 9 |
-| **Phase 11** | A2UI Canvas Host | 1周 | Phase 5 |
-| **Phase 12** | Auto-Reply + Routing | 1.5周 | Phase 6 |
-| **Phase 13** | Daemon 守护进程 | 1周 | Phase 9 |
-| **Phase 14** | Media Understanding | 1周 | Phase 5 |
-| **Phase 15** | Provider Usage 监控 | 0.5周 | Phase 8 |
-| **Phase 16** | Hooks 扩展系统 | 1周 | Phase 10 |
-| **Phase 17** | Security 安全审计 | 0.5周 | Phase 9 |
-| **Phase 18** | ACP 协议系统 | 1周 | Phase 9 |
-| **Phase 19** | Browser 浏览器自动化 | 1.5周 | Phase 5 |
-| **Phase 20** | TUI 终端界面 | 1周 | Phase 6 |
-| **Phase 21** | TTS 语音合成 | 0.5周 | Phase 5 |
-| **Phase 22** | Wizard 配置向导 | 1周 | Phase 9 |
-| **Phase 23** | Infra 基础设施 | 2周 | Phase 9 |
-| **总计** | | **24周** | |
+Routing 系统负责消息的路由决策和分发，包括会话隔离和广播支持。
 
-### 6.2 新增模块说明
+> **对标**: MoltBot `src/routing/`
 
-#### Phase 12: Auto-Reply + Routing
+### 6.2 模块结构
 
-**目标**: 实现消息处理核心
-
-```python
-# lurkbot/auto_reply/
-├── directives.py          # 指令提取（think/verbose/reasoning/elevated）
-├── queue/
-│   ├── mode.py           # 队列模式（steer/followup/collect/interrupt）
-│   ├── settings.py       # 队列配置
-│   └── processor.py      # 队列处理器
-├── streaming.py          # 流式响应（三层架构）
-├── commands.py           # 命令注册机制
-└── tokens.py             # 特殊令牌（NO_REPLY/HEARTBEAT_OK）
-
-# lurkbot/routing/
-├── session_key.py        # 会话 Key 生成
-├── dispatcher.py         # 消息分发
-└── broadcast.py          # 广播支持
+```
+src/lurkbot/routing/
+├── __init__.py
+├── router.py              # 路由决策
+├── session_key.py         # Session Key 生成
+├── dispatcher.py          # 消息分发
+├── broadcast.py           # 广播支持
+└── bindings.py            # 绑定配置
 ```
 
-#### Phase 13: Daemon 守护进程
-
-**目标**: 跨平台后台服务管理
+### 6.3 路由决策流程（6 层）
 
 ```python
-# lurkbot/daemon/
+# 文件: src/lurkbot/routing/router.py
+
+from dataclasses import dataclass
+from typing import Literal
+
+@dataclass
+class RoutingContext:
+    channel: str
+    peer_kind: Literal["dm", "group", "guild", "team"]
+    peer_id: str
+    account_id: str | None = None
+    guild_id: str | None = None   # Discord
+    team_id: str | None = None    # Slack
+
+def resolve_agent_for_message(
+    ctx: RoutingContext,
+    bindings: list["RoutingBinding"],
+    agents: list["AgentConfig"],
+) -> str:
+    """
+    路由决策流程（6 层）
+
+    对标 MoltBot routing 决策逻辑
+
+    层级顺序:
+    1. 精确对等匹配 (bindings with peer.kind + peer.id)
+    2. Guild 匹配 (Discord guildId)
+    3. Team 匹配 (Slack teamId)
+    4. 账户匹配 (channel accountId)
+    5. 通道匹配 (任何该通道的账户)
+    6. 默认 Agent (agents.list[].default 或首个)
+    """
+    # 1. 精确对等匹配
+    for binding in bindings:
+        if binding.match_peer(ctx.peer_kind, ctx.peer_id):
+            return binding.agent_id
+
+    # 2. Guild 匹配
+    if ctx.guild_id:
+        for binding in bindings:
+            if binding.match_guild(ctx.guild_id):
+                return binding.agent_id
+
+    # 3. Team 匹配
+    if ctx.team_id:
+        for binding in bindings:
+            if binding.match_team(ctx.team_id):
+                return binding.agent_id
+
+    # 4. 账户匹配
+    if ctx.account_id:
+        for binding in bindings:
+            if binding.match_account(ctx.account_id):
+                return binding.agent_id
+
+    # 5. 通道匹配
+    for binding in bindings:
+        if binding.match_channel(ctx.channel):
+            return binding.agent_id
+
+    # 6. 默认 Agent
+    for agent in agents:
+        if agent.default:
+            return agent.id
+
+    return agents[0].id if agents else "main"
+```
+
+### 6.4 Session Key 会话隔离
+
+```python
+# 文件: src/lurkbot/routing/session_key.py
+
+def build_session_key(
+    agent_id: str,
+    channel: str,
+    session_type: str,
+    peer_id: str | None = None,
+    guild_id: str | None = None,
+    channel_id: str | None = None,
+    thread_id: str | None = None,
+    topic_id: str | None = None,
+) -> str:
+    """
+    构建 Session Key
+
+    格式示例:
+    - 直接消息 → "agent:main:main"
+    - Telegram 群组 → "agent:main:telegram:group:-1001234567890"
+    - Discord → "agent:main:discord:guild:123456:channel:789"
+    - Slack 线程 → "agent:main:slack:channel:C123:thread:1234567890.0001"
+    - Telegram Topic → "agent:main:telegram:group:-100123:topic:42"
+    """
+    parts = [f"agent:{agent_id}"]
+
+    if session_type == "main":
+        parts.append("main")
+    elif session_type == "group":
+        parts.extend([channel, "group", peer_id])
+    elif session_type == "guild":
+        parts.extend([channel, "guild", guild_id])
+        if channel_id:
+            parts.extend(["channel", channel_id])
+    elif session_type == "thread":
+        parts.extend([channel, "channel", channel_id, "thread", thread_id])
+    elif session_type == "topic":
+        parts.extend([channel, "group", peer_id, "topic", topic_id])
+
+    return ":".join(filter(None, parts))
+```
+
+### 6.5 Broadcast 广播
+
+```python
+# 文件: src/lurkbot/routing/broadcast.py
+
+from dataclasses import dataclass
+from typing import Literal
+
+@dataclass
+class BroadcastConfig:
+    strategy: Literal["parallel", "sequential"] = "parallel"
+    targets: dict[str, list[str]] = None  # peer_id -> [agent_ids]
+
+async def broadcast_message(
+    message: str,
+    peer_id: str,
+    config: BroadcastConfig,
+):
+    """
+    广播消息到多个 Agent
+
+    对标 MoltBot broadcast 配置
+    """
+    agent_ids = config.targets.get(peer_id, [])
+
+    if config.strategy == "parallel":
+        await asyncio.gather(*[
+            send_to_agent(agent_id, message)
+            for agent_id in agent_ids
+        ])
+    else:
+        for agent_id in agent_ids:
+            await send_to_agent(agent_id, message)
+```
+
+---
+
+## 七、Daemon 守护进程系统设计
+
+### 7.1 系统概述
+
+Daemon 系统提供跨平台的后台服务管理：
+- macOS: launchd (LaunchAgent)
+- Linux: systemd (user service)
+- Windows: schtasks (计划任务)
+
+> **对标**: MoltBot `src/daemon/`
+
+### 7.2 模块结构
+
+```
+src/lurkbot/daemon/
+├── __init__.py
 ├── service.py            # 统一服务接口
+├── constants.py          # 服务标签常量
+├── paths.py              # 路径解析
 ├── launchd.py            # macOS 实现
 ├── systemd.py            # Linux 实现
-├── schtasks.py           # Windows 实现（可选）
-├── paths.py              # 路径解析
-└── diagnostics.py        # 错误诊断
+├── schtasks.py           # Windows 实现
+├── diagnostics.py        # 错误诊断
+└── inspect.py            # 服务检查
 ```
 
-#### Phase 14: Media Understanding
-
-**目标**: 多媒体预处理
+### 7.3 统一服务接口
 
 ```python
-# lurkbot/media/
-├── understanding.py      # 核心理解逻辑
-├── providers/
-│   ├── openai.py
-│   ├── anthropic.py
-│   ├── gemini.py
-│   └── local.py         # 本地 CLI 降级
-└── config.py            # 能力配置
+# 文件: src/lurkbot/daemon/service.py
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Literal
+import platform
+
+@dataclass
+class ServiceRuntime:
+    status: Literal["running", "stopped", "unknown"]
+    state: str | None = None
+    sub_state: str | None = None
+    pid: int | None = None
+    last_exit_status: int | None = None
+    last_exit_reason: str | None = None
+
+@dataclass
+class ServiceInstallArgs:
+    port: int = 18789
+    bind: str = "loopback"
+    profile: str | None = None
+    workspace: str | None = None
+
+class GatewayService(ABC):
+    """统一服务接口"""
+
+    @property
+    @abstractmethod
+    def label(self) -> str:
+        """服务标签"""
+        pass
+
+    @abstractmethod
+    async def install(self, args: ServiceInstallArgs) -> None:
+        """安装服务"""
+        pass
+
+    @abstractmethod
+    async def uninstall(self) -> None:
+        """卸载服务"""
+        pass
+
+    @abstractmethod
+    async def start(self) -> None:
+        """启动服务"""
+        pass
+
+    @abstractmethod
+    async def stop(self) -> None:
+        """停止服务"""
+        pass
+
+    @abstractmethod
+    async def restart(self) -> None:
+        """重启服务"""
+        pass
+
+    @abstractmethod
+    async def is_loaded(self) -> bool:
+        """检查是否已加载"""
+        pass
+
+    @abstractmethod
+    async def get_runtime(self) -> ServiceRuntime:
+        """获取运行时状态"""
+        pass
+
+def resolve_gateway_service() -> GatewayService:
+    """
+    根据平台选择服务实现
+
+    对标 MoltBot resolveGatewayService()
+    """
+    system = platform.system()
+    if system == "Darwin":
+        from .launchd import LaunchdService
+        return LaunchdService()
+    elif system == "Linux":
+        from .systemd import SystemdService
+        return SystemdService()
+    elif system == "Windows":
+        from .schtasks import SchtasksService
+        return SchtasksService()
+    else:
+        raise RuntimeError(f"Unsupported platform: {system}")
 ```
 
-#### Phase 15: Provider Usage 监控
-
-**目标**: API 使用量追踪
+### 7.4 macOS Launchd 实现
 
 ```python
-# lurkbot/infra/
-├── provider_usage/
-│   ├── models.py        # 数据结构
-│   ├── fetch.py         # 各提供商获取逻辑
-│   ├── cache.py         # 缓存机制
-│   └── format.py        # 格式化输出
+# 文件: src/lurkbot/daemon/launchd.py
+
+import plistlib
+from pathlib import Path
+
+GATEWAY_LAUNCH_AGENT_LABEL = "bot.lurk.gateway"
+
+class LaunchdService(GatewayService):
+
+    def __init__(self, profile: str | None = None):
+        self.profile = profile
+        self._label = self._resolve_label(profile)
+
+    def _resolve_label(self, profile: str | None) -> str:
+        """解析服务标签（支持多实例）"""
+        if profile:
+            return f"bot.lurk.{profile}"
+        return GATEWAY_LAUNCH_AGENT_LABEL
+
+    @property
+    def label(self) -> str:
+        return self._label
+
+    @property
+    def plist_path(self) -> Path:
+        return Path.home() / "Library" / "LaunchAgents" / f"{self._label}.plist"
+
+    async def install(self, args: ServiceInstallArgs) -> None:
+        """安装 LaunchAgent"""
+        plist = {
+            "Label": self._label,
+            "RunAtLoad": True,
+            "KeepAlive": True,
+            "ProgramArguments": [
+                "/usr/local/bin/lurkbot",
+                "gateway", "run",
+                "--port", str(args.port),
+                "--bind", args.bind,
+            ],
+            "StandardOutPath": str(self._log_path / "gateway.log"),
+            "StandardErrorPath": str(self._log_path / "gateway.err.log"),
+        }
+
+        self.plist_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.plist_path, "wb") as f:
+            plistlib.dump(plist, f)
+
+        await self._launchctl("load", str(self.plist_path))
+
+    async def uninstall(self) -> None:
+        """卸载 LaunchAgent"""
+        await self._launchctl("unload", str(self.plist_path))
+        self.plist_path.unlink(missing_ok=True)
 ```
 
-#### Phase 16: Hooks 扩展系统
-
-**目标**: 事件驱动扩展
+### 7.5 Linux Systemd 实现
 
 ```python
-# lurkbot/hooks/
-├── registry.py          # 钩子注册
-├── events.py            # 事件类型
-├── discovery.py         # 钩子发现
-├── loader.py            # 钩子加载
-└── bundled/             # 预装钩子
-    ├── session_memory.py
-    └── command_logger.py
+# 文件: src/lurkbot/daemon/systemd.py
+
+from pathlib import Path
+
+SYSTEMD_SERVICE_NAME = "lurkbot-gateway"
+
+class SystemdService(GatewayService):
+
+    def __init__(self, profile: str | None = None):
+        self.profile = profile
+        self._name = self._resolve_name(profile)
+
+    def _resolve_name(self, profile: str | None) -> str:
+        if profile:
+            return f"{SYSTEMD_SERVICE_NAME}-{profile}"
+        return SYSTEMD_SERVICE_NAME
+
+    @property
+    def label(self) -> str:
+        return self._name
+
+    @property
+    def unit_path(self) -> Path:
+        return Path.home() / ".config" / "systemd" / "user" / f"{self._name}.service"
+
+    async def install(self, args: ServiceInstallArgs) -> None:
+        """安装 Systemd User Service"""
+        unit_content = f"""[Unit]
+Description=LurkBot Gateway
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/lurkbot gateway run --port {args.port} --bind {args.bind}
+WorkingDirectory={Path.home() / ".lurkbot"}
+Restart=always
+RestartSec=5
+KillMode=process
+
+[Install]
+WantedBy=default.target
+"""
+
+        self.unit_path.parent.mkdir(parents=True, exist_ok=True)
+        self.unit_path.write_text(unit_content)
+
+        await self._systemctl("--user", "daemon-reload")
+        await self._systemctl("--user", "enable", self._name)
+        await self._enable_linger()
 ```
 
-#### Phase 17: Security 安全审计
+---
 
-**目标**: 安全检查和修复
+## 八、Hooks 扩展系统设计
 
-```python
-# lurkbot/security/
-├── audit.py             # 审计功能
-├── policies.py          # DM 策略
-└── warnings.py          # 警告生成
+### 8.1 系统概述
+
+Hooks 是事件驱动的扩展系统，允许在特定事件发生时执行自定义逻辑。
+
+> **对标**: MoltBot `src/hooks/`
+
+### 8.2 模块结构
+
+```
+src/lurkbot/hooks/
+├── __init__.py
+├── registry.py           # 钩子注册
+├── events.py             # 事件类型
+├── discovery.py          # 钩子发现
+├── loader.py             # 钩子加载
+└── bundled/              # 预装钩子
+    ├── __init__.py
+    ├── session_memory.py # /new 时保存会话快照
+    └── command_logger.py # 命令事件日志
 ```
 
-#### Phase 18: ACP 协议系统
-
-**目标**: IDE 集成协议（Agent Control Protocol）
+### 8.3 钩子事件类型
 
 ```python
-# lurkbot/acp/
-├── server.py            # ndJSON 流服务器
-├── protocol.py          # 协议消息定义
-├── session.py           # 会话隔离
-├── events.py            # 事件映射
-└── tools/
-    ├── text_editor.py   # 文件编辑工具
-    ├── text_editor_file_tool.py
-    └── shell.py         # Shell 执行工具
+# 文件: src/lurkbot/hooks/events.py
+
+from typing import Literal, TypedDict
+from dataclasses import dataclass, field
+from datetime import datetime
+
+InternalHookEventType = Literal["command", "session", "agent", "gateway"]
+
+# 事件示例:
+# "command:new"        # /new 命令
+# "command:reset"      # /reset 命令
+# "session:*"          # 会话事件
+# "agent:bootstrap"    # Agent 启动
+# "gateway:startup"    # Gateway 启动
+
+@dataclass
+class InternalHookEvent:
+    type: InternalHookEventType
+    action: str
+    session_key: str
+    context: dict = field(default_factory=dict)
+    timestamp: datetime = field(default_factory=datetime.now)
+    messages: list[str] = field(default_factory=list)
+
+    @property
+    def event_name(self) -> str:
+        return f"{self.type}:{self.action}"
 ```
 
-**关键特性**:
-- ndJSON 双向流通信（stdin/stdout）
-- IDE 级会话隔离
-- 代码编辑工具集
-
-#### Phase 19: Browser 浏览器自动化
-
-**目标**: 网页自动化和截图
+### 8.4 钩子处理器
 
 ```python
-# lurkbot/browser/
-├── playwright_manager.py  # Playwright 实例管理
-├── cdp_client.py          # Chrome DevTools Protocol
-├── screenshot.py          # 截图优化
-├── snapshot.py            # Role/ARIA 快照
-├── routes.py              # HTTP 端点
-├── extension_relay.py     # 浏览器扩展通信
-└── actions/
-    ├── navigate.py
-    ├── click.py
-    ├── scroll.py
-    └── type.py
+# 文件: src/lurkbot/hooks/registry.py
+
+from typing import Callable, Awaitable
+from collections import defaultdict
+
+HookHandler = Callable[["InternalHookEvent"], Awaitable[None]]
+
+class HookRegistry:
+    """钩子注册表"""
+
+    def __init__(self):
+        self._handlers: dict[str, list[HookHandler]] = defaultdict(list)
+
+    def register(self, event_name: str, handler: HookHandler) -> None:
+        """
+        注册钩子
+
+        对标 MoltBot registerInternalHook()
+        """
+        self._handlers[event_name].append(handler)
+
+    async def trigger(self, event: "InternalHookEvent") -> None:
+        """
+        触发钩子
+
+        对标 MoltBot triggerInternalHook()
+        """
+        # 精确匹配
+        for handler in self._handlers.get(event.event_name, []):
+            await handler(event)
+
+        # 通配符匹配
+        wildcard_key = f"{event.type}:*"
+        for handler in self._handlers.get(wildcard_key, []):
+            await handler(event)
+
+# 全局实例
+hook_registry = HookRegistry()
+
+def register_internal_hook(event_name: str):
+    """装饰器：注册钩子"""
+    def decorator(func: HookHandler):
+        hook_registry.register(event_name, func)
+        return func
+    return decorator
 ```
 
-**关键特性**:
-- Playwright + CDP 双模式
-- 智能截图裁剪
-- 浏览器扩展中继
-
-#### Phase 20: TUI 终端界面
-
-**目标**: 交互式终端 UI
+### 8.5 钩子发现机制
 
 ```python
-# lurkbot/tui/
-├── app.py               # TUI 主应用
-├── widgets/
-│   ├── chat.py          # 聊天窗口
-│   ├── thinking.py      # 思考指示器
-│   └── input.py         # 输入框
-├── stream_assembler.py  # thinking/content 分离
-├── keybindings.py       # 快捷键定义
-└── commands/
-    ├── registry.py
-    └── handlers.py
+# 文件: src/lurkbot/hooks/discovery.py
+
+from pathlib import Path
+import yaml
+
+# 优先级顺序:
+# 1. <workspace>/hooks/           # 最高优先级
+# 2. ~/.lurkbot/hooks/            # 用户安装
+# 3. <lurkbot>/hooks/bundled/     # 预装
+
+def discover_hooks(workspace_dir: str | None = None) -> list["HookInfo"]:
+    """
+    发现所有可用钩子
+
+    对标 MoltBot hook 发现机制
+    """
+    hooks = []
+    search_paths = []
+
+    if workspace_dir:
+        search_paths.append(Path(workspace_dir) / "hooks")
+
+    search_paths.append(Path.home() / ".lurkbot" / "hooks")
+    search_paths.append(Path(__file__).parent / "bundled")
+
+    for path in search_paths:
+        if path.exists():
+            for hook_dir in path.iterdir():
+                if hook_dir.is_dir():
+                    hook_info = _load_hook_info(hook_dir)
+                    if hook_info:
+                        hooks.append(hook_info)
+
+    return hooks
+
+def _load_hook_info(hook_dir: Path) -> "HookInfo | None":
+    """加载钩子信息"""
+    hook_md = hook_dir / "HOOK.md"
+    if not hook_md.exists():
+        return None
+
+    content = hook_md.read_text()
+    # 解析 YAML frontmatter
+    if content.startswith("---"):
+        _, frontmatter, _ = content.split("---", 2)
+        metadata = yaml.safe_load(frontmatter)
+        return HookInfo(
+            name=hook_dir.name,
+            path=hook_dir,
+            emoji=metadata.get("lurkbot", {}).get("emoji", "🪝"),
+            events=metadata.get("lurkbot", {}).get("events", []),
+            requires=metadata.get("lurkbot", {}).get("requires", {}),
+        )
+    return None
 ```
 
-**关键特性**:
-- 基于 pi-tui 风格
-- thinking/content 流分离
-- 命令快捷键
+---
 
-#### Phase 21: TTS 语音合成
+## 九、Security 安全审计系统设计
 
-**目标**: 多提供商语音输出
+### 9.1 系统概述
 
-```python
-# lurkbot/tts/
-├── engine.py            # TTS 引擎
-├── providers/
-│   ├── openai.py
-│   ├── elevenlabs.py
-│   └── edge.py          # 免费 Edge TTS
-├── directive_parser.py  # [[tts:...]] 解析
-└── summarizer.py        # 长文本摘要
+Security 系统提供安全检查和审计功能，确保系统配置的安全性。
+
+> **对标**: MoltBot `src/security/`
+
+### 9.2 模块结构
+
+```
+src/lurkbot/security/
+├── __init__.py
+├── audit.py              # 审计功能
+├── dm_policy.py          # DM 策略
+├── model_check.py        # 模型安全检查
+└── warnings.py           # 警告生成
 ```
 
-**关键特性**:
-- 多提供商支持（OpenAI/ElevenLabs/Edge）
-- `[[tts:tag]]` 指令标签
-- 自动长文本摘要
-
-#### Phase 22: Wizard 配置向导
-
-**目标**: 交互式配置引导
+### 9.3 审计范围
 
 ```python
-# lurkbot/wizard/
-├── session.py           # Promise-based 会话
-├── flows/
-│   ├── quickstart.py    # 快速开始
-│   ├── advanced.py      # 高级配置
-│   └── channel.py       # 通道配置
-├── prompts.py           # 交互提示
-└── reset.py             # 重置策略
+# 文件: src/lurkbot/security/audit.py
+
+from dataclasses import dataclass
+from typing import Literal
+
+@dataclass
+class SecurityFinding:
+    level: Literal["critical", "warning", "info"]
+    message: str
+    fix: str | None = None
+
+async def audit_security(deep: bool = False) -> list[SecurityFinding]:
+    """
+    执行安全审计
+
+    对标 MoltBot security audit
+    """
+    findings = []
+
+    # A. Gateway 网络暴露检查
+    findings.extend(await _audit_gateway_exposure())
+
+    # B. DM 策略检查
+    findings.extend(await _audit_dm_policy())
+
+    # C. 模型安全检查
+    if deep:
+        findings.extend(await _audit_model_safety())
+
+    return findings
+
+async def _audit_gateway_exposure() -> list[SecurityFinding]:
+    """
+    Gateway 网络暴露检查
+
+    绑定配置:
+    - bind = "loopback" (127.0.0.1) → ✅ 安全
+    - bind = "lan" (192.168.x.x) → ⚠️ 需认证
+    - bind = "auto" (0.0.0.0) → ⚠️ 危险
+    """
+    findings = []
+    config = load_gateway_config()
+
+    is_exposed = config.bind in ("lan", "auto", "0.0.0.0")
+    has_auth = config.auth and config.auth.mode in ("token", "password")
+
+    if is_exposed and not has_auth:
+        findings.append(SecurityFinding(
+            level="critical",
+            message="Gateway bound to network without authentication. Anyone on your network can fully control your agent.",
+            fix="lurkbot config set gateway.bind loopback",
+        ))
+
+    return findings
+
+async def _audit_dm_policy() -> list[SecurityFinding]:
+    """
+    DM 策略检查
+
+    检查项:
+    - 多发件人共享 main session → 建议隔离
+    """
+    findings = []
+    config = load_dm_policy()
+
+    if config.dm_scope == "main" and config.is_multi_user:
+        findings.append(SecurityFinding(
+            level="warning",
+            message="Multiple senders share the main session. Consider isolating sessions.",
+            fix='lurkbot config set session.dmScope "per-channel-peer"',
+        ))
+
+    return findings
 ```
 
-**关键特性**:
-- QuickStart vs Advanced 模式
-- 分步交互式配置
-- 配置重置/迁移
-
-#### Phase 23: Infra 基础设施
-
-**目标**: 8 个核心基础设施子系统
+### 9.4 CLI 命令
 
 ```python
-# lurkbot/infra/
-├── system_events/       # 系统事件（音频输入/剪贴板/文件变化）
-│   ├── audio.py
-│   ├── clipboard.py
-│   └── file_watch.py
-├── system_presence/     # 设备在线状态
+# 文件: src/lurkbot/cli/security.py
+
+import typer
+from rich.console import Console
+from rich.table import Table
+
+app = typer.Typer()
+console = Console()
+
+@app.command()
+def audit(
+    deep: bool = typer.Option(False, "--deep", help="执行深度审计"),
+    fix: bool = typer.Option(False, "--fix", help="自动修复"),
+):
+    """
+    执行安全审计
+
+    用法:
+    - lurkbot security audit          # 标准审计
+    - lurkbot security audit --deep   # 深度审计
+    - lurkbot security audit --fix    # 自动修复
+    """
+    import asyncio
+    from ..security.audit import audit_security, apply_fixes
+
+    findings = asyncio.run(audit_security(deep=deep))
+
+    if not findings:
+        console.print("[green]✓[/green] No security issues found")
+        return
+
+    # 显示发现
+    for finding in findings:
+        icon = {"critical": "🔴", "warning": "🟡", "info": "🔵"}[finding.level]
+        console.print(f"\n{icon} {finding.level.upper()}: {finding.message}")
+        if finding.fix:
+            console.print(f"   Fix: {finding.fix}")
+
+    if fix:
+        asyncio.run(apply_fixes(findings))
+```
+
+---
+
+## 十、Infra 基础设施设计
+
+### 10.1 系统概述
+
+Infra 模块包含 8 个核心基础设施子系统。
+
+> **对标**: MoltBot `src/infra/`
+
+### 10.2 模块结构
+
+```
+src/lurkbot/infra/
+├── __init__.py
+├── errors.py                 # 错误类型
+├── retry.py                  # 重试策略
+├── system_events/            # 系统事件队列
+│   ├── __init__.py
+│   ├── audio.py              # 音频输入事件
+│   ├── clipboard.py          # 剪贴板事件
+│   └── file_watch.py         # 文件变化事件
+├── system_presence/          # 设备在线状态
 │   └── presence.py
-├── tailscale/           # Tailscale VPN 集成
+├── tailscale/                # Tailscale VPN 集成
 │   └── client.py
-├── ssh_tunnel/          # SSH 隧道
+├── ssh_tunnel/               # SSH 隧道
 │   └── manager.py
-├── bonjour/             # mDNS 服务发现
+├── bonjour/                  # mDNS 服务发现
 │   └── discovery.py
-├── device_pairing/      # PKI 设备配对
+├── device_pairing/           # PKI 设备配对
 │   ├── keypair.py
 │   ├── exchange.py
 │   └── trust.py
-├── exec_approvals/      # 执行审批系统
+├── exec_approvals/           # 执行审批系统
 │   └── approver.py
-└── voicewake/           # 语音唤醒
+└── voicewake/                # 语音唤醒
     └── detector.py
 ```
 
-**关键特性**:
-- 8 个独立子系统
-- 安全的设备配对
-- 系统级事件监听
+### 10.3 系统事件队列
 
-### 6.3 关键文件清单（完整版）
+```python
+# 文件: src/lurkbot/infra/system_events/__init__.py
 
+from collections import defaultdict
+from dataclasses import dataclass
+from datetime import datetime
+
+MAX_EVENTS_PER_SESSION = 20
+
+@dataclass
+class SystemEvent:
+    text: str
+    ts: datetime
+
+class SystemEventQueue:
+    """
+    轻量级内存事件总线
+
+    对标 MoltBot system-events.ts
+    """
+
+    def __init__(self):
+        self._queues: dict[str, list[SystemEvent]] = defaultdict(list)
+        self._last_event: dict[str, str] = {}
+
+    def enqueue(self, session_key: str, text: str) -> None:
+        """入队事件（自动去重连续相同事件）"""
+        if self._last_event.get(session_key) == text:
+            return
+
+        self._last_event[session_key] = text
+        queue = self._queues[session_key]
+        queue.append(SystemEvent(text=text, ts=datetime.now()))
+
+        # 保持最多 20 条
+        if len(queue) > MAX_EVENTS_PER_SESSION:
+            self._queues[session_key] = queue[-MAX_EVENTS_PER_SESSION:]
+
+    def drain(self, session_key: str) -> list[SystemEvent]:
+        """出队所有事件"""
+        events = self._queues.pop(session_key, [])
+        self._last_event.pop(session_key, None)
+        return events
+
+# 全局实例
+system_event_queue = SystemEventQueue()
 ```
-src/lurkbot/
-├── agents/
-│   ├── runtime.py           # Agent 运行时（PydanticAI）
-│   ├── bootstrap.py         # Bootstrap 文件系统
-│   ├── system_prompt.py     # 系统提示词生成（23节+A2UI）
-│   ├── compaction.py        # 上下文压缩
-│   └── subagent.py          # 子代理通信
-├── tools/
-│   ├── policy.py            # 九层工具策略
-│   ├── registry.py          # 工具注册表
-│   └── builtin/
-│       ├── sessions.py      # 会话工具（6个）
-│       ├── cron.py          # Cron 工具
-│       ├── message.py       # 消息工具
-│       ├── web.py           # Web 工具（2个）
-│       ├── media.py         # 媒体工具（3个）
-│       ├── memory.py        # 内存工具（2个）
-│       ├── system.py        # 系统工具（2个）
-│       ├── tts.py           # TTS 工具
-│       ├── coding.py        # 编码工具（4个）
-│       └── canvas.py        # Canvas/A2UI 工具
-├── canvas_host/             # A2UI 界面系统
-│   ├── __init__.py
-│   ├── server.py            # Canvas Host 服务 + WebSocket
-│   └── validation.py        # A2UI JSONL 验证
-├── auto_reply/              # 自动回复系统 [新增]
-│   ├── directives.py        # 指令提取
-│   ├── queue/               # 队列处理
-│   ├── streaming.py         # 流式响应
-│   ├── commands.py          # 命令注册
-│   └── tokens.py            # 特殊令牌
-├── routing/                 # 消息路由 [新增]
-│   ├── session_key.py
-│   ├── dispatcher.py
-│   └── broadcast.py
-├── daemon/                  # 守护进程 [新增]
-│   ├── service.py
-│   ├── launchd.py
-│   ├── systemd.py
-│   └── diagnostics.py
-├── media/                   # 多媒体理解 [新增]
-│   ├── understanding.py
-│   └── providers/
-├── hooks/                   # 扩展系统 [新增]
-│   ├── registry.py
-│   ├── events.py
-│   └── bundled/
-├── security/                # 安全审计
-│   ├── audit.py
-│   └── policies.py
-├── acp/                     # ACP 协议 [新增]
-│   ├── server.py
-│   ├── protocol.py
-│   ├── session.py
-│   └── tools/
-├── browser/                 # 浏览器自动化 [新增]
-│   ├── playwright_manager.py
-│   ├── cdp_client.py
-│   ├── screenshot.py
-│   ├── snapshot.py
-│   └── routes.py
-├── tui/                     # 终端界面 [新增]
-│   ├── app.py
-│   ├── widgets/
-│   └── stream_assembler.py
-├── tts/                     # 语音合成 [新增]
-│   ├── engine.py
-│   ├── providers/
-│   └── directive_parser.py
-├── wizard/                  # 配置向导 [新增]
-│   ├── session.py
-│   ├── flows/
-│   └── prompts.py
-│   ├── audit.py
-│   └── policies.py
-├── sessions/
-│   └── manager.py           # 会话管理器
-├── autonomous/
-│   ├── heartbeat.py         # 心跳系统
-│   └── cron.py              # Cron 服务
-├── auth/
-│   └── profiles.py          # Auth Profile 系统
-├── gateway/
-│   ├── server.py            # WebSocket 服务器
-│   ├── protocol.py          # 协议帧定义
-│   └── client.py            # Gateway 客户端
-├── skills/
-│   └── loader.py            # 技能加载器
-├── plugins/
-│   └── loader.py            # 插件加载器
-├── memory/
-│   └── store.py             # 内存存储（向量搜索）
-├── infra/
-│   ├── retry.py             # 重试策略
-│   ├── provider_usage/      # 使用量监控
-│   ├── system_events/       # 系统事件 [新增]
-│   ├── system_presence/     # 设备状态 [新增]
-│   ├── tailscale/           # VPN 集成 [新增]
-│   ├── ssh_tunnel/          # SSH 隧道 [新增]
-│   ├── bonjour/             # mDNS 发现 [新增]
-│   ├── device_pairing/      # 设备配对 [新增]
-│   ├── exec_approvals/      # 执行审批 [新增]
-│   └── voicewake/           # 语音唤醒 [新增]
-└── config/
-    └── settings.py          # 配置管理
+
+### 10.4 系统存在感
+
+```python
+# 文件: src/lurkbot/infra/system_presence/presence.py
+
+from dataclasses import dataclass
+from typing import Literal
+from datetime import datetime, timedelta
+from cachetools import TTLCache
+
+@dataclass
+class SystemPresence:
+    host: str | None = None
+    ip: str | None = None
+    version: str | None = None
+    platform: str | None = None
+    mode: Literal["gateway", "node"] | None = None
+    reason: Literal["self", "discovered", "imported"] | None = None
+    roles: list[str] | None = None
+    scopes: list[str] | None = None
+
+# 5 分钟 TTL，最多 200 节点
+_presence_cache = TTLCache(maxsize=200, ttl=300)
+
+def update_system_presence(node_id: str, presence: SystemPresence) -> None:
+    """更新节点存在感"""
+    _presence_cache[node_id] = presence
+
+def list_system_presence() -> dict[str, SystemPresence]:
+    """列出所有在线节点"""
+    return dict(_presence_cache)
+```
+
+### 10.5 Tailscale 集成
+
+```python
+# 文件: src/lurkbot/infra/tailscale/client.py
+
+import subprocess
+import shutil
+from pathlib import Path
+from functools import lru_cache
+
+@lru_cache
+def find_tailscale_binary() -> str | None:
+    """
+    查找 Tailscale 二进制文件（4 层策略）
+
+    1. which tailscale
+    2. macOS /Applications/Tailscale.app
+    3. find /usr/local
+    4. locate tailscale
+    """
+    # 1. which
+    result = shutil.which("tailscale")
+    if result:
+        return result
+
+    # 2. macOS app
+    macos_path = Path("/Applications/Tailscale.app/Contents/MacOS/Tailscale")
+    if macos_path.exists():
+        return str(macos_path)
+
+    # 3-4. find/locate (慢，作为后备)
+    return None
+
+async def get_tailnet_hostname() -> str | None:
+    """获取 Tailnet 主机名"""
+    binary = find_tailscale_binary()
+    if not binary:
+        return None
+
+    result = subprocess.run(
+        [binary, "status", "--json"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        import json
+        data = json.loads(result.stdout)
+        return data.get("Self", {}).get("DNSName")
+    return None
 ```
 
 ---
 
-## 七、验证策略
+## 十一、Media Understanding 设计
 
-### 7.1 单元测试
+### 11.1 系统概述
+
+Media Understanding 系统在消息进入回复流水线前，自动理解和摘要化入站多媒体。
+
+> **对标**: MoltBot `src/media-understanding/`
+
+### 11.2 模块结构
+
+```
+src/lurkbot/media/
+├── __init__.py
+├── understand.py         # 核心理解逻辑
+├── config.py             # 能力配置
+└── providers/
+    ├── __init__.py
+    ├── openai.py
+    ├── anthropic.py
+    ├── gemini.py
+    └── local.py          # 本地 CLI 降级
+```
+
+### 11.3 处理流程
+
+```python
+# 文件: src/lurkbot/media/understand.py
+
+from dataclasses import dataclass
+from typing import Literal
+
+MediaType = Literal["image", "audio", "video", "document"]
+
+@dataclass
+class MediaUnderstandingResult:
+    success: bool
+    summary: str | None = None
+    error: str | None = None
+    provider_used: str | None = None
+
+async def understand_media(
+    media_url: str,
+    media_type: MediaType,
+    config: "MediaConfig",
+) -> MediaUnderstandingResult:
+    """
+    理解多媒体内容
+
+    流程:
+    1. 按能力过滤提供商
+    2. 选择第一个合格模型
+    3. 执行理解任务
+    4. 若失败 → 降级到下一个
+    """
+    for provider_config in config.get_providers_for_type(media_type):
+        try:
+            provider = get_provider(provider_config.provider)
+            summary = await provider.understand(
+                media_url=media_url,
+                media_type=media_type,
+                model=provider_config.model,
+                max_chars=config.get_max_chars(media_type),
+            )
+            return MediaUnderstandingResult(
+                success=True,
+                summary=summary,
+                provider_used=provider_config.provider,
+            )
+        except Exception as e:
+            continue  # 降级到下一个
+
+    return MediaUnderstandingResult(
+        success=False,
+        error="All providers failed",
+    )
+```
+
+---
+
+## 十二、Provider Usage 设计
+
+### 12.1 系统概述
+
+Provider Usage 系统追踪 API 使用量和成本，支持多提供商多窗口监控。
+
+> **对标**: MoltBot `src/provider-usage/`
+
+### 12.2 模块结构
+
+```
+src/lurkbot/usage/
+├── __init__.py
+├── monitor.py            # 使用量监控
+├── format.py             # 格式化输出
+└── providers/
+    ├── __init__.py
+    ├── anthropic.py
+    ├── openai.py
+    └── google.py
+```
+
+### 12.3 核心数据结构
+
+```python
+# 文件: src/lurkbot/usage/monitor.py
+
+from dataclasses import dataclass
+from typing import Literal
+
+@dataclass
+class UsageWindow:
+    label: str           # "5h", "Week", "Sonnet"
+    used_percent: float  # 0-100
+    reset_at: int | None = None  # Unix 时间戳
+
+@dataclass
+class ProviderUsageSnapshot:
+    provider: str
+    display_name: str
+    windows: list[UsageWindow]
+    plan: str | None = None
+    error: str | None = None
+
+@dataclass
+class UsageSummary:
+    updated_at: int
+    providers: list[ProviderUsageSnapshot]
+
+async def fetch_all_usage() -> UsageSummary:
+    """获取所有提供商使用量"""
+    from datetime import datetime
+    import asyncio
+
+    providers = []
+    tasks = [
+        fetch_anthropic_usage(),
+        fetch_openai_usage(),
+        fetch_google_usage(),
+    ]
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    for result in results:
+        if isinstance(result, ProviderUsageSnapshot):
+            providers.append(result)
+
+    return UsageSummary(
+        updated_at=int(datetime.now().timestamp() * 1000),
+        providers=providers,
+    )
+```
+
+---
+
+## 十三、ACP 协议系统设计
+
+### 13.1 系统概述
+
+ACP（Agent Control Protocol）是 LurkBot 与 IDE 集成的标准协议实现。
+
+> **对标**: MoltBot `src/acp/` (基于 @agentclientprotocol/sdk)
+
+### 13.2 模块结构
+
+```
+src/lurkbot/acp/
+├── __init__.py
+├── server.py             # ACP 服务器
+├── translator.py         # 协议翻译器
+├── session.py            # 会话管理
+├── event_mapper.py       # 事件映射
+└── types.py              # 类型定义
+```
+
+### 13.3 架构设计
+
+```
+┌─────────────────────────────────────────┐
+│         IDE / Client (stdIO)            │
+└─────────────────┬───────────────────────┘
+                  ↕ ndJSON 双向流
+┌─────────────────────────────────────────┐
+│    ACPServer (协议层)                    │
+└─────────────────┬───────────────────────┘
+                  ↕
+┌─────────────────────────────────────────┐
+│    ACPGatewayAgent (协议翻译器)         │
+└─────────────────┬───────────────────────┘
+                  ↕
+┌─────────────────────────────────────────┐
+│    GatewayClient (WebSocket)            │
+└─────────────────┬───────────────────────┘
+                  ↕
+┌─────────────────────────────────────────┐
+│    LurkBot Gateway                      │
+└─────────────────────────────────────────┘
+```
+
+### 13.4 核心实现
+
+```python
+# 文件: src/lurkbot/acp/server.py
+
+import sys
+import json
+from dataclasses import dataclass
+
+@dataclass
+class ACPSession:
+    session_id: str
+    session_key: str
+    cwd: str
+    created_at: int
+    active_run_id: str | None = None
+
+class ACPServer:
+    """
+    ACP 服务器 - ndJSON 双向流通信
+
+    对标 MoltBot ACP server
+    """
+
+    def __init__(self):
+        self._sessions: dict[str, ACPSession] = {}
+        self._pending_prompts: dict[str, "PendingPrompt"] = {}
+
+    async def run(self):
+        """运行 ACP 服务器（stdin/stdout）"""
+        async for line in self._read_lines():
+            message = json.loads(line)
+            response = await self._handle_message(message)
+            if response:
+                self._write_message(response)
+
+    async def _handle_message(self, message: dict) -> dict | None:
+        method = message.get("method")
+
+        if method == "initialize":
+            return self._handle_initialize(message)
+        elif method == "prompt":
+            return await self._handle_prompt(message)
+        elif method == "cancel":
+            return await self._handle_cancel(message)
+
+        return None
+
+    def _handle_initialize(self, message: dict) -> dict:
+        """处理初始化请求"""
+        return {
+            "protocolVersion": "1.0",
+            "agentCapabilities": {
+                "loadSession": True,
+                "promptCapabilities": {
+                    "image": True,
+                    "audio": False,
+                    "embeddedContext": True,
+                },
+                "mcpCapabilities": {
+                    "http": False,
+                    "sse": False,
+                },
+            },
+        }
+```
+
+---
+
+## 十四、Browser 浏览器自动化设计
+
+### 14.1 系统概述
+
+Browser 模块提供完整的浏览器自动化能力，支持 Playwright 和 CDP。
+
+> **对标**: MoltBot `src/browser/`
+
+### 14.2 模块结构
+
+```
+src/lurkbot/browser/
+├── __init__.py
+├── server.py                 # 控制服务器
+├── config.py                 # 配置解析
+├── chrome.py                 # Chrome 启动管理
+├── cdp.py                    # CDP 操作
+├── playwright_session.py     # Playwright 会话
+├── role_snapshot.py          # 角色快照
+├── screenshot.py             # 截图处理
+├── extension_relay.py        # 扩展中继
+└── routes/
+    ├── __init__.py
+    ├── act.py                # /act 端点
+    ├── navigate.py           # /navigate 端点
+    └── screenshot.py         # /screenshot 端点
+```
+
+### 14.3 HTTP 路由
+
+| 端点 | 方法 | 功能 |
+|------|------|------|
+| `/status` | GET | 浏览器状态 |
+| `/tabs` | GET/POST/DELETE | 标签页管理 |
+| `/act` | POST | 执行动作 |
+| `/navigate` | POST | 导航 |
+| `/screenshot` | POST | 截图 |
+| `/snapshot/role` | POST | 角色快照 |
+| `/evaluate` | POST | 执行 JavaScript |
+
+### 14.4 核心实现
+
+```python
+# 文件: src/lurkbot/browser/server.py
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Literal
+
+app = FastAPI()
+
+BrowserAction = Literal[
+    "click", "doubleClick",
+    "type", "press",
+    "drag", "hover",
+    "fill", "selectOption",
+    "wait",
+]
+
+class ActRequest(BaseModel):
+    action: BrowserAction
+    selector: str | None = None
+    text: str | None = None
+    key: str | None = None
+
+@app.post("/act")
+async def act(request: ActRequest):
+    """执行浏览器动作"""
+    from .playwright_session import get_page
+
+    page = await get_page()
+
+    if request.action == "click":
+        await page.click(request.selector)
+    elif request.action == "type":
+        await page.type(request.selector, request.text)
+    elif request.action == "press":
+        await page.keyboard.press(request.key)
+    # ... 更多动作
+
+    return {"success": True}
+```
+
+---
+
+## 十五、TUI 终端界面设计
+
+### 15.1 系统概述
+
+TUI 是交互式终端界面，提供实时聊天、命令处理和多 Agent 支持。
+
+> **对标**: MoltBot `src/tui/`
+
+### 15.2 模块结构
+
+```
+src/lurkbot/tui/
+├── __init__.py
+├── app.py                    # TUI 主应用
+├── stream_assembler.py       # 流式响应组装
+├── formatters.py             # 格式化
+├── keybindings.py            # 快捷键定义
+└── components/
+    ├── __init__.py
+    ├── chat_log.py           # 聊天窗口
+    ├── thinking.py           # 思考指示器
+    └── input_box.py          # 输入框
+```
+
+### 15.3 命令系统
+
+| 命令 | 功能 |
+|------|------|
+| `/help` | 显示帮助 |
+| `/status` | 网关状态 |
+| `/agent [id]` | 切换 Agent |
+| `/model [ref]` | 设置模型 |
+| `/think <level>` | 设置 thinking 级别 |
+| `/sessions` | 列出会话 |
+| `/new` | 重置会话 |
+| `/abort` | 中止运行 |
+| `!command` | 执行 bash 命令 |
+
+### 15.4 流式响应组装
+
+```python
+# 文件: src/lurkbot/tui/stream_assembler.py
+
+class TuiStreamAssembler:
+    """
+    分离 thinking 块和 content 块
+
+    对标 MoltBot TuiStreamAssembler
+    """
+
+    def __init__(self):
+        self._runs: dict[str, dict] = {}
+
+    def ingest_delta(
+        self,
+        run_id: str,
+        message: dict,
+        show_thinking: bool,
+    ) -> str:
+        """
+        处理增量消息
+
+        返回新的显示文本
+        """
+        if run_id not in self._runs:
+            self._runs[run_id] = {"thinking": "", "content": ""}
+
+        run_state = self._runs[run_id]
+
+        # 提取 thinking 块
+        if "thinking" in message:
+            run_state["thinking"] += message["thinking"]
+
+        # 提取 content 块
+        if "content" in message:
+            run_state["content"] += message["content"]
+
+        # 合成显示文本
+        if show_thinking and run_state["thinking"]:
+            return f"[thinking]\n{run_state['thinking']}\n[/thinking]\n\n{run_state['content']}"
+        return run_state["content"]
+
+    def finalize(self, run_id: str) -> str:
+        """最终化并清理"""
+        run_state = self._runs.pop(run_id, {"content": ""})
+        return run_state["content"]
+```
+
+---
+
+## 十六、TTS 语音合成设计
+
+### 16.1 系统概述
+
+TTS 是多 Provider 的文本转语音系统，支持 OpenAI、ElevenLabs、Edge TTS。
+
+> **对标**: MoltBot `src/tts/`
+
+### 16.2 模块结构
+
+```
+src/lurkbot/tts/
+├── __init__.py
+├── engine.py                 # TTS 引擎
+├── directive_parser.py       # [[tts:...]] 解析
+├── summarizer.py             # 长文本摘要
+└── providers/
+    ├── __init__.py
+    ├── openai.py
+    ├── elevenlabs.py
+    └── edge.py               # 免费 Edge TTS
+```
+
+### 16.3 配置结构
+
+```python
+# 文件: src/lurkbot/tts/engine.py
+
+from dataclasses import dataclass
+from typing import Literal
+
+@dataclass
+class TTSConfig:
+    auto: Literal["off", "always", "inbound", "tagged"] = "off"
+    mode: Literal["delta", "final"] = "final"
+    provider: Literal["openai", "elevenlabs", "edge"] = "openai"
+    summary_model: str | None = None
+
+@dataclass
+class OpenAITTSConfig:
+    api_key: str | None = None
+    model: str = "tts-1"
+    voice: str = "alloy"  # alloy|ash|coral|echo|fable|onyx|nova|sage|shimmer
+
+@dataclass
+class ElevenLabsTTSConfig:
+    api_key: str | None = None
+    voice_id: str = "21m00Tcm4TlvDq8ikWAM"
+    model_id: str = "eleven_monolingual_v1"
+
+@dataclass
+class EdgeTTSConfig:
+    enabled: bool = True
+    voice: str = "en-US-AriaNeural"
+    lang: str = "en-US"
+```
+
+### 16.4 Directive 系统
+
+```python
+# 文件: src/lurkbot/tts/directive_parser.py
+
+import re
+from dataclasses import dataclass
+
+@dataclass
+class TTSDirective:
+    provider: str | None = None
+    voice: str | None = None
+    text: str | None = None
+
+def parse_tts_directives(text: str) -> tuple[str, list[TTSDirective]]:
+    """
+    解析 TTS 指令
+
+    格式:
+    - [[tts:provider=openai voice=nova]]<文本>
+    - [[tts:text]]<自定义音频文本>[[/tts:text]]
+    """
+    directives = []
+
+    # 解析 provider/voice 指令
+    pattern = r"\[\[tts:([^\]]+)\]\]"
+    for match in re.finditer(pattern, text):
+        attrs = match.group(1)
+        directive = TTSDirective()
+
+        for pair in attrs.split():
+            if "=" in pair:
+                key, value = pair.split("=", 1)
+                setattr(directive, key, value)
+
+        directives.append(directive)
+
+    # 清理文本
+    cleaned = re.sub(pattern, "", text)
+
+    return cleaned, directives
+```
+
+---
+
+## 十七、Wizard 配置向导设计
+
+### 17.1 系统概述
+
+Wizard 是分步式交互配置系统，用于初始化和配置 LurkBot。
+
+> **对标**: MoltBot `src/wizard/`
+
+### 17.2 模块结构
+
+```
+src/lurkbot/wizard/
+├── __init__.py
+├── onboarding.py             # 主流程
+├── session.py                # 向导会话
+├── prompts.py                # 交互提示
+└── flows/
+    ├── __init__.py
+    ├── quickstart.py         # 快速开始
+    ├── advanced.py           # 高级配置
+    └── channel.py            # 通道配置
+```
+
+### 17.3 Onboarding 流程
+
+```
+1. 安全提示确认
+2. 加载/重置配置
+3. 选择模式 (QuickStart / Advanced)
+4. Gateway 配置 (端口、绑定、认证)
+5. Auth 选择 (Anthropic/OpenAI)
+6. 频道设置
+7. Skills 设置
+8. Hooks 设置
+9. 最终化
+```
+
+### 17.4 Session 架构
+
+```python
+# 文件: src/lurkbot/wizard/session.py
+
+from dataclasses import dataclass
+from typing import Literal, Any
+import asyncio
+
+@dataclass
+class WizardStep:
+    id: str
+    type: Literal["select", "multiselect", "text", "confirm"]
+    prompt: str
+    options: list[dict] | None = None
+    default: Any = None
+
+class WizardSession:
+    """
+    向导会话 - Promise-based 异步等待
+
+    对标 MoltBot WizardSession
+    """
+
+    def __init__(self):
+        self._steps: list[WizardStep] = []
+        self._current_index = 0
+        self._answers: dict[str, Any] = {}
+        self._cancelled = False
+
+    async def next(self) -> "WizardNextResult":
+        """获取下一步"""
+        if self._cancelled:
+            return WizardNextResult(done=True, cancelled=True)
+
+        if self._current_index >= len(self._steps):
+            return WizardNextResult(done=True)
+
+        step = self._steps[self._current_index]
+        return WizardNextResult(done=False, step=step)
+
+    async def answer(self, step_id: str, value: Any) -> None:
+        """提交答案"""
+        self._answers[step_id] = value
+        self._current_index += 1
+
+    def cancel(self) -> None:
+        """取消向导"""
+        self._cancelled = True
+```
+
+---
+
+## 十八、功能完整性检查清单
+
+### 18.1 核心功能检查（32 个模块对齐 MoltBot）
+
+| # | MoltBot 功能 | LurkBot 设计 | 状态 |
+|---|-------------|-------------|------|
+| 1 | Pi SDK Agent Loop | PydanticAI Agent.run() | ✅ 设计完成 |
+| 2 | 8 个 Bootstrap 文件 | agents/bootstrap.py | ✅ 已实现 |
+| 3 | SUBAGENT_BOOTSTRAP_ALLOWLIST | agents/bootstrap.py | ✅ 已实现 |
+| 4 | 23 节系统提示词 | agents/system_prompt.py | ✅ 已实现 |
+| 5 | PromptMode (full/minimal/none) | agents/system_prompt.py | ✅ 已实现 |
+| 6 | Runtime 行格式 | build_runtime_line() | ✅ 设计完成 |
+| 7 | 22 原生工具 | tools/builtin/ | ⏳ 7/22 完成 |
+| 8 | 九层工具策略 | tools/policy.py | ✅ 已实现 |
+| 9 | 工具分组和配置文件 | tools/policy.py | ✅ 已实现 |
+| 10 | 5 种会话类型 | sessions/ | ⏳ 设计完成 |
+| 11 | 会话 Key 格式 | routing/session_key.py | ✅ 设计完成 |
+| 12 | Subagent Spawn | agents/subagent/ | ⏳ 设计完成 |
+| 13 | Subagent Announce Flow | agents/subagent/ | ⏳ 设计完成 |
+| 14 | Heartbeat 系统 | autonomous/heartbeat/ | ⏳ 设计完成 |
+| 15 | Heartbeat 事件 | autonomous/heartbeat/ | ⏳ 设计完成 |
+| 16 | HEARTBEAT_OK Token | auto_reply/tokens.py | ✅ 设计完成 |
+| 17 | Cron 调度类型 | autonomous/cron/ | ⏳ 设计完成 |
+| 18 | Cron Payload 类型 | autonomous/cron/ | ⏳ 设计完成 |
+| 19 | Auth Profile 轮换 | auth/profiles.py | ⏳ 设计完成 |
+| 20 | 冷却计算 | auth/profiles.py | ⏳ 设计完成 |
+| 21 | Context Compaction | agents/compaction.py | ⏳ 设计完成 |
+| 22 | 自适应分块比例 | agents/compaction.py | ⏳ 设计完成 |
+| 23 | 分阶段摘要 | agents/compaction.py | ⏳ 设计完成 |
+| 24 | Human-in-the-Loop | DeferredToolRequests | ✅ 设计完成 |
+| 25 | A2UI Canvas Host | canvas/ | ⏳ 设计完成 |
+| 26 | A2UI JSONL 验证 | canvas/ | ⏳ 设计完成 |
+| 27 | Canvas Tool | tools/builtin/canvas.py | ⏳ 设计完成 |
+| 28 | Reply Directives | auto_reply/directives.py | ✅ 设计完成 |
+| 29 | Queue 处理机制 | auto_reply/queue/ | ✅ 设计完成 |
+| 30 | 流式响应递送 | auto_reply/deliver.py | ✅ 设计完成 |
+| 31 | Daemon 守护进程 | daemon/ | ✅ 设计完成 |
+| 32 | Media Understanding | media/ | ✅ 设计完成 |
+| 33 | Provider Usage 监控 | usage/ | ✅ 设计完成 |
+| 34 | Routing 消息路由 | routing/ | ✅ 设计完成 |
+| 35 | Hooks 扩展系统 | hooks/ | ✅ 设计完成 |
+| 36 | Security 安全审计 | security/ | ✅ 设计完成 |
+| 37 | ACP 协议系统 | acp/ | ✅ 设计完成 |
+| 38 | Browser 浏览器自动化 | browser/ | ✅ 设计完成 |
+| 39 | TUI 终端界面 | tui/ | ✅ 设计完成 |
+| 40 | TTS 语音合成 | tts/ | ✅ 设计完成 |
+| 41 | Wizard 配置向导 | wizard/ | ✅ 设计完成 |
+| 42 | Infra 系统事件 | infra/system_events/ | ✅ 设计完成 |
+| 43 | Infra 设备状态 | infra/system_presence/ | ✅ 设计完成 |
+| 44 | Infra Tailscale | infra/tailscale/ | ✅ 设计完成 |
+| 45 | Infra SSH 隧道 | infra/ssh_tunnel/ | ⏳ 设计完成 |
+| 46 | Infra mDNS 发现 | infra/bonjour/ | ⏳ 设计完成 |
+| 47 | Infra 设备配对 | infra/device_pairing/ | ⏳ 设计完成 |
+| 48 | Infra 执行审批 | infra/exec_approvals/ | ⏳ 设计完成 |
+| 49 | Infra 语音唤醒 | infra/voicewake/ | ⏳ 设计完成 |
+| 50 | Gateway 协议 | gateway/ | ⏳ 设计完成 |
+| 51 | 技能系统 | skills/ | ⏳ 设计完成 |
+| 52 | 插件系统 | plugins/ | ⏳ 设计完成 |
+| 53 | 向量内存搜索 | memory/ | ⏳ 设计完成 |
+
+### 18.2 状态图例
+
+| 状态 | 含义 |
+|------|------|
+| ✅ 已实现 | 代码已完成并测试 |
+| ✅ 设计完成 | 详细设计已完成，待实现 |
+| ⏳ 设计完成 | 设计已完成，在实施队列中 |
+
+---
+
+## 十九、实施计划（28 阶段）
+
+### 19.1 阶段划分（已完成 + 待完成）
+
+| Phase | 模块 | 优先级 | 状态 | 依赖 |
+|-------|------|--------|------|------|
+| **Phase 1** | 项目重构 - 清理旧代码 | P0 | ✅ 完成 | - |
+| **Phase 2** | PydanticAI 核心框架 | P0 | ✅ 完成 | Phase 1 |
+| **Phase 3** | Bootstrap + 系统提示词 | P0 | ✅ 完成 | Phase 2 |
+| **Phase 4** | 九层工具策略 | P0 | ✅ 完成 | Phase 2 |
+| **Phase 5** | 剩余内置工具 (15个) | P0 | ⏳ 当前 | Phase 4 |
+| **Phase 6** | 会话管理系统 | P0 | 待开始 | - |
+| **Phase 7** | 子代理系统 | P0 | 待开始 | Phase 6 |
+| **Phase 8** | 自主运行 (Heartbeat/Cron) | P0 | 待开始 | Phase 6 |
+| **Phase 9** | Auto-Reply 系统 | P1 | 待开始 | - |
+| **Phase 10** | Routing 消息路由 | P1 | 待开始 | Phase 6 |
+| **Phase 11** | Auth Profiles | P1 | 待开始 | - |
+| **Phase 12** | 上下文压缩 | P1 | 待开始 | - |
+| **Phase 13** | Gateway 完整版 | P1 | 待开始 | Phase 6 |
+| **Phase 14** | Hooks 系统 | P1 | 待开始 | - |
+| **Phase 15** | Security 审计 | P1 | 待开始 | - |
+| **Phase 16** | Infra 基础设施 | P1 | 待开始 | - |
+| **Phase 17** | Daemon 守护进程 | P1 | 待开始 | - |
+| **Phase 18** | 技能系统 | P1 | 待开始 | - |
+| **Phase 19** | 插件系统 | P2 | 待开始 | Phase 14 |
+| **Phase 20** | 向量内存 | P2 | 待开始 | - |
+| **Phase 21** | Provider Usage | P2 | 待开始 | - |
+| **Phase 22** | Media Understanding | P2 | 待开始 | - |
+| **Phase 23** | A2UI Canvas | P2 | 待开始 | - |
+| **Phase 24** | Browser 自动化 | P2 | 待开始 | - |
+| **Phase 25** | TUI 终端界面 | P2 | 待开始 | - |
+| **Phase 26** | TTS 语音合成 | P2 | 待开始 | - |
+| **Phase 27** | ACP 协议 | P2 | 待开始 | Phase 13 |
+| **Phase 28** | Wizard 向导 | P2 | 待开始 | - |
+
+### 19.2 Phase 5: 剩余内置工具（当前阶段）
+
+**目标**: 完成剩余 15 个内置工具
+
+| 工具 | 功能 | 依赖 |
+|------|------|------|
+| sessions_list | 列出会话 | sessions/ |
+| sessions_history | 获取历史 | sessions/ |
+| sessions_send | 跨会话发送 | sessions/ |
+| sessions_spawn | 生成子代理 | agents/subagent/ |
+| session_status | 会话状态 | sessions/ |
+| agents_list | 代理列表 | - |
+| cron | 定时任务 | autonomous/cron/ |
+| gateway | Gateway 通信 | gateway/ |
+| browser | 浏览器控制 | browser/ |
+| canvas | A2UI 画布 | canvas/ |
+| image | 图像处理 | - |
+| nodes | 节点管理 | infra/ |
+| tts | 文本转语音 | tts/ |
+
+### 19.3 Phase 6-8: P0 核心系统
+
+#### Phase 6: 会话管理系统
+
+```
+src/lurkbot/sessions/
+├── __init__.py
+├── store.py              # JSONL 持久化
+├── types.py              # 会话类型定义
+├── routing.py            # 会话路由
+└── manager.py            # 会话生命周期
+```
+
+#### Phase 7: 子代理系统
+
+```
+src/lurkbot/agents/subagent/
+├── __init__.py
+├── registry.py           # 子代理注册表
+├── spawn.py              # Spawn 工作流
+└── announce.py           # 结果汇报
+```
+
+#### Phase 8: 自主运行系统
+
+```
+src/lurkbot/autonomous/
+├── __init__.py
+├── heartbeat/
+│   ├── runner.py         # 心跳运行器
+│   ├── events.py         # 心跳事件
+│   └── config.py         # 心跳配置
+└── cron/
+    ├── service.py        # Cron 服务
+    ├── state.py          # 状态机
+    └── types.py          # Job 类型
+```
+
+### 19.4 Phase 9-18: P1 核心功能
+
+这些阶段的详细设计已在本文档的第五至十七章中完整描述。
+
+### 19.5 Phase 19-28: P2 扩展功能
+
+这些阶段的详细设计已在本文档的相应章节中完整描述。
+
+### 19.6 实施优先级表
+
+| 优先级 | 阶段范围 | 模块数 | 描述 |
+|--------|----------|--------|------|
+| **P0** | Phase 1-8 | 8 | 核心基础设施，必须首先完成 |
+| **P1** | Phase 9-18 | 10 | 核心功能，完成后可独立运行 |
+| **P2** | Phase 19-28 | 10 | 扩展功能，增强用户体验 |
+
+---
+
+## 二十、验证策略
+
+### 20.1 单元测试
 
 ```bash
 # 核心模块测试
@@ -3195,18 +4699,28 @@ pytest tests/test_heartbeat.py -xvs
 pytest tests/test_cron.py -xvs
 pytest tests/test_auth_profiles.py -xvs
 
-# A2UI 模块测试
-pytest tests/test_canvas_host.py -xvs
-pytest tests/test_a2ui_validation.py -xvs
-pytest tests/test_canvas_tool.py -xvs
+# 新模块测试
+pytest tests/test_auto_reply.py -xvs
+pytest tests/test_routing.py -xvs
+pytest tests/test_hooks.py -xvs
+pytest tests/test_daemon.py -xvs
+pytest tests/test_canvas.py -xvs
 ```
 
-### 7.2 对比测试
+### 20.2 测试覆盖目标
+
+| 优先级 | 模块类型 | 覆盖目标 |
+|--------|----------|----------|
+| P0 | 核心模块 | 90% |
+| P1 | 功能模块 | 80% |
+| P2 | 扩展模块 | 70% |
+
+### 20.3 对比测试
 
 1. **系统提示词对比**
    - 相同 Bootstrap 文件
    - 比较 MoltBot 和 LurkBot 生成的提示词
-   - 确保 23 节结构一致（+ A2UI 章节）
+   - 确保 23 节结构一致
 
 2. **工具策略对比**
    - 相同上下文
@@ -3221,19 +4735,279 @@ pytest tests/test_canvas_tool.py -xvs
    - 相同 Job 定义
    - 比较调度和执行结果
 
-5. **A2UI JSONL 对比**
-   - 相同 JSONL 输入
-   - 比较验证结果
-   - 确保消息格式兼容
+### 20.4 集成测试
+
+- Agent + Tools 端到端测试
+- Session 持久化测试
+- Gateway 连接测试
+- 子代理通信测试
+
+### 20.5 E2E 验证
+
+- CLI 命令完整性
+- Daemon 服务管理
+- 多渠道消息流转
+
+---
+
+## 附录：完整模块目录结构
+
+```
+src/lurkbot/
+├── __init__.py
+├── agents/                    # 第三章: Agent 运行时系统
+│   ├── __init__.py
+│   ├── types.py              # 核心类型定义
+│   ├── runtime.py            # PydanticAI 运行时
+│   ├── api.py                # FastAPI 端点
+│   ├── bootstrap.py          # Bootstrap 文件系统
+│   ├── system_prompt.py      # 系统提示词生成
+│   ├── compaction.py         # 上下文压缩系统
+│   └── subagent/             # 子代理通信协议
+│       ├── __init__.py
+│       ├── registry.py
+│       ├── announce.py
+│       └── spawn.py
+│
+├── tools/                     # 工具系统
+│   ├── __init__.py
+│   ├── policy.py             # 九层工具策略
+│   └── builtin/              # 22 个原生工具
+│       ├── __init__.py
+│       ├── common.py
+│       ├── fs_safe.py
+│       ├── exec_tool.py
+│       ├── fs_tools.py
+│       ├── web_tools.py
+│       ├── memory_tools.py
+│       ├── message_tool.py
+│       ├── sessions_tools.py
+│       ├── cron_tool.py
+│       ├── browser_tool.py
+│       ├── canvas_tool.py
+│       ├── image_tool.py
+│       ├── nodes_tool.py
+│       ├── gateway_tool.py
+│       └── tts_tool.py
+│
+├── sessions/                  # 会话管理系统
+│   ├── __init__.py
+│   ├── store.py
+│   ├── types.py
+│   ├── routing.py
+│   └── manager.py
+│
+├── autonomous/                # 自主运行
+│   ├── __init__.py
+│   ├── heartbeat/
+│   │   ├── __init__.py
+│   │   ├── runner.py
+│   │   ├── events.py
+│   │   └── config.py
+│   └── cron/
+│       ├── __init__.py
+│       ├── service.py
+│       ├── state.py
+│       └── types.py
+│
+├── auth/                      # 认证配置文件系统
+│   ├── __init__.py
+│   └── profiles.py
+│
+├── skills/                    # 技能系统
+│   ├── __init__.py
+│   ├── frontmatter.py
+│   ├── workspace.py
+│   ├── registry.py
+│   └── loader.py
+│
+├── gateway/                   # Gateway 协议
+│   ├── __init__.py
+│   ├── server.py
+│   ├── protocol/
+│   └── hub.py
+│
+├── memory/                    # 内存和向量搜索
+│   ├── __init__.py
+│   ├── embeddings/
+│   ├── sqlite_vec.py
+│   ├── search.py
+│   └── sync.py
+│
+├── plugins/                   # 插件系统
+│   ├── __init__.py
+│   ├── loader.py
+│   ├── manifest.py
+│   ├── runtime.py
+│   └── commands.py
+│
+├── auto_reply/                # Auto-Reply 系统
+│   ├── __init__.py
+│   ├── tokens.py
+│   ├── directives.py
+│   ├── queue/
+│   │   ├── __init__.py
+│   │   ├── directive.py
+│   │   ├── types.py
+│   │   ├── enqueue.py
+│   │   ├── drain.py
+│   │   └── state.py
+│   ├── reply_tags.py
+│   └── deliver.py
+│
+├── daemon/                    # Daemon 守护进程
+│   ├── __init__.py
+│   ├── service.py
+│   ├── launchd.py
+│   ├── systemd.py
+│   ├── schtasks.py
+│   └── diagnostics.py
+│
+├── media/                     # Media Understanding
+│   ├── __init__.py
+│   ├── understand.py
+│   ├── providers/
+│   │   ├── __init__.py
+│   │   ├── openai.py
+│   │   ├── anthropic.py
+│   │   └── gemini.py
+│   └── config.py
+│
+├── usage/                     # Provider Usage
+│   ├── __init__.py
+│   ├── monitor.py
+│   ├── providers/
+│   │   ├── __init__.py
+│   │   ├── anthropic.py
+│   │   └── openai.py
+│   └── format.py
+│
+├── routing/                   # Routing 系统
+│   ├── __init__.py
+│   ├── router.py
+│   ├── session_key.py
+│   ├── dispatcher.py
+│   └── broadcast.py
+│
+├── hooks/                     # Hooks 扩展
+│   ├── __init__.py
+│   ├── registry.py
+│   ├── events.py
+│   ├── discovery.py
+│   ├── loader.py
+│   └── bundled/
+│       ├── __init__.py
+│       └── session_memory.py
+│
+├── security/                  # Security 审计
+│   ├── __init__.py
+│   ├── audit.py
+│   ├── dm_policy.py
+│   └── model_check.py
+│
+├── acp/                       # ACP 协议
+│   ├── __init__.py
+│   ├── server.py
+│   ├── translator.py
+│   ├── session.py
+│   └── event_mapper.py
+│
+├── browser/                   # Browser 自动化
+│   ├── __init__.py
+│   ├── server.py
+│   ├── chrome.py
+│   ├── cdp.py
+│   ├── playwright_session.py
+│   └── routes/
+│       ├── __init__.py
+│       ├── act.py
+│       └── screenshot.py
+│
+├── canvas/                    # A2UI 界面
+│   ├── __init__.py
+│   ├── host.py
+│   ├── a2ui.py
+│   └── state.py
+│
+├── tui/                       # TUI 终端界面
+│   ├── __init__.py
+│   ├── app.py
+│   ├── stream_assembler.py
+│   └── components/
+│       ├── __init__.py
+│       └── chat_log.py
+│
+├── tts/                       # TTS 语音合成
+│   ├── __init__.py
+│   ├── engine.py
+│   ├── directive_parser.py
+│   └── providers/
+│       ├── __init__.py
+│       ├── openai.py
+│       └── edge.py
+│
+├── wizard/                    # Wizard 配置向导
+│   ├── __init__.py
+│   ├── onboarding.py
+│   ├── session.py
+│   └── flows/
+│       ├── __init__.py
+│       └── quickstart.py
+│
+├── infra/                     # Infra 基础设施
+│   ├── __init__.py
+│   ├── errors.py
+│   ├── retry.py
+│   ├── system_events/
+│   │   ├── __init__.py
+│   │   └── events.py
+│   ├── system_presence/
+│   │   ├── __init__.py
+│   │   └── presence.py
+│   ├── tailscale/
+│   │   ├── __init__.py
+│   │   └── client.py
+│   ├── ssh_tunnel/
+│   │   ├── __init__.py
+│   │   └── manager.py
+│   ├── bonjour/
+│   │   ├── __init__.py
+│   │   └── discovery.py
+│   ├── device_pairing/
+│   │   ├── __init__.py
+│   │   └── keypair.py
+│   ├── exec_approvals/
+│   │   ├── __init__.py
+│   │   └── approver.py
+│   └── voicewake/
+│       ├── __init__.py
+│       └── detector.py
+│
+├── config/                    # 配置管理
+│   ├── __init__.py
+│   ├── settings.py
+│   └── schema.py
+│
+├── logging/                   # 日志系统
+│   └── __init__.py
+│
+└── cli/                       # CLI 入口
+    ├── __init__.py
+    └── main.py
+```
 
 ---
 
 **文档完成**: 2026-01-29
-**文档版本**: 2.3
+**文档版本**: 3.0
 **文档类型**: 完整复刻设计方案
-**更新内容**:
-- v2.0: 初始完整设计
-- v2.1: 添加 A2UI 界面系统设计（第四章）
-- v2.2: 添加 Auto-Reply、Daemon、Media、Hooks、Security 等新发现模块（Phase 12-17）
-- v2.3: 添加 ACP、Browser、TUI、TTS、Wizard、Infra 等模块（Phase 18-23），功能检查清单从 37 项扩展到 50 项
-**下一步**: 按 Phase 顺序实施，每阶段完成后与 MoltBot 对比验证
+
+**更新历史**:
+- v1.0: 初始设计
+- v2.0: 完整设计
+- v2.1: 添加 A2UI 界面系统设计
+- v2.2: 添加 Auto-Reply、Daemon、Media、Hooks、Security 等模块
+- v2.3: 添加 ACP、Browser、TUI、TTS、Wizard、Infra 等模块
+- v3.0: 全面重构，对齐 MoltBot v3.0 架构（32 章节），扩展到 28 个实施阶段
+
+**下一步**: 按 Phase 顺序实施，当前在 Phase 5（剩余内置工具）

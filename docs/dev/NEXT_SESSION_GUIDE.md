@@ -3,7 +3,7 @@
 ## Session Context
 
 **Last Session Date**: 2026-01-30
-**Current Status**: Phase 19 完成，Phase 5-19 全部完成 (除 Phase 20-23)
+**Current Status**: Phase 20 完成，Phase 5-20 全部完成 (除 Phase 21-23)
 **Design Document**: `docs/design/LURKBOT_COMPLETE_DESIGN.md` (v2.3)
 **Architecture Document**: `docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md` (v3.0, 32 章节)
 
@@ -11,59 +11,67 @@
 
 ### 今日完成的工作
 
-1. **Phase 19 Browser 浏览器自动化系统** - 全部完成：
+1. **Phase 20 TUI 终端界面系统** - 全部完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
-   | 类型定义 | `browser/types.py` | ✅ 完成 |
-   | 配置管理 | `browser/config.py` | ✅ 完成 |
-   | Chrome 管理器 | `browser/chrome.py` | ✅ 完成 |
-   | CDP 客户端 | `browser/cdp.py` | ✅ 完成 |
-   | Playwright 会话 | `browser/playwright_session.py` | ✅ 完成 |
-   | 角色快照 | `browser/role_snapshot.py` | ✅ 完成 |
-   | 截图处理 | `browser/screenshot.py` | ✅ 完成 |
-   | 扩展中继 | `browser/extension_relay.py` | ✅ 完成 |
-   | HTTP 服务器 | `browser/server.py` | ✅ 完成 |
-   | 路由端点 | `browser/routes/*.py` | ✅ 完成 |
-   | 模块导出 | `browser/__init__.py` | ✅ 完成 |
-   | 单元测试 | `tests/main/test_phase19_browser.py` | ✅ 通过 (49 tests) |
+   | 类型定义 | `tui/types.py` | ✅ 完成 |
+   | 流式组装器 | `tui/stream_assembler.py` | ✅ 完成 |
+   | 格式化器 | `tui/formatters.py` | ✅ 完成 |
+   | 快捷键绑定 | `tui/keybindings.py` | ✅ 完成 |
+   | Gateway 通信 | `tui/gateway_chat.py` | ✅ 完成 |
+   | 命令处理器 | `tui/commands.py` | ✅ 完成 |
+   | 事件处理器 | `tui/events.py` | ✅ 完成 |
+   | 聊天日志组件 | `tui/components/chat_log.py` | ✅ 完成 |
+   | Thinking 组件 | `tui/components/thinking.py` | ✅ 完成 |
+   | 输入框组件 | `tui/components/input_box.py` | ✅ 完成 |
+   | 主应用 | `tui/app.py` | ✅ 完成 |
+   | 模块导出 | `tui/__init__.py` | ✅ 完成 |
+   | 单元测试 | `tests/main/test_phase20_tui.py` | ✅ 通过 (85 tests) |
 
-## Browser 浏览器自动化系统功能 (Phase 19)
+## TUI 终端界面系统功能 (Phase 20)
 
 ### 核心功能
-- **Playwright 集成**: 支持 Chromium/Firefox/WebKit 浏览器自动化
-- **CDP 支持**: Chrome DevTools Protocol 直接通信
-- **角色快照**: 页面可访问性树的结构化表示
-- **截图处理**: 全页/元素截图，支持裁剪和注释
-- **HTTP API**: FastAPI 服务器提供 RESTful 端点
+- **交互式聊天**: 实时聊天界面，支持流式响应
+- **命令系统**: /help, /status, /agent, /model, /think, /sessions 等
+- **快捷键**: 完整的键盘绑定支持
+- **Gateway 通信**: WebSocket 连接 Gateway 服务器
+- **流式响应**: 分离 thinking/content 块的流式组装
 
-### 类型定义 (types.py)
-- **动作类型**: BrowserAction (click, type, fill, press, hover, drag 等)
-- **请求模型**: ActRequest, NavigateRequest, ScreenshotRequest, EvaluateRequest
-- **响应模型**: BrowserStatus, ActResponse, NavigateResponse, ScreenshotResponse
-- **角色节点**: RoleNode 用于可访问性树表示
-- **配置**: BrowserConfig, ServerConfig
-- **错误类型**: BrowserError, BrowserNotConnectedError, BrowserTimeoutError
+### 命令系统
+| 命令 | 功能 |
+|------|------|
+| `/help` | 显示帮助 |
+| `/status` | 网关状态 |
+| `/agent [id]` | 切换 Agent |
+| `/model [ref]` | 设置模型 |
+| `/think <level>` | 设置 thinking 级别 (off/low/medium/high) |
+| `/sessions` | 列出会话 |
+| `/new` | 重置会话 |
+| `/abort` | 中止运行 |
+| `/clear` | 清除显示 |
+| `/tools` | 切换工具详情 |
+| `/exit` | 退出 TUI |
+| `!command` | 执行 bash 命令 |
 
-### Playwright 会话 (playwright_session.py)
-- **会话管理**: launch(), connect_cdp(), close()
-- **页面管理**: new_page(), close_page(), switch_to_page()
-- **导航**: navigate(), reload(), go_back(), go_forward()
-- **动作**: click(), type(), fill(), press(), hover(), drag()
-- **截图**: screenshot(), wait_for_selector()
-
-### HTTP 路由
-| 端点 | 方法 | 功能 |
-|------|------|------|
-| `/status` | GET | 浏览器状态 |
-| `/connect` | POST | 连接浏览器 |
-| `/tabs` | GET/POST/DELETE | 标签页管理 |
-| `/act` | POST | 执行动作 |
-| `/navigate` | POST | 导航 |
-| `/screenshot` | GET/POST | 截图 |
-| `/snapshot/role` | POST | 角色快照 |
-| `/snapshot/aria` | GET/POST | ARIA 快照 |
-| `/evaluate` | POST | 执行 JavaScript |
+### 组件结构
+```
+src/lurkbot/tui/
+├── __init__.py              # 模块导出
+├── types.py                 # 类型定义 (TuiState, ActivityStatus, etc.)
+├── stream_assembler.py      # 流式响应组装器
+├── formatters.py            # Rich 格式化器
+├── keybindings.py           # 快捷键定义
+├── gateway_chat.py          # Gateway WebSocket 通信
+├── commands.py              # 命令处理器
+├── events.py                # 事件处理器
+├── app.py                   # TUI 主应用
+└── components/
+    ├── __init__.py
+    ├── chat_log.py          # 聊天日志组件
+    ├── thinking.py          # Thinking 指示器
+    └── input_box.py         # 输入框组件
+```
 
 ## Implementation Plan (23 Phases)
 
@@ -88,7 +96,7 @@
 | **Phase 17** | Security 安全审计 | ✅ 完成 |
 | **Phase 18** | ACP 协议系统 | ✅ 完成 |
 | **Phase 19** | Browser 浏览器自动化 | ✅ 完成 |
-| **Phase 20** | TUI 终端界面 | ⏳ 待开始 |
+| **Phase 20** | TUI 终端界面 | ✅ 完成 |
 | **Phase 21** | TTS 语音合成 | ⏳ 待开始 |
 | **Phase 22** | Wizard 配置向导 | ⏳ 待开始 |
 | **Phase 23** | Infra 基础设施 | ⏳ 待开始 |
@@ -99,80 +107,48 @@
 # 1. 运行测试确认当前状态
 python -m pytest tests/main/ -xvs
 
-# 2. 验证 Phase 18 ACP 模块
-python -c "from lurkbot.acp import ACPServer, run_acp_server, text_block; print('ACP OK')"
+# 2. 验证 Phase 20 TUI 模块
+python -c "from lurkbot.tui import TuiApp, run_tui, CommandHandler; print('TUI OK')"
 
 # 3. 选择下一步方向：
-# 方案 A: 开始 Phase 19 - Browser 浏览器自动化 (推荐)
-# 方案 B: 开始 Phase 20 - TUI 终端界面
-# 方案 C: 开始 Phase 21 - TTS 语音合成
+# 方案 A: 开始 Phase 21 - TTS 语音合成 (推荐)
+# 方案 B: 开始 Phase 22 - Wizard 配置向导
+# 方案 C: 开始 Phase 23 - Infra 基础设施
 ```
 
-## Phase 18 完成的目录结构
+## Phase 20 完成的目录结构
 ```
 src/lurkbot/
-├── acp/                         # Phase 18 [新增]
+├── tui/                         # Phase 20 [新增]
 │   ├── __init__.py             # 模块导出
-│   ├── types.py                # ACP 类型定义 (PROTOCOL_VERSION, ContentBlock, etc.)
-│   ├── session.py              # 会话管理 (ACPSession, ACPSessionManager)
-│   ├── event_mapper.py         # 事件映射器 (EventMapper)
-│   ├── translator.py           # 协议翻译器 (ACPGatewayTranslator)
-│   └── server.py               # ACP 服务器 (ACPServer, run_acp_server)
-├── usage/                       # Phase 15
-│   ├── __init__.py
-│   ├── types.py
-│   ├── tracker.py
-│   ├── store.py
-│   └── formatter.py
-├── media/                       # Phase 14
-│   ├── __init__.py
-│   ├── understand.py
-│   ├── config.py
-│   └── providers/
+│   ├── types.py                # TUI 类型定义
+│   ├── stream_assembler.py     # 流式响应组装器
+│   ├── formatters.py           # Rich 格式化器
+│   ├── keybindings.py          # 快捷键定义
+│   ├── gateway_chat.py         # Gateway WebSocket 通信
+│   ├── commands.py             # 命令处理器
+│   ├── events.py               # 事件处理器
+│   ├── app.py                  # TUI 主应用
+│   └── components/
+│       ├── __init__.py
+│       ├── chat_log.py         # 聊天日志组件
+│       ├── thinking.py         # Thinking 指示器
+│       └── input_box.py        # 输入框组件
+├── browser/                     # Phase 19
+│   └── ...
+├── acp/                         # Phase 18
+│   └── ...
 ├── security/                    # Phase 17
-│   ├── __init__.py
-│   ├── audit.py
-│   ├── dm_policy.py
-│   ├── model_check.py
-│   └── warnings.py
+│   └── ...
 ├── hooks/                       # Phase 16
-│   ├── __init__.py
-│   ├── types.py
-│   ├── registry.py
-│   ├── discovery.py
-│   └── bundled/
+│   └── ...
+├── usage/                       # Phase 15
+│   └── ...
+├── media/                       # Phase 14
+│   └── ...
 ├── daemon/                      # Phase 13
-│   ├── __init__.py
-│   ├── service.py
-│   ├── constants.py
-│   ├── paths.py
-│   ├── launchd.py
-│   ├── systemd.py
-│   ├── schtasks.py
-│   ├── diagnostics.py
-│   └── inspect.py
-├── canvas/                      # Phase 11
-│   ├── __init__.py
-│   ├── protocol.py
-│   ├── server.py
-│   └── client.py
-├── skills/                      # Phase 10
-│   ├── __init__.py
-│   ├── frontmatter.py
-│   ├── workspace.py
-│   └── registry.py
-├── plugins/                     # Phase 10
-│   ├── __init__.py
-│   ├── manifest.py
-│   ├── schema_validator.py
-│   └── loader.py
-└── gateway/                     # Phase 9
-    ├── __init__.py
-    ├── protocol/
-    │   └── frames.py
-    ├── events.py
-    ├── methods.py
-    └── server.py
+│   └── ...
+└── ...
 ```
 
 ## Key References
@@ -199,7 +175,9 @@ tests/main/
 ├── test_phase15_usage.py            # Phase 15 测试 (24 tests)
 ├── test_phase16_hooks.py            # Phase 16 测试 (22 tests)
 ├── test_phase17_security.py         # Phase 17 测试 (27 tests)
-└── test_phase18_acp.py              # Phase 18 测试 (41 tests) [新增]
+├── test_phase18_acp.py              # Phase 18 测试 (41 tests)
+├── test_phase19_browser.py          # Phase 19 测试 (49 tests)
+└── test_phase20_tui.py              # Phase 20 测试 (85 tests) [新增]
 
 tests/
 └── test_media_understanding.py      # Phase 14 测试 (12 tests)
@@ -219,53 +197,48 @@ tests/
 - **验证**: Pydantic
 - **CLI**: Typer
 - **日志**: Loguru
+- **TUI**: Rich (用于格式化输出)
 
 ### 下一阶段建议优先级
 | Phase | 模块 | 优先级 | 理由 |
 |-------|------|--------|------|
-| Phase 19 | Browser 浏览器自动化 | P1 | Playwright/CDP 浏览器控制 |
-| Phase 20 | TUI 终端界面 | P2 | 交互式终端界面 |
-| Phase 21 | TTS 语音合成 | P3 | 文本转语音功能 |
+| Phase 21 | TTS 语音合成 | P1 | 多 Provider 文本转语音 |
+| Phase 22 | Wizard 配置向导 | P2 | 交互式配置系统 |
+| Phase 23 | Infra 基础设施 | P3 | 网络发现、SSH 隧道等 |
 
-### Phase 19 Browser 浏览器自动化设计预览
+### Phase 21 TTS 语音合成设计预览
 
 模块结构:
 ```
-src/lurkbot/browser/
+src/lurkbot/tts/
 ├── __init__.py
-├── server.py                 # 控制服务器
-├── config.py                 # 配置解析
-├── chrome.py                 # Chrome 启动管理
-├── cdp.py                    # CDP 操作
-├── playwright_session.py     # Playwright 会话
-├── role_snapshot.py          # 角色快照
-├── screenshot.py             # 截图处理
-├── extension_relay.py        # 扩展中继
-└── routes/
+├── engine.py                 # TTS 引擎
+├── directive_parser.py       # [[tts:...]] 解析
+├── summarizer.py             # 长文本摘要
+└── providers/
     ├── __init__.py
-    ├── act.py                # /act 端点
-    ├── navigate.py           # /navigate 端点
-    └── screenshot.py         # /screenshot 端点
+    ├── openai.py             # OpenAI TTS
+    ├── elevenlabs.py         # ElevenLabs TTS
+    └── edge.py               # 免费 Edge TTS
 ```
 
-HTTP 路由:
-| 端点 | 方法 | 功能 |
-|------|------|------|
-| `/status` | GET | 浏览器状态 |
-| `/tabs` | GET/POST/DELETE | 标签页管理 |
-| `/act` | POST | 执行动作 (click, type, etc.) |
-| `/navigate` | POST | 导航 |
-| `/screenshot` | POST | 截图 |
-| `/snapshot/role` | POST | 角色快照 |
-| `/evaluate` | POST | 执行 JavaScript |
+配置结构:
+```python
+@dataclass
+class TTSConfig:
+    auto: Literal["off", "always", "inbound", "tagged"] = "off"
+    mode: Literal["delta", "final"] = "final"
+    provider: Literal["openai", "elevenlabs", "edge"] = "openai"
+    summary_model: str | None = None
+```
 
 ---
 
 **Document Updated**: 2026-01-30
-**Progress**: 17/23 Phases 完成 (73.9%)
-**Total Tests**: 330 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26, Phase 14: 12, Phase 15: 24, Phase 16: 22, Phase 17: 27, Phase 18: 41), 2 skipped
+**Progress**: 20/23 Phases 完成 (87.0%)
+**Total Tests**: 464 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26, Phase 14: 12, Phase 15: 24, Phase 16: 22, Phase 17: 27, Phase 18: 41, Phase 19: 49, Phase 20: 85), 2 skipped
 **Next Action**:
-1. 开始 Phase 19 - Browser 浏览器自动化 (P1 优先级)
-2. 或开始 Phase 20 - TUI 终端界面
-3. 或开始 Phase 21 - TTS 语音合成
+1. 开始 Phase 21 - TTS 语音合成 (P1 优先级)
+2. 或开始 Phase 22 - Wizard 配置向导
+3. 或开始 Phase 23 - Infra 基础设施
 4. 阶段完成后与 MoltBot 对比验证
