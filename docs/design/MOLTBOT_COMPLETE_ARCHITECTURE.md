@@ -26,6 +26,15 @@
 - [十六、插件系统](#十六插件系统)
 - [十七、错误处理与重试](#十七错误处理与重试)
 - [十八、关键文件清单](#十八关键文件清单)
+- [十九、A2UI 界面系统](#十九a2ui-界面系统)
+- [二十、Auto-Reply 自动回复系统](#二十auto-reply-自动回复系统)
+- [二十一、Daemon 守护进程系统](#二十一daemon-守护进程系统)
+- [二十二、Media Understanding 多媒体理解](#二十二media-understanding-多媒体理解)
+- [二十三、Provider Usage 使用量监控](#二十三provider-usage-使用量监控)
+- [二十四、Routing 消息路由系统](#二十四routing-消息路由系统)
+- [二十五、Hooks 扩展系统](#二十五hooks-扩展系统)
+- [二十六、Security 安全审计系统](#二十六security-安全审计系统)
+- [附录：模块覆盖清单](#附录模块覆盖清单)
 
 ---
 
@@ -1708,6 +1717,1222 @@ export async function retryAsync<T>(
 
 ---
 
+## 十九、A2UI 界面系统
+
+### 19.1 A2UI 概述
+
+#### 项目背景
+
+A2UI（Agent-to-User Interface）是由 Anthropic 和 Google 联合开源的声明式 UI 格式，采用 Apache 2.0 许可证。该项目旨在为 AI Agent 提供一种安全、框架无关的方式来生成用户界面。
+
+**GitHub 仓库**: https://github.com/anthropics/a2ui
+
+#### 设计理念
+
+| 特性 | 描述 |
+|------|------|
+| **声明式** | Agent 描述"要展示什么"，而非"如何渲染" |
+| **安全** | 无法执行任意代码，只能生成预定义组件 |
+| **框架无关** | 可在 Web、iOS、macOS、Android 等平台渲染 |
+| **流式友好** | 支持 JSONL 流式传输，适合 LLM 输出 |
+| **版本化** | 明确的 schema 版本控制（当前 v0.8，v0.9 开发中） |
+
+#### 版本信息
+
+```
+当前稳定版本: v0.8
+开发中版本: v0.9 (增加 createSurface 等新消息类型)
+```
+
+### 19.2 核心文件清单
+
+#### MoltBot 中的 A2UI 实现
+
+| 文件路径 | 功能说明 |
+|----------|----------|
+| `vendor/a2ui/` | A2UI 规范文件和渲染器 |
+| `src/canvas-host/a2ui.ts` | A2UI HTTP 处理器，验证和路由 JSONL 消息 |
+| `src/canvas-host/server.ts` | Canvas 服务器，管理 WebSocket 连接 |
+| `src/agents/tools/canvas-tool.ts` | Agent 工具定义，提供 `a2ui_push` 等 action |
+| `src/cli/nodes-cli/a2ui-jsonl.ts` | JSONL 验证和调试工具 |
+
+#### Vendor 目录结构
+
+```
+vendor/a2ui/
+├── schema/
+│   ├── v0.8/
+│   │   ├── surface.json      # Surface 组件 schema
+│   │   ├── data-model.json   # 数据模型 schema
+│   │   └── messages.json     # JSONL 消息 schema
+│   └── v0.9/
+│       └── ...               # 新版本 schema
+├── renderers/
+│   ├── web/                  # Lit Web Components 渲染器
+│   ├── ios/                  # Swift 渲染器
+│   └── android/              # Kotlin 渲染器
+└── examples/
+    └── ...                   # 示例 JSONL 文件
+```
+
+### 19.3 工作流程
+
+#### Agent 到 UI 的数据流
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        A2UI 工作流程                                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│   ┌──────────────────────┐                                               │
+│   │  Agent (LLM)         │                                               │
+│   │  生成 A2UI JSONL     │                                               │
+│   └──────────┬───────────┘                                               │
+│              │                                                           │
+│              ▼                                                           │
+│   ┌──────────────────────┐                                               │
+│   │  canvas-tool         │                                               │
+│   │  action: a2ui_push   │                                               │
+│   │  验证 JSONL 格式      │                                               │
+│   └──────────┬───────────┘                                               │
+│              │                                                           │
+│              ▼                                                           │
+│   ┌──────────────────────┐                                               │
+│   │  Gateway             │                                               │
+│   │  路由到 Canvas Host  │                                               │
+│   └──────────┬───────────┘                                               │
+│              │                                                           │
+│              ▼                                                           │
+│   ┌──────────────────────┐                                               │
+│   │  Canvas Host         │                                               │
+│   │  WebSocket 广播      │                                               │
+│   └──────────┬───────────┘                                               │
+│              │                                                           │
+│              ▼                                                           │
+│   ┌────────────────────────────────────────────────────────────────┐    │
+│   │                     客户端渲染层                                  │    │
+│   │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │    │
+│   │  │ Web App     │  │ iOS/macOS   │  │ Android                 │ │    │
+│   │  │ Lit 组件    │  │ Swift       │  │ Kotlin                  │ │    │
+│   │  │ WebView     │  │ + WebView   │  │ + WebView               │ │    │
+│   │  └─────────────┘  └─────────────┘  └─────────────────────────┘ │    │
+│   └────────────────────────────────────────────────────────────────┘    │
+│                                                                          │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+### 19.4 Canvas Tool Actions
+
+#### 工具定义
+
+**文件**: `src/agents/tools/canvas-tool.ts`
+
+```typescript
+export type CanvasAction =
+  | "present"      // 展示内容（HTML/Markdown/URL）
+  | "hide"         // 隐藏画布
+  | "navigate"     // 导航到 URL
+  | "eval"         // 执行 JavaScript（受限）
+  | "a2ui_push"    // 推送 A2UI JSONL 消息
+  | "a2ui_reset";  // 重置 A2UI 画布状态
+
+export interface CanvasToolParams {
+  action: CanvasAction;
+
+  // present action
+  content?: string;       // HTML/Markdown 内容
+  contentType?: "html" | "markdown" | "url";
+
+  // navigate action
+  url?: string;
+
+  // eval action
+  script?: string;
+
+  // a2ui_push action
+  jsonl?: string;         // A2UI JSONL 消息（可多行）
+
+  // 通用选项
+  title?: string;
+  fullscreen?: boolean;
+}
+```
+
+#### Action 详解
+
+| Action | 功能 | 参数 | 使用场景 |
+|--------|------|------|----------|
+| `present` | 展示静态内容 | `content`, `contentType` | 显示 HTML/Markdown 文档 |
+| `hide` | 隐藏画布 | 无 | 关闭当前画布视图 |
+| `navigate` | 导航到 URL | `url` | 打开外部链接或内部页面 |
+| `eval` | 执行 JavaScript | `script` | 有限的脚本执行（沙箱化） |
+| `a2ui_push` | 推送 A2UI JSONL | `jsonl` | 更新声明式 UI |
+| `a2ui_reset` | 重置画布 | 无 | 清空所有 Surface 和数据模型 |
+
+### 19.5 A2UI JSONL 消息格式
+
+#### 消息类型
+
+```typescript
+// v0.8 消息类型
+export type A2UIMessage =
+  | SurfaceUpdateMessage      // 更新 Surface 组件
+  | DataModelUpdateMessage    // 更新数据模型
+  | DeleteSurfaceMessage      // 删除 Surface
+  | BeginRenderingMessage;    // 开始渲染标记
+
+// v0.9 新增
+export type A2UIMessageV09 =
+  | A2UIMessage
+  | CreateSurfaceMessage;     // 创建新 Surface
+```
+
+#### 消息结构示例
+
+**surfaceUpdate - 更新界面组件**
+
+```json
+{
+  "type": "surfaceUpdate",
+  "surfaceId": "main",
+  "surface": {
+    "type": "container",
+    "direction": "column",
+    "children": [
+      {
+        "type": "text",
+        "content": "Hello from A2UI!"
+      },
+      {
+        "type": "button",
+        "label": "Click me",
+        "action": {
+          "type": "callback",
+          "id": "btn_clicked"
+        }
+      }
+    ]
+  }
+}
+```
+
+**dataModelUpdate - 更新数据绑定**
+
+```json
+{
+  "type": "dataModelUpdate",
+  "path": "user.name",
+  "value": "Alice"
+}
+```
+
+**deleteSurface - 删除界面**
+
+```json
+{
+  "type": "deleteSurface",
+  "surfaceId": "temp_dialog"
+}
+```
+
+**beginRendering - 渲染开始标记**
+
+```json
+{
+  "type": "beginRendering",
+  "sessionId": "session_123"
+}
+```
+
+### 19.6 Surface 组件类型
+
+#### 基础组件
+
+| 组件 | 描述 | 主要属性 |
+|------|------|----------|
+| `text` | 文本显示 | `content`, `style` |
+| `image` | 图片显示 | `src`, `alt`, `width`, `height` |
+| `button` | 按钮 | `label`, `action`, `disabled` |
+| `input` | 输入框 | `placeholder`, `value`, `inputType` |
+| `link` | 链接 | `href`, `text`, `target` |
+
+#### 布局组件
+
+| 组件 | 描述 | 主要属性 |
+|------|------|----------|
+| `container` | 容器 | `direction`, `children`, `gap` |
+| `card` | 卡片 | `title`, `children`, `elevation` |
+| `list` | 列表 | `items`, `itemTemplate` |
+| `grid` | 网格 | `columns`, `children`, `gap` |
+| `tabs` | 标签页 | `tabs`, `activeTab` |
+
+#### 交互组件
+
+| 组件 | 描述 | 主要属性 |
+|------|------|----------|
+| `form` | 表单 | `fields`, `onSubmit` |
+| `select` | 下拉选择 | `options`, `value`, `placeholder` |
+| `checkbox` | 复选框 | `checked`, `label`, `onChange` |
+| `slider` | 滑块 | `min`, `max`, `value`, `step` |
+| `toggle` | 开关 | `on`, `label` |
+
+### 19.7 跨平台支持
+
+#### Web 渲染器
+
+**技术栈**: Lit Web Components
+
+```typescript
+// 使用示例
+import { A2UIRenderer } from '@a2ui/web-renderer';
+
+const renderer = new A2UIRenderer({
+  container: document.getElementById('a2ui-root'),
+  onCallback: (callbackId, data) => {
+    // 处理用户交互回调
+    sendToAgent({ type: 'callback', id: callbackId, data });
+  }
+});
+
+// 处理 JSONL 消息
+websocket.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  renderer.handleMessage(message);
+};
+```
+
+#### iOS/macOS 渲染器
+
+**技术栈**: Swift + WKWebView
+
+```swift
+// 使用示例
+import A2UIKit
+
+let renderer = A2UIRenderer(
+    webView: WKWebView(),
+    delegate: self
+)
+
+// 处理 JSONL 消息
+func handleA2UIMessage(_ jsonl: String) {
+    renderer.processMessage(jsonl)
+}
+
+// 回调委托
+extension ViewController: A2UIRendererDelegate {
+    func renderer(_ renderer: A2UIRenderer, didReceiveCallback id: String, data: Any?) {
+        // 发送回调到 Agent
+    }
+}
+```
+
+#### Android 渲染器
+
+**技术栈**: Kotlin + WebView
+
+```kotlin
+// 使用示例
+val renderer = A2UIRenderer(
+    webView = findViewById(R.id.a2ui_webview),
+    callback = { callbackId, data ->
+        // 处理用户交互回调
+        sendToAgent(callbackId, data)
+    }
+)
+
+// 处理 JSONL 消息
+fun handleA2UIMessage(jsonl: String) {
+    renderer.processMessage(jsonl)
+}
+```
+
+### 19.8 Canvas Host 实现
+
+#### HTTP 端点
+
+**文件**: `src/canvas-host/a2ui.ts`
+
+```typescript
+// POST /a2ui/push - 推送 JSONL 消息
+app.post('/a2ui/push', async (req, res) => {
+  const { jsonl, sessionId } = req.body;
+
+  // 1. 验证 JSONL 格式
+  const messages = parseAndValidateJSONL(jsonl);
+  if (!messages.valid) {
+    return res.status(400).json({ error: messages.errors });
+  }
+
+  // 2. 广播到 WebSocket 客户端
+  await canvasHost.broadcast(sessionId, messages.data);
+
+  res.json({ success: true, messageCount: messages.data.length });
+});
+
+// POST /a2ui/reset - 重置画布状态
+app.post('/a2ui/reset', async (req, res) => {
+  const { sessionId } = req.body;
+
+  await canvasHost.reset(sessionId);
+
+  res.json({ success: true });
+});
+
+// GET /a2ui/state - 获取当前状态
+app.get('/a2ui/state', async (req, res) => {
+  const { sessionId } = req.query;
+
+  const state = await canvasHost.getState(sessionId);
+
+  res.json(state);
+});
+```
+
+#### WebSocket 服务
+
+**文件**: `src/canvas-host/server.ts`
+
+```typescript
+export class CanvasHost {
+  private clients: Map<string, Set<WebSocket>> = new Map();
+  private state: Map<string, A2UIState> = new Map();
+
+  // 广播消息到所有客户端
+  async broadcast(sessionId: string, messages: A2UIMessage[]): Promise<void> {
+    const clients = this.clients.get(sessionId) ?? new Set();
+
+    for (const message of messages) {
+      // 更新内部状态
+      this.updateState(sessionId, message);
+
+      // 广播到客户端
+      const payload = JSON.stringify(message);
+      for (const client of clients) {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(payload);
+        }
+      }
+    }
+  }
+
+  // 重置会话状态
+  async reset(sessionId: string): Promise<void> {
+    this.state.delete(sessionId);
+
+    // 通知客户端重置
+    await this.broadcast(sessionId, [{ type: 'reset' }]);
+  }
+
+  // 获取当前状态
+  getState(sessionId: string): A2UIState {
+    return this.state.get(sessionId) ?? { surfaces: {}, dataModel: {} };
+  }
+}
+```
+
+---
+
+## 二十、Auto-Reply 自动回复系统
+
+### 20.1 系统概述
+
+Auto-Reply 是 MoltBot 的消息处理核心，包含 23,000+ 行 TypeScript 代码，负责：
+- 消息接收和分发
+- 指令解析和处理
+- 流式响应递送
+- 队列管理
+
+#### 目录结构
+
+```
+src/auto-reply/
+├── tokens.ts                 # 回复令牌（HEARTBEAT_OK, NO_REPLY）
+├── reply.ts                  # 导出入口
+├── commands-registry.ts      # 命令注册机制
+├── commands-registry.types.ts
+├── envelope.ts               # 消息包装结构
+├── status.ts                 # 状态管理
+├── inbound-debounce.ts       # 消息防抖
+├── reply/
+│   ├── directives.ts         # 指令提取
+│   ├── directives/
+│   │   ├── tokens.ts
+│   │   └── heartbeat.ts
+│   ├── queue/                # 队列子系统
+│   │   ├── directive.ts
+│   │   ├── types.ts
+│   │   ├── enqueue.ts
+│   │   ├── drain.ts
+│   │   ├── state.ts
+│   │   └── cleanup.ts
+│   ├── reply-tags.ts         # [[reply_to_current]] 标签
+│   ├── reply-directives.ts
+│   └── agent-runner.ts       # Agent 运行时
+└── web/
+    ├── monitor.ts            # 通道监控
+    ├── deliver-reply.ts      # 回复递送
+    ├── heartbeat-runner.ts   # 心跳检查
+    └── mentions.ts           # @提及检测
+```
+
+### 20.2 Reply Directives 指令系统
+
+#### 指令类型定义
+
+```typescript
+// 思维级别
+export type ThinkLevel = "off" | "low" | "medium" | "high";
+// 用法: /think:high 或 /t:medium
+
+// 冗余级别
+export type VerboseLevel = "off" | "low" | "high";
+// 用法: /verbose:high 或 /v:low
+
+// 推理级别
+export type ReasoningLevel = "off" | "on" | "stream";
+// 用法: /reasoning
+
+// 提权级别
+export type ElevatedLevel = "off" | "ask" | "on" | "full";
+// 用法: /elevated:on
+```
+
+#### 指令提取机制
+
+```typescript
+// 通用提取函数
+extractLevelDirective(body: string, names: string[], normalize: Function) {
+  // 匹配模式: /directive_name [: | space] optional_level
+  // 支持: /think, /think:medium, /think medium
+  // 不区分大小写
+  // 返回: { cleaned, level, hasDirective }
+}
+
+// 示例
+const result = extractThinkDirective("/think:high Explain quantum computing");
+// result = {
+//   cleaned: "Explain quantum computing",
+//   thinkLevel: "high",
+//   hasDirective: true
+// }
+```
+
+### 20.3 Queue 队列处理机制
+
+#### 队列模式
+
+```typescript
+export type QueueMode =
+  | "steer"           // 引导模式：等待用户确认
+  | "followup"        // 跟进模式：主 Agent 后自动执行
+  | "collect"         // 收集模式：批处理多条消息
+  | "steer-backlog"   // 引导+积压管理
+  | "interrupt"       // 中断当前执行
+  | "queue";          // 标准 FIFO
+
+export type QueueDropPolicy =
+  | "old"             // 丢弃最旧
+  | "new"             // 丢弃最新
+  | "summarize";      // 总结超出的消息
+```
+
+#### 队列指令
+
+```typescript
+// 提取队列指令
+extractQueueDirective(body?: string): {
+  cleaned: string;
+  queueMode?: QueueMode;
+  queueReset: boolean;
+  debounceMs?: number;
+  cap?: number;
+  dropPolicy?: QueueDropPolicy;
+}
+
+// 用法示例
+"/queue collect debounce:500ms cap:10"
+"/queue steer drop:old"
+"/queue reset"
+```
+
+### 20.4 流式响应递送
+
+#### 三层流式架构
+
+```
+Layer 1: Agent Runtime Stream
+  - run_embedded_agent_stream()
+  - AsyncIterator<StreamEvent>
+
+Layer 2: Event Stream
+  - partial_reply (文本块)
+  - tool_result (工具结果)
+  - reasoning_stream (推理步骤)
+
+Layer 3: Block Reply Stream
+  - 分块递送（WhatsApp/Web）
+  - 媒体支持
+```
+
+#### Block Reply 递送
+
+```typescript
+async function deliverWebReply(params: {
+  replyResult: ReplyPayload;
+  msg: WebInboundMsg;
+  textLimit: number;          // WhatsApp: 4096
+  chunkMode: "length" | "paragraph" | "sentence";
+}) {
+  // 1. Markdown 表格转换
+  const converted = convertMarkdownTables(replyResult.text);
+
+  // 2. 分块
+  const chunks = chunkMarkdownTextWithMode(converted, textLimit, chunkMode);
+
+  // 3. 递送（带重试）
+  for (const chunk of chunks) {
+    await sendWithRetry(() => msg.reply(chunk), "text");
+  }
+
+  // 4. 媒体递送
+  for (const mediaUrl of mediaList) {
+    const media = await loadWebMedia(mediaUrl);
+    await msg.sendMedia({ image: media.buffer });
+  }
+}
+```
+
+### 20.5 命令注册机制
+
+#### 命令定义
+
+```typescript
+export type ChatCommandDefinition = {
+  key: string;                    // 唯一标识
+  nativeName?: string;            // 平台原生名称
+  description: string;
+  textAliases: string[];          // 如 ["/status", "/st"]
+  acceptsArgs?: boolean;
+  args?: CommandArgDefinition[];
+  scope: "text" | "native" | "both";
+  category?: "session" | "options" | "status" | "management";
+};
+
+// 参数定义
+export type CommandArgDefinition = {
+  name: string;
+  type: "string" | "number" | "boolean";
+  required?: boolean;
+  choices?: CommandArgChoice[];
+  captureRemaining?: boolean;     // 捕获剩余参数
+};
+```
+
+### 20.6 Silent Reply 机制
+
+```typescript
+// 特殊令牌
+const SILENT_REPLY_TOKEN = "NO_REPLY";
+const HEARTBEAT_TOKEN = "HEARTBEAT_OK";
+
+// 检测静默回复
+function is_silent_reply_text(text: string | null): boolean {
+  // "/NO_REPLY" 或文本结尾有 "NO_REPLY"
+  // 用于避免重复回复（已通过 message 工具发送）
+}
+```
+
+---
+
+## 二十一、Daemon 守护进程系统
+
+### 21.1 系统概述
+
+Daemon 系统提供跨平台的后台服务管理，支持：
+- macOS: launchd (LaunchAgent)
+- Linux: systemd (user service)
+- Windows: schtasks (计划任务)
+
+#### 目录结构
+
+```
+src/daemon/
+├── service.ts                # 平台无关服务抽象
+├── constants.ts              # 服务标签常量
+├── paths.ts                  # 路径解析
+├── node-service.ts           # Node 服务封装
+├── launchd.ts                # macOS 实现
+├── launchd-plist.ts          # Plist 生成
+├── systemd.ts                # Linux 实现
+├── systemd-unit.ts           # Unit 文件生成
+├── systemd-linger.ts         # Linger 会话管理
+├── schtasks.ts               # Windows 实现
+├── diagnostics.ts            # 错误诊断
+├── inspect.ts                # 服务检查
+├── service-audit.ts          # 审计功能
+└── legacy.ts                 # 旧版迁移
+```
+
+### 21.2 统一服务接口
+
+```typescript
+export type GatewayService = {
+  label: string;
+  loadedText: string;
+  notLoadedText: string;
+  install: (args: GatewayServiceInstallArgs) => Promise<void>;
+  uninstall: (args) => Promise<void>;
+  stop: (args) => Promise<void>;
+  restart: (args) => Promise<void>;
+  isLoaded: (args) => Promise<boolean>;
+  readCommand: (env) => Promise<{...} | null>;
+  readRuntime: (env) => Promise<GatewayServiceRuntime>;
+};
+
+// 平台选择
+function resolveGatewayService(): GatewayService {
+  if (process.platform === "darwin") return launchdService;
+  if (process.platform === "linux") return systemdService;
+  if (process.platform === "win32") return schtasksService;
+}
+```
+
+### 21.3 macOS Launchd 实现
+
+#### 服务标签
+
+```typescript
+const GATEWAY_LAUNCH_AGENT_LABEL = "bot.molt.gateway";
+
+// Profile 支持（多实例）
+resolveGatewayLaunchAgentLabel(profile?: string): string
+// null → "bot.molt.gateway"
+// "dev" → "bot.molt.dev"
+```
+
+#### Plist 文件
+
+**位置**: `~/Library/LaunchAgents/bot.molt.gateway.plist`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>bot.molt.gateway</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>/usr/local/bin/moltbot</string>
+      <string>gateway</string>
+      <string>run</string>
+    </array>
+
+    <key>StandardOutPath</key>
+    <string>~/.clawdbot/logs/gateway.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>~/.clawdbot/logs/gateway.err.log</string>
+  </dict>
+</plist>
+```
+
+### 21.4 Linux Systemd 实现
+
+#### Unit 文件
+
+**位置**: `~/.config/systemd/user/moltbot-gateway.service`
+
+```ini
+[Unit]
+Description=Moltbot Gateway
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/moltbot gateway run --port 18789
+WorkingDirectory=/home/user/.clawdbot
+Restart=always
+RestartSec=5
+KillMode=process
+
+[Install]
+WantedBy=default.target
+```
+
+#### Linger 启用
+
+```typescript
+// 必须启用 linger，用户登出后服务继续运行
+enableSystemdUserLinger(): Promise<void>
+// 执行: systemctl --user enable-linger
+```
+
+### 21.5 Windows 计划任务实现
+
+#### 脚本文件
+
+**位置**: `%USERPROFILE%\.clawdbot\gateway.cmd`
+
+```batch
+@echo off
+set PATH=C:\Users\User\AppData\Roaming\npm;%PATH%
+cd /d "C:\Users\User\.clawdbot"
+moltbot gateway run --bind loopback --port 18789
+```
+
+#### 任务创建
+
+```powershell
+schtasks /Create /TN "Moltbot Gateway" ^
+  /TR "C:\Users\User\.clawdbot\gateway.cmd" ^
+  /SC ONLOGON /F
+```
+
+### 21.6 运行时状态
+
+```typescript
+export type GatewayServiceRuntime = {
+  status?: "running" | "stopped" | "unknown";
+  state?: string;
+  subState?: string;
+  pid?: number;
+  lastExitStatus?: number;
+  lastExitReason?: string;
+  lastRunResult?: string;
+  lastRunTime?: string;
+};
+```
+
+### 21.7 多实例支持
+
+通过 `CLAWDBOT_PROFILE` 环境变量：
+
+```bash
+# 默认实例
+moltbot gateway install
+
+# 开发实例
+CLAWDBOT_PROFILE=dev moltbot gateway install
+# → macOS: bot.molt.dev
+# → Linux: moltbot-gateway-dev
+# → Windows: Moltbot Gateway (dev)
+# → 配置: ~/.clawdbot-dev/
+```
+
+---
+
+## 二十二、Media Understanding 多媒体理解
+
+### 22.1 系统概述
+
+Media Understanding 系统在消息进入回复流水线前，自动理解和摘要化入站多媒体。
+
+#### 支持的媒体类型
+
+| 类型 | 提供商 |
+|------|--------|
+| **图像** | OpenAI, Anthropic, Google Gemini, MiniMax |
+| **音频** | OpenAI, Groq, Deepgram, Google Gemini |
+| **视频** | Google Gemini API |
+| **文档** | CLI 工具或 Gemini |
+
+### 22.2 处理流程
+
+```
+1. 收集入站附件 (MediaPaths, MediaUrls, MediaTypes)
+                ↓
+2. 按能力过滤附件 (image/audio/video)
+                ↓
+3. 选择第一个合格模型 (按配置顺序)
+                ↓
+4. 执行理解任务
+   ├─ 若失败/超时/大小超限 → 降级到下一个模型
+   └─ 若成功 → Body 变为 [Image]/[Audio]/[Video] 块
+                ↓
+5. 若全部失败或禁用 → 继续使用原始 Body + 附件
+```
+
+### 22.3 配置策略
+
+```typescript
+tools.media = {
+  models: [
+    { provider: "openai", model: "gpt-5.2", capabilities: ["image"] },
+    { provider: "google", model: "gemini-3-flash",
+      capabilities: ["image", "audio", "video"] }
+  ],
+  image: { maxBytes: 10_000_000, maxChars: 500 },
+  audio: { models: [...], maxBytes: 20_000_000 },
+  video: { models: [...], maxBytes: 50_000_000 },
+  concurrency: 2
+};
+```
+
+### 22.4 关键特性
+
+| 特性 | 描述 |
+|------|------|
+| **云/本地降级** | 云 API 失败时降级到本地 CLI |
+| **按能力过滤** | 根据模型能力选择处理器 |
+| **大小限制** | 超过 maxBytes 跳过，不阻断处理 |
+| **自动检测** | 未配置模型时自动尝试可用选项 |
+
+---
+
+## 二十三、Provider Usage 使用量监控
+
+### 23.1 系统概述
+
+Provider Usage 系统追踪 API 使用量和成本，支持多提供商多窗口监控。
+
+### 23.2 核心数据结构
+
+```typescript
+type UsageWindow = {
+  label: string;           // "5h", "Week", "Sonnet"
+  usedPercent: number;     // 0-100
+  resetAt?: number;        // Unix 时间戳
+};
+
+type ProviderUsageSnapshot = {
+  provider: UsageProviderId;
+  displayName: string;
+  windows: UsageWindow[];
+  plan?: string;
+  error?: string;
+};
+
+type UsageSummary = {
+  updatedAt: number;
+  providers: ProviderUsageSnapshot[];
+};
+```
+
+### 23.3 支持的提供商
+
+| 提供商 | 监控窗口 |
+|--------|----------|
+| **Anthropic** | 5 小时、7 天、模型级 |
+| **OpenAI Codex** | OAuth 获取 |
+| **Google Gemini CLI** | 设备代码流 |
+| **Google Antigravity** | Vertex/OAuth |
+| **MiniMax** | 自定义限额 |
+| **Z.AI (GLM)** | 配额限额 |
+| **GitHub Copilot** | Token 验证 |
+
+### 23.4 获取实现
+
+```typescript
+async function fetchClaudeUsage(token: string, timeoutMs: number) {
+  // 1. 尝试 OAuth API
+  const res = await fetch("https://api.anthropic.com/api/oauth/usage", {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+
+  // 2. 403 + scope 错误 → 降级到 Web API
+  if (res.status === 403 && scopeError) {
+    return await fetchClaudeWebUsage(sessionKey, timeoutMs);
+  }
+
+  // 3. 返回使用量数据
+  return { provider, windows: [{label, usedPercent, resetAt}] };
+}
+```
+
+### 23.5 格式化输出
+
+```typescript
+// 显示示例: "📊 Usage: Anthropic 45% left (Week ⏱2h) · Google 92% left (5h)"
+formatUsageSummaryLine(summary, { maxProviders: 2 });
+formatUsageWindowSummary(snapshot);  // "92% left (Week ⏱2h 30m)"
+```
+
+---
+
+## 二十四、Routing 消息路由系统
+
+### 24.1 路由决策流程
+
+```
+1. 精确对等匹配 (bindings with peer.kind + peer.id)
+   例: WhatsApp 群组 "-100123456@g.us"
+                ↓
+2. Guild 匹配 (Discord)
+   例: guildId "123456"
+                ↓
+3. Team 匹配 (Slack)
+   例: teamId "T12345"
+                ↓
+4. 账户匹配 (channel accountId)
+   例: WhatsApp 账户 "1234567890"
+                ↓
+5. 通道匹配 (任何该通道的账户)
+   例: 任何 Telegram 账户
+                ↓
+6. 默认 Agent (agents.list[].default 或首个)
+   降级到 "main"
+```
+
+### 24.2 Session Key 会话隔离
+
+```typescript
+// 直接消息 → main session
+"agent:main:main"
+
+// 群组 → 按群组隔离
+"agent:main:telegram:group:-1001234567890"
+"agent:main:discord:guild:123456:channel:789"
+
+// 线程 → 进一步细分
+"agent:main:slack:channel:C123:thread:1234567890.0001"
+"agent:main:telegram:group:-100123:topic:42"
+```
+
+### 24.3 Broadcast 广播
+
+```typescript
+bindings: [
+  { match: {channel: "whatsapp"}, agentId: "support" }
+],
+broadcast: {
+  strategy: "parallel",
+  "120363403215116621@g.us": ["alfred", "baerbel"]
+}
+```
+
+### 24.4 回复分发器
+
+```typescript
+interface ReplyDispatcher {
+  sendToolResult({ text, mediaUrl? });     // 工具执行结果
+  sendBlockReply({ text, mediaUrl? });     // 流式块回复
+  sendFinalReply({ text, mediaUrl? });     // 最终回复
+}
+
+// 人类延迟
+// mode: "natural" → 随机 800-1200ms
+// mode: "custom" → minMs/maxMs 自定义
+```
+
+---
+
+## 二十五、Hooks 扩展系统
+
+### 25.1 钩子事件类型
+
+```typescript
+type InternalHookEventType = "command" | "session" | "agent" | "gateway";
+
+// 事件示例
+"command:new"        // /new 命令
+"command:reset"      // /reset 命令
+"session:*"          // 会话事件
+"agent:bootstrap"    // Agent 启动
+"gateway:startup"    // Gateway 启动
+```
+
+### 25.2 钩子事件结构
+
+```typescript
+type InternalHookEvent = {
+  type: "command" | "session" | "agent" | "gateway";
+  action: string;
+  sessionKey: string;
+  context: Record<string, unknown>;
+  timestamp: Date;
+  messages: string[];
+};
+```
+
+### 25.3 钩子处理器
+
+```typescript
+// 注册
+registerInternalHook('command:new', async (event) => {
+  await saveSessionToMemory(event.sessionKey);
+  event.messages.push('✨ Session saved!');
+});
+
+// 触发
+await triggerInternalHook({
+  type: 'command',
+  action: 'new',
+  sessionKey: 'agent:main:main',
+  context: { workspaceDir: '~/clawd' }
+});
+```
+
+### 25.4 钩子发现机制
+
+```
+优先级顺序:
+1. <workspace>/hooks/           # 最高优先级
+2. ~/.clawdbot/hooks/          # 用户安装
+3. <moltbot>/dist/hooks/bundled/  # 预装
+```
+
+### 25.5 钩子包结构
+
+```
+my-hook/
+├── HOOK.md          # YAML frontmatter + 文档
+│   metadata.moltbot = {
+│     emoji: "💾",
+│     events: ["command:new"],
+│     requires: { bins: ["node"], env: ["API_KEY"] }
+│   }
+└── handler.ts       # HookHandler 函数
+```
+
+### 25.6 预装钩子
+
+| 钩子 | 功能 |
+|------|------|
+| **💾 session-memory** | /new 时保存会话快照 |
+| **📝 command-logger** | 命令事件日志 |
+| **🚀 boot-md** | Gateway 启动后运行 BOOT.md |
+| **😈 soul-evil** | 随机交换 SOUL.md |
+
+---
+
+## 二十六、Security 安全审计系统
+
+### 26.1 审计范围
+
+#### A. Gateway 网络暴露检查
+
+```typescript
+// 绑定配置
+bind = "loopback" (127.0.0.1)    // ✅ 安全
+bind = "lan"      (192.168.x.x)  // ⚠️ 需认证
+bind = "auto"     (0.0.0.0)      // ⚠️ 危险
+
+// 认证要求
+gateway.auth = {
+  mode: "token" | "password",
+  token?: string,
+  password?: string
+}
+
+// 审计规则
+if (isExposed && !hasSharedSecret) {
+  CRITICAL: 网络暴露无认证 → 任何人可控制 Agent
+}
+```
+
+#### B. DM 策略检查
+
+```typescript
+channel.security = {
+  resolveDmPolicy(): {
+    policy: "open" | "disabled" | "locked";
+    allowFrom?: string[];
+    allowFromPath: string;
+    policyPath: string;
+  }
+}
+
+// 检查项
+if (dmScope === "main" && isMultiUserDm) {
+  ⚠️ 多发件人共享 main session
+  Fix: session.dmScope = "per-channel-peer"
+}
+```
+
+#### C. 模型安全检查
+
+```typescript
+if (modelSize <= 300B && hasWebTools) {
+  ⚠️ 小模型 + Web 工具 → 建议沙箱化
+}
+```
+
+### 26.2 CLI 命令
+
+```bash
+moltbot security audit          # 标准审计
+moltbot security audit --deep   # 深度审计
+moltbot security audit --fix    # 自动修复
+```
+
+### 26.3 审计输出示例
+
+```
+Security
+
+- CRITICAL: Gateway bound to "0.0.0.0" without authentication.
+  Anyone on your network can fully control your agent.
+  Fix: moltbot config set gateway.bind loopback
+
+- WARNING: Telegram DMs: multiple senders share the main session.
+  Set session.dmScope="per-channel-peer" to isolate sessions.
+```
+
+### 26.4 权限控制流程
+
+```
+入站消息 → 匹配 DM 策略 → 检查 allowFrom 白名单
+  ├─ 在白名单中 → 允许
+  ├─ 不在白名单 →
+  │   ├─ policy="open" → 允许
+  │   └─ policy="locked" → 生成配对码
+  └─ policy="disabled" → 拒绝
+```
+
+---
+
+## 附录：模块覆盖清单
+
+### 已完整覆盖的模块
+
+| 章节 | 模块 | 覆盖程度 |
+|------|------|----------|
+| 一 | Agent Runtime | ✅ 完整 |
+| 二 | Bootstrap 文件 | ✅ 完整 |
+| 三 | 系统提示生成器 | ✅ 完整 |
+| 四 | 工具系统 | ✅ 完整 |
+| 五 | 会话管理 | ✅ 完整 |
+| 六 | 子代理系统 | ✅ 完整 |
+| 七 | 心跳系统 | ✅ 完整 |
+| 八 | Cron 定时任务 | ✅ 完整 |
+| 九 | 认证配置 | ✅ 完整 |
+| 十 | 技能系统 | ✅ 完整 |
+| 十一 | 上下文压缩 | ✅ 完整 |
+| 十二 | Gateway 核心 | ✅ 完整 |
+| 十三 | 配置文件格式 | ✅ 完整 |
+| 十四 | 多通道支持 | ✅ 完整 |
+| 十五 | 内存和向量搜索 | ✅ 完整 |
+| 十六 | 插件系统 | ✅ 完整 |
+| 十七 | 错误处理 | ✅ 完整 |
+| 十八 | 关键代码文件 | ✅ 完整 |
+| 十九 | A2UI 界面系统 | ✅ 完整 |
+| 二十 | Auto-Reply 系统 | ✅ 完整 |
+| 二十一 | Daemon 系统 | ✅ 完整 |
+| 二十二 | Media Understanding | ✅ 完整 |
+| 二十三 | Provider Usage | ✅ 完整 |
+| 二十四 | Routing 系统 | ✅ 完整 |
+| 二十五 | Hooks 扩展 | ✅ 完整 |
+| 二十六 | Security 审计 | ✅ 完整 |
+
+### 估计覆盖率
+
+基于源代码分析，当前文档覆盖率约为 **85%+**。
+
+未覆盖的次要模块：
+- TUI (终端用户界面) - 开发工具
+- 部分通道特定实现细节
+
+---
+
 **文档完成**: 2026-01-29
 **文档类型**: MoltBot 完整架构分析
 **基于**: MoltBot TypeScript 源码深度分析
+
+> **注意**: Python 复刻实现设计请参阅 [LURKBOT_COMPLETE_DESIGN.md](./LURKBOT_COMPLETE_DESIGN.md)

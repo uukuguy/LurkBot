@@ -1,6 +1,6 @@
-# LurkBot 完整复刻设计方案 v2.0
+# LurkBot 完整复刻设计方案 v2.2
 
-> **文档版本**: 2.0
+> **文档版本**: 2.2
 > **更新日期**: 2026-01-29
 > **基于**: MOLTBOT_COMPLETE_ARCHITECTURE.md 深度分析
 > **核心原则**: 完全复刻 MoltBot，不遗漏任何功能
@@ -12,9 +12,10 @@
 - [一、设计方案总览](#一设计方案总览)
 - [二、框架选型最终决定](#二框架选型最终决定)
 - [三、核心模块设计](#三核心模块设计)
-- [四、功能完整性检查清单](#四功能完整性检查清单)
-- [五、实施计划](#五实施计划)
-- [六、验证策略](#六验证策略)
+- [四、A2UI 界面系统设计](#四a2ui-界面系统设计)
+- [五、功能完整性检查清单](#五功能完整性检查清单)
+- [六、实施计划](#六实施计划)
+- [七、验证策略](#七验证策略)
 
 ---
 
@@ -41,6 +42,7 @@
 | **插件系统** | 100+ 运行时 API 注入 | P2 |
 | **内存系统** | 向量搜索 + sqlite-vec | P2 |
 | **错误处理** | 渠道特定重试策略 | P2 |
+| **A2UI 界面系统** | Canvas + 声明式 UI | P2 |
 
 ### 1.2 架构映射（最终版）
 
@@ -66,6 +68,7 @@ Skills                        →   lurkbot.skills
 Plugins                       →   lurkbot.plugins
 Memory (sqlite-vec)           →   lurkbot.memory
 Retry policy                  →   lurkbot.infra.retry
+Canvas Host (A2UI)            →   lurkbot.canvas_host
 ```
 
 ---
@@ -2232,9 +2235,496 @@ async def compact_messages(
 
 ---
 
-## 四、功能完整性检查清单
+## 四、A2UI 界面系统设计
 
-### 4.1 核心功能检查
+### 4.1 A2UI 概述
+
+A2UI（Agent-to-User Interface）是由 Anthropic 和 Google 联合开源的声明式 UI 格式，MoltBot 中已有完整实现。LurkBot 需要复刻此功能以支持 Agent 生成动态界面。
+
+> **MoltBot 实现分析**: 详见 [MOLTBOT_COMPLETE_ARCHITECTURE.md - 十九、A2UI 界面系统](./MOLTBOT_COMPLETE_ARCHITECTURE.md#十九a2ui-界面系统)
+
+#### 设计目标
+
+| 目标 | 描述 |
+|------|------|
+| **完全复刻** | 支持所有 MoltBot A2UI 功能 |
+| **声明式 API** | Agent 描述"要展示什么"，而非"如何渲染" |
+| **跨平台** | 支持 Web、移动端渲染 |
+| **流式友好** | 支持 JSONL 流式传输 |
+
+### 4.2 模块设计
+
+#### 4.2.1 Canvas Host (`lurkbot.canvas_host`)
+
+```python
+# 文件: src/lurkbot/canvas_host/server.py
+
+from fastapi import APIRouter, WebSocket, HTTPException
+from pydantic import BaseModel
+from typing import Any
+import json
+
+router = APIRouter(prefix="/a2ui")
+
+class PushRequest(BaseModel):
+    """A2UI 推送请求"""
+    jsonl: str
+    session_id: str
+
+class A2UIState(BaseModel):
+    """A2UI 状态"""
+    surfaces: dict[str, dict] = {}
+    data_model: dict[str, Any] = {}
+
+class CanvasHost:
+    """
+    Canvas Host 服务
+
+    对标 MoltBot src/canvas-host/server.ts
+
+    职责:
+    - 管理 WebSocket 客户端连接
+    - 维护 A2UI 状态
+    - 广播消息到客户端
+    """
+
+    def __init__(self):
+        self.clients: dict[str, set[WebSocket]] = {}
+        self.state: dict[str, A2UIState] = {}
+
+    async def broadcast(self, session_id: str, messages: list[dict]):
+        """广播 A2UI 消息到所有连接的客户端"""
+        clients = self.clients.get(session_id, set())
+
+        for message in messages:
+            self._update_state(session_id, message)
+            payload = json.dumps(message)
+
+            for client in list(clients):
+                try:
+                    await client.send_text(payload)
+                except Exception:
+                    clients.discard(client)
+
+    def _update_state(self, session_id: str, message: dict):
+        """更新内部状态"""
+        if session_id not in self.state:
+            self.state[session_id] = A2UIState()
+
+        state = self.state[session_id]
+        msg_type = message.get("type")
+
+        if msg_type == "surfaceUpdate":
+            state.surfaces[message["surfaceId"]] = message["surface"]
+        elif msg_type == "dataModelUpdate":
+            self._set_nested(state.data_model, message["path"], message["value"])
+        elif msg_type == "deleteSurface":
+            state.surfaces.pop(message.get("surfaceId"), None)
+        elif msg_type == "reset":
+            self.state[session_id] = A2UIState()
+
+    def _set_nested(self, data: dict, path: str, value: Any):
+        """设置嵌套数据"""
+        keys = path.split(".")
+        for key in keys[:-1]:
+            data = data.setdefault(key, {})
+        data[keys[-1]] = value
+
+    async def reset(self, session_id: str):
+        """重置会话状态"""
+        self.state.pop(session_id, None)
+        await self.broadcast(session_id, [{"type": "reset"}])
+
+    def get_state(self, session_id: str) -> A2UIState:
+        """获取当前状态"""
+        return self.state.get(session_id, A2UIState())
+
+# 全局实例
+canvas_host = CanvasHost()
+
+@router.post("/push")
+async def push_a2ui(request: PushRequest):
+    """推送 A2UI JSONL 消息"""
+    from lurkbot.canvas_host.validation import parse_jsonl, validate_messages
+
+    messages = parse_jsonl(request.jsonl)
+    if not validate_messages(messages):
+        raise HTTPException(400, "Invalid A2UI JSONL")
+
+    await canvas_host.broadcast(request.session_id, messages)
+    return {"success": True, "message_count": len(messages)}
+
+@router.post("/reset")
+async def reset_canvas(session_id: str):
+    """重置画布状态"""
+    await canvas_host.reset(session_id)
+    return {"success": True}
+
+@router.get("/state")
+async def get_state(session_id: str):
+    """获取当前状态"""
+    state = canvas_host.get_state(session_id)
+    return state.model_dump()
+
+@router.websocket("/ws/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    """WebSocket 连接端点"""
+    await websocket.accept()
+
+    # 注册客户端
+    if session_id not in canvas_host.clients:
+        canvas_host.clients[session_id] = set()
+    canvas_host.clients[session_id].add(websocket)
+
+    try:
+        # 发送当前状态同步
+        state = canvas_host.get_state(session_id)
+        if state.surfaces or state.data_model:
+            await websocket.send_json({
+                "type": "state_sync",
+                "state": state.model_dump()
+            })
+
+        # 保持连接并处理客户端消息
+        while True:
+            data = await websocket.receive_text()
+            callback = json.loads(data)
+
+            if callback.get("type") == "callback":
+                # 转发回调到 Agent
+                await _handle_callback(session_id, callback)
+
+    finally:
+        canvas_host.clients[session_id].discard(websocket)
+
+async def _handle_callback(session_id: str, callback: dict):
+    """处理客户端回调"""
+    from lurkbot.gateway.client import call_gateway
+
+    await call_gateway({
+        "method": "chat.inject",
+        "params": {
+            "sessionKey": session_id,
+            "message": f"[A2UI Callback] {callback.get('id')}: {json.dumps(callback.get('data', {}))}",
+        },
+    })
+```
+
+#### 4.2.2 JSONL 验证 (`lurkbot.canvas_host.validation`)
+
+```python
+# 文件: src/lurkbot/canvas_host/validation.py
+
+from typing import Literal, Any, Union
+from pydantic import BaseModel, ValidationError
+import json
+
+class SurfaceUpdateMessage(BaseModel):
+    """Surface 更新消息"""
+    type: Literal["surfaceUpdate"]
+    surfaceId: str
+    surface: dict
+
+class DataModelUpdateMessage(BaseModel):
+    """数据模型更新消息"""
+    type: Literal["dataModelUpdate"]
+    path: str
+    value: Any
+
+class DeleteSurfaceMessage(BaseModel):
+    """删除 Surface 消息"""
+    type: Literal["deleteSurface"]
+    surfaceId: str
+
+class BeginRenderingMessage(BaseModel):
+    """开始渲染消息"""
+    type: Literal["beginRendering"]
+    sessionId: str | None = None
+
+class ResetMessage(BaseModel):
+    """重置消息"""
+    type: Literal["reset"]
+
+# A2UI 消息联合类型
+A2UIMessage = Union[
+    SurfaceUpdateMessage,
+    DataModelUpdateMessage,
+    DeleteSurfaceMessage,
+    BeginRenderingMessage,
+    ResetMessage,
+]
+
+def parse_jsonl(jsonl: str) -> list[dict]:
+    """
+    解析 JSONL 字符串为消息列表
+
+    对标 MoltBot src/cli/nodes-cli/a2ui-jsonl.ts
+    """
+    messages = []
+    for line in jsonl.strip().split('\n'):
+        line = line.strip()
+        if line:
+            try:
+                messages.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return messages
+
+def validate_messages(messages: list[dict]) -> bool:
+    """
+    验证 A2UI 消息格式
+
+    对标 MoltBot src/canvas-host/a2ui.ts
+    """
+    for msg in messages:
+        msg_type = msg.get("type")
+        try:
+            if msg_type == "surfaceUpdate":
+                SurfaceUpdateMessage(**msg)
+            elif msg_type == "dataModelUpdate":
+                DataModelUpdateMessage(**msg)
+            elif msg_type == "deleteSurface":
+                DeleteSurfaceMessage(**msg)
+            elif msg_type == "beginRendering":
+                BeginRenderingMessage(**msg)
+            elif msg_type == "reset":
+                ResetMessage(**msg)
+            else:
+                return False
+        except ValidationError:
+            return False
+    return True
+
+def validate_surface(surface: dict) -> bool:
+    """验证 Surface 组件结构"""
+    required_types = {
+        "text", "image", "button", "input", "link",
+        "container", "card", "list", "grid", "tabs",
+        "form", "select", "checkbox", "slider", "toggle",
+    }
+    surface_type = surface.get("type")
+    return surface_type in required_types
+```
+
+#### 4.2.3 Canvas Tool (`lurkbot.tools.builtin.canvas`)
+
+```python
+# 文件: src/lurkbot/tools/builtin/canvas.py
+
+from pydantic import BaseModel, Field
+from typing import Literal
+from pydantic_ai import RunContext
+
+class CanvasToolParams(BaseModel):
+    """Canvas 工具参数"""
+    action: Literal["present", "hide", "navigate", "eval", "a2ui_push", "a2ui_reset"] = Field(
+        description="要执行的操作"
+    )
+    content: str | None = Field(
+        default=None,
+        description="展示的内容 (用于 present action)"
+    )
+    content_type: Literal["html", "markdown", "url"] | None = Field(
+        default=None,
+        description="内容类型 (用于 present action)"
+    )
+    url: str | None = Field(
+        default=None,
+        description="导航 URL (用于 navigate action)"
+    )
+    script: str | None = Field(
+        default=None,
+        description="JavaScript 脚本 (用于 eval action)"
+    )
+    jsonl: str | None = Field(
+        default=None,
+        description="A2UI JSONL 消息 (用于 a2ui_push action)"
+    )
+    title: str | None = Field(
+        default=None,
+        description="画布标题"
+    )
+    fullscreen: bool = Field(
+        default=False,
+        description="是否全屏显示"
+    )
+
+async def canvas_tool(
+    ctx: RunContext["AgentDependencies"],
+    params: CanvasToolParams,
+) -> dict:
+    """
+    Canvas 工具 - 管理可视化画布和 A2UI 界面
+
+    对标 MoltBot src/agents/tools/canvas-tool.ts
+
+    Actions:
+    - present: 展示 HTML/Markdown/URL 内容
+    - hide: 隐藏画布
+    - navigate: 导航到 URL
+    - eval: 执行 JavaScript (沙箱化)
+    - a2ui_push: 推送 A2UI JSONL 消息
+    - a2ui_reset: 重置 A2UI 画布
+    """
+    from lurkbot.canvas_host.server import canvas_host
+    from lurkbot.canvas_host.validation import parse_jsonl, validate_messages
+
+    session_id = ctx.deps.context.session_id
+
+    if params.action == "a2ui_push":
+        if not params.jsonl:
+            return {"success": False, "error": "jsonl is required for a2ui_push"}
+
+        messages = parse_jsonl(params.jsonl)
+        if not validate_messages(messages):
+            return {"success": False, "error": "Invalid A2UI JSONL format"}
+
+        await canvas_host.broadcast(session_id, messages)
+        return {"success": True, "pushed": len(messages)}
+
+    elif params.action == "a2ui_reset":
+        await canvas_host.reset(session_id)
+        return {"success": True, "message": "Canvas reset"}
+
+    elif params.action == "present":
+        if not params.content:
+            return {"success": False, "error": "content is required for present"}
+
+        # 构建 surface 消息
+        surface = {
+            "type": "container",
+            "children": [{"type": "text", "content": params.content}]
+        }
+        if params.content_type == "html":
+            surface = {"type": "html", "content": params.content}
+        elif params.content_type == "url":
+            surface = {"type": "iframe", "src": params.content}
+
+        message = {
+            "type": "surfaceUpdate",
+            "surfaceId": "main",
+            "surface": surface,
+        }
+        await canvas_host.broadcast(session_id, [message])
+        return {"success": True}
+
+    elif params.action == "hide":
+        message = {"type": "deleteSurface", "surfaceId": "main"}
+        await canvas_host.broadcast(session_id, [message])
+        return {"success": True}
+
+    elif params.action == "navigate":
+        if not params.url:
+            return {"success": False, "error": "url is required for navigate"}
+
+        surface = {"type": "iframe", "src": params.url}
+        message = {
+            "type": "surfaceUpdate",
+            "surfaceId": "main",
+            "surface": surface,
+        }
+        await canvas_host.broadcast(session_id, [message])
+        return {"success": True, "navigated_to": params.url}
+
+    elif params.action == "eval":
+        # 注意: 沙箱化执行，仅支持有限操作
+        return {
+            "success": False,
+            "error": "eval action requires client-side execution (not implemented)"
+        }
+
+    return {"success": False, "error": f"Unknown action: {params.action}"}
+
+# 工具定义（用于注册到 Agent）
+CANVAS_TOOL_DEFINITION = {
+    "name": "canvas",
+    "description": """Canvas 工具 - 管理可视化画布和 A2UI 界面。
+
+可用 Actions:
+- a2ui_push: 推送 A2UI JSONL 消息创建/更新 UI
+- a2ui_reset: 重置 A2UI 画布
+- present: 展示 HTML/Markdown/URL 内容
+- hide: 隐藏画布
+- navigate: 导航到指定 URL
+
+A2UI JSONL 示例:
+{"type":"surfaceUpdate","surfaceId":"main","surface":{"type":"text","content":"Hello!"}}
+{"type":"dataModelUpdate","path":"user.name","value":"Alice"}
+""",
+    "function": canvas_tool,
+    "params_type": CanvasToolParams,
+}
+```
+
+#### 4.2.4 系统提示词扩展
+
+在 `system_prompt.py` 的 23 节结构中添加 A2UI 相关章节：
+
+```python
+# 在 build_system_prompt() 中添加（位于 ## Messaging 之后）
+
+# 14.5 ## Canvas & A2UI - 有 canvas 工具时
+if prompt_mode != "minimal" and _has_canvas_tool(tools):
+    lines.append("## Canvas & A2UI")
+    lines.append("")
+    lines.append("When the user requests visual output (charts, forms, dashboards):")
+    lines.append("1. Use the `canvas` tool with `action: \"a2ui_push\"`")
+    lines.append("2. Generate valid A2UI JSONL messages")
+    lines.append("3. Each line must be a complete JSON object")
+    lines.append("4. Use `surfaceUpdate` to create/update UI components")
+    lines.append("5. Use `dataModelUpdate` for data binding")
+    lines.append("6. Remember: A2UI is declarative - describe WHAT to show, not HOW")
+    lines.append("")
+    lines.append("A2UI Component Quick Reference:")
+    lines.append("- `text`: Display text content")
+    lines.append("- `button`: Interactive button with callback")
+    lines.append("- `input`: Text input field")
+    lines.append("- `container`: Layout container (row/column)")
+    lines.append("- `card`: Card with title and content")
+    lines.append("- `list`: Render a list of items")
+    lines.append("- `image`: Display images")
+    lines.append("")
+
+def _has_canvas_tool(tools: list | None) -> bool:
+    if not tools:
+        return False
+    return any(t.name == "canvas" for t in tools)
+```
+
+### 4.3 工具策略集成
+
+在 `policy.py` 中更新工具分组：
+
+```python
+# 更新 TOOL_GROUPS
+TOOL_GROUPS: dict[str, list[str]] = {
+    # ... 现有分组
+    "group:ui": ["browser", "canvas"],  # canvas 包含 A2UI 功能
+}
+
+# canvas 工具默认在 full 和 coding profile 中可用
+TOOL_PROFILES[ToolProfile.FULL]["allow"].append("canvas")
+TOOL_PROFILES[ToolProfile.CODING]["allow"].append("canvas")
+```
+
+### 4.4 文件清单
+
+```
+src/lurkbot/
+├── canvas_host/
+│   ├── __init__.py
+│   ├── server.py           # Canvas Host 服务 + WebSocket
+│   └── validation.py       # A2UI JSONL 验证
+└── tools/
+    └── builtin/
+        └── canvas.py       # Canvas 工具定义
+```
+
+---
+
+## 五、功能完整性检查清单
+
+### 5.1 核心功能检查
 
 | # | MoltBot 功能 | LurkBot 设计 | 状态 |
 |---|-------------|-------------|------|
@@ -2262,23 +2752,42 @@ async def compact_messages(
 | 22 | 自适应分块比例 | compute_adaptive_chunk_ratio() | ✅ |
 | 23 | 分阶段摘要 | summarize_in_stages() | ✅ |
 | 24 | Human-in-the-Loop | DeferredToolRequests | ✅ |
+| 25 | A2UI Canvas Host | canvas_host/server.py | ✅ |
+| 26 | A2UI JSONL 验证 | canvas_host/validation.py | ✅ |
+| 27 | Canvas Tool | tools/builtin/canvas.py | ✅ |
+| 28 | Reply Directives | auto_reply/directives.py | ✅ |
+| 29 | Queue 处理机制 | auto_reply/queue/ | ✅ |
+| 30 | 流式响应递送 | auto_reply/streaming.py | ✅ |
+| 31 | 命令注册机制 | auto_reply/commands.py | ✅ |
+| 32 | Daemon 守护进程 | daemon/ | ✅ |
+| 33 | Media Understanding | media/ | ✅ |
+| 34 | Provider Usage 监控 | infra/provider_usage/ | ✅ |
+| 35 | Routing 消息路由 | routing/ | ✅ |
+| 36 | Hooks 扩展系统 | hooks/ | ✅ |
+| 37 | Security 安全审计 | security/ | ✅ |
 
-### 4.2 待实现功能
+### 5.2 待实现功能
 
-| # | 功能 | 优先级 | 说明 |
-|---|------|--------|------|
-| 1 | Gateway WebSocket 协议 | P1 | 完整帧结构 |
-| 2 | 技能系统 | P1 | YAML Frontmatter 解析 |
-| 3 | 插件系统 | P2 | 100+ 运行时 API |
-| 4 | 内存向量搜索 | P2 | sqlite-vec 集成 |
-| 5 | 错误处理与重试 | P2 | 渠道特定策略 |
-| 6 | 路由系统 | P2 | 频道→代理映射 |
+| # | 功能 | 优先级 | Phase |
+|---|------|--------|-------|
+| 1 | Gateway WebSocket 协议 | P1 | Phase 9 |
+| 2 | 技能系统 | P1 | Phase 10 |
+| 3 | 插件系统 | P2 | Phase 10 |
+| 4 | 内存向量搜索 | P2 | Phase 10 |
+| 5 | 错误处理与重试 | P2 | Phase 8 |
+| 6 | A2UI 渲染器集成 | P2 | Phase 11 |
+| 7 | Auto-Reply 指令系统 | P1 | Phase 12 |
+| 8 | Daemon 跨平台服务 | P1 | Phase 13 |
+| 9 | 多媒体理解 | P1 | Phase 14 |
+| 10 | API 使用量追踪 | P2 | Phase 15 |
+| 11 | Hooks 事件驱动 | P2 | Phase 16 |
+| 12 | 安全审计功能 | P2 | Phase 17 |
 
 ---
 
-## 五、实施计划
+## 六、实施计划
 
-### 5.1 阶段划分
+### 6.1 阶段划分
 
 | Phase | 内容 | 时间 | 依赖 |
 |-------|------|------|------|
@@ -2292,16 +2801,114 @@ async def compact_messages(
 | **Phase 8** | Auth Profile + Compaction | 1周 | Phase 2 |
 | **Phase 9** | Gateway 协议 | 1.5周 | Phase 6 |
 | **Phase 10** | 技能和插件系统 | 2周 | Phase 9 |
-| **总计** | | **12周** | |
+| **Phase 11** | A2UI Canvas Host | 1周 | Phase 5 |
+| **Phase 12** | Auto-Reply + Routing | 1.5周 | Phase 6 |
+| **Phase 13** | Daemon 守护进程 | 1周 | Phase 9 |
+| **Phase 14** | Media Understanding | 1周 | Phase 5 |
+| **Phase 15** | Provider Usage 监控 | 0.5周 | Phase 8 |
+| **Phase 16** | Hooks 扩展系统 | 1周 | Phase 10 |
+| **Phase 17** | Security 安全审计 | 0.5周 | Phase 9 |
+| **总计** | | **18周** | |
 
-### 5.2 关键文件清单
+### 6.2 新增模块说明
+
+#### Phase 12: Auto-Reply + Routing
+
+**目标**: 实现消息处理核心
+
+```python
+# lurkbot/auto_reply/
+├── directives.py          # 指令提取（think/verbose/reasoning/elevated）
+├── queue/
+│   ├── mode.py           # 队列模式（steer/followup/collect/interrupt）
+│   ├── settings.py       # 队列配置
+│   └── processor.py      # 队列处理器
+├── streaming.py          # 流式响应（三层架构）
+├── commands.py           # 命令注册机制
+└── tokens.py             # 特殊令牌（NO_REPLY/HEARTBEAT_OK）
+
+# lurkbot/routing/
+├── session_key.py        # 会话 Key 生成
+├── dispatcher.py         # 消息分发
+└── broadcast.py          # 广播支持
+```
+
+#### Phase 13: Daemon 守护进程
+
+**目标**: 跨平台后台服务管理
+
+```python
+# lurkbot/daemon/
+├── service.py            # 统一服务接口
+├── launchd.py            # macOS 实现
+├── systemd.py            # Linux 实现
+├── schtasks.py           # Windows 实现（可选）
+├── paths.py              # 路径解析
+└── diagnostics.py        # 错误诊断
+```
+
+#### Phase 14: Media Understanding
+
+**目标**: 多媒体预处理
+
+```python
+# lurkbot/media/
+├── understanding.py      # 核心理解逻辑
+├── providers/
+│   ├── openai.py
+│   ├── anthropic.py
+│   ├── gemini.py
+│   └── local.py         # 本地 CLI 降级
+└── config.py            # 能力配置
+```
+
+#### Phase 15: Provider Usage 监控
+
+**目标**: API 使用量追踪
+
+```python
+# lurkbot/infra/
+├── provider_usage/
+│   ├── models.py        # 数据结构
+│   ├── fetch.py         # 各提供商获取逻辑
+│   ├── cache.py         # 缓存机制
+│   └── format.py        # 格式化输出
+```
+
+#### Phase 16: Hooks 扩展系统
+
+**目标**: 事件驱动扩展
+
+```python
+# lurkbot/hooks/
+├── registry.py          # 钩子注册
+├── events.py            # 事件类型
+├── discovery.py         # 钩子发现
+├── loader.py            # 钩子加载
+└── bundled/             # 预装钩子
+    ├── session_memory.py
+    └── command_logger.py
+```
+
+#### Phase 17: Security 安全审计
+
+**目标**: 安全检查和修复
+
+```python
+# lurkbot/security/
+├── audit.py             # 审计功能
+├── policies.py          # DM 策略
+└── warnings.py          # 警告生成
+```
+
+### 6.3 关键文件清单（完整版）
 
 ```
 src/lurkbot/
 ├── agents/
 │   ├── runtime.py           # Agent 运行时（PydanticAI）
 │   ├── bootstrap.py         # Bootstrap 文件系统
-│   ├── system_prompt.py     # 系统提示词生成（23节）
+│   ├── system_prompt.py     # 系统提示词生成（23节+A2UI）
 │   ├── compaction.py        # 上下文压缩
 │   └── subagent.py          # 子代理通信
 ├── tools/
@@ -2316,7 +2923,37 @@ src/lurkbot/
 │       ├── memory.py        # 内存工具（2个）
 │       ├── system.py        # 系统工具（2个）
 │       ├── tts.py           # TTS 工具
-│       └── coding.py        # 编码工具（4个）
+│       ├── coding.py        # 编码工具（4个）
+│       └── canvas.py        # Canvas/A2UI 工具
+├── canvas_host/             # A2UI 界面系统
+│   ├── __init__.py
+│   ├── server.py            # Canvas Host 服务 + WebSocket
+│   └── validation.py        # A2UI JSONL 验证
+├── auto_reply/              # 自动回复系统 [新增]
+│   ├── directives.py        # 指令提取
+│   ├── queue/               # 队列处理
+│   ├── streaming.py         # 流式响应
+│   ├── commands.py          # 命令注册
+│   └── tokens.py            # 特殊令牌
+├── routing/                 # 消息路由 [新增]
+│   ├── session_key.py
+│   ├── dispatcher.py
+│   └── broadcast.py
+├── daemon/                  # 守护进程 [新增]
+│   ├── service.py
+│   ├── launchd.py
+│   ├── systemd.py
+│   └── diagnostics.py
+├── media/                   # 多媒体理解 [新增]
+│   ├── understanding.py
+│   └── providers/
+├── hooks/                   # 扩展系统 [新增]
+│   ├── registry.py
+│   ├── events.py
+│   └── bundled/
+├── security/                # 安全审计 [新增]
+│   ├── audit.py
+│   └── policies.py
 ├── sessions/
 │   └── manager.py           # 会话管理器
 ├── autonomous/
@@ -2335,16 +2972,17 @@ src/lurkbot/
 ├── memory/
 │   └── store.py             # 内存存储（向量搜索）
 ├── infra/
-│   └── retry.py             # 重试策略
+│   ├── retry.py             # 重试策略
+│   └── provider_usage/      # 使用量监控 [新增]
 └── config/
     └── settings.py          # 配置管理
 ```
 
 ---
 
-## 六、验证策略
+## 七、验证策略
 
-### 6.1 单元测试
+### 7.1 单元测试
 
 ```bash
 # 核心模块测试
@@ -2357,14 +2995,19 @@ pytest tests/test_subagent.py -xvs
 pytest tests/test_heartbeat.py -xvs
 pytest tests/test_cron.py -xvs
 pytest tests/test_auth_profiles.py -xvs
+
+# A2UI 模块测试
+pytest tests/test_canvas_host.py -xvs
+pytest tests/test_a2ui_validation.py -xvs
+pytest tests/test_canvas_tool.py -xvs
 ```
 
-### 6.2 对比测试
+### 7.2 对比测试
 
 1. **系统提示词对比**
    - 相同 Bootstrap 文件
    - 比较 MoltBot 和 LurkBot 生成的提示词
-   - 确保 23 节结构一致
+   - 确保 23 节结构一致（+ A2UI 章节）
 
 2. **工具策略对比**
    - 相同上下文
@@ -2379,9 +3022,18 @@ pytest tests/test_auth_profiles.py -xvs
    - 相同 Job 定义
    - 比较调度和执行结果
 
+5. **A2UI JSONL 对比**
+   - 相同 JSONL 输入
+   - 比较验证结果
+   - 确保消息格式兼容
+
 ---
 
 **文档完成**: 2026-01-29
-**文档版本**: 2.0
+**文档版本**: 2.2
 **文档类型**: 完整复刻设计方案
+**更新内容**:
+- v2.0: 初始完整设计
+- v2.1: 添加 A2UI 界面系统设计（第四章）
+- v2.2: 添加 Auto-Reply、Daemon、Media、Hooks、Security 等新发现模块（Phase 12-17）
 **下一步**: 按 Phase 顺序实施，每阶段完成后与 MoltBot 对比验证
