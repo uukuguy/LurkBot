@@ -3,7 +3,7 @@
 ## Session Context
 
 **Last Session Date**: 2026-01-30
-**Current Status**: Phase 22 完成，Phase 5-22 全部完成 (除 Phase 23)
+**Current Status**: 🎉 项目完成！所有 23 个 Phase 全部完成
 **Design Document**: `docs/design/LURKBOT_COMPLETE_DESIGN.md` (v2.3)
 **Architecture Document**: `docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md` (v3.0, 32 章节)
 
@@ -11,57 +11,97 @@
 
 ### 今日完成的工作
 
-1. **Phase 22 Wizard 配置向导** - 全部完成：
+1. **Phase 23 Infra 基础设施** - 全部完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
-   | 类型定义 | `wizard/types.py` | ✅ 完成 |
-   | 提示器接口 | `wizard/prompts.py` | ✅ 完成 |
-   | 会话管理 | `wizard/session.py` | ✅ 完成 |
-   | Gateway 配置流程 | `wizard/flows/gateway.py` | ✅ 完成 |
-   | Onboarding 流程 | `wizard/flows/onboarding.py` | ✅ 完成 |
-   | Rich CLI 提示器 | `wizard/rich_prompter.py` | ✅ 完成 |
-   | CLI 命令集成 | `cli/main.py` | ✅ 完成 |
-   | 单元测试 | `tests/unit/wizard/test_wizard.py` | ✅ 通过 (25 tests) |
+   | 系统事件队列 | `infra/system_events/` | ✅ 完成 |
+   | 系统存在感 | `infra/system_presence/` | ✅ 完成 |
+   | Tailscale 集成 | `infra/tailscale/` | ✅ 完成 |
+   | SSH 隧道管理 | `infra/ssh_tunnel/` | ✅ 完成 |
+   | Bonjour/mDNS | `infra/bonjour/` | ✅ 完成 |
+   | 设备配对 | `infra/device_pairing/` | ✅ 完成 |
+   | 执行审批 | `infra/exec_approvals/` | ✅ 完成 |
+   | 语音唤醒 | `infra/voicewake/` | ✅ 完成 |
+   | 单元测试 | `tests/main/test_phase23_infra.py` | ✅ 通过 (84 tests) |
 
-## Wizard 配置向导功能 (Phase 22)
+## Infra 基础设施功能 (Phase 23)
 
 ### 核心功能
-- **交互式配置**: 引导用户完成 LurkBot 初始设置
-- **多种流程**: quickstart (快速) 和 advanced (高级) 模式
-- **Gateway 配置**: 本地/远程网关设置
-- **Session 管理**: 会话状态跟踪和错误处理
-- **Rich CLI 界面**: 美观的终端交互体验
 
-### CLI 命令
-```bash
-# 交互式配置向导
-lurkbot wizard                    # 完整交互式设置
-lurkbot wizard --flow quickstart  # 快速设置
-lurkbot wizard --mode local       # 本地网关设置
-lurkbot wizard --mode remote      # 远程网关设置
+#### 1. System Events 系统事件队列
+- 事件入队与去重
+- 事件出队和查看
+- 上下文变化检测
+- 最大事件数限制 (20)
 
-# 重置配置
-lurkbot reset                     # 交互式重置
-lurkbot reset --scope full        # 完全重置
-lurkbot reset --scope config -f   # 强制重置配置
-```
+#### 2. System Presence 系统存在感
+- TTL 缓存 (300 秒)
+- LRU 淘汰 (200 条目)
+- 存在感合并
+- 更新回调
+
+#### 3. Tailscale VPN 集成
+- CLI 命令执行
+- 状态查询和缓存
+- 节点列表和 ping
+- 安全 subprocess 调用
+
+#### 4. SSH Tunnel 隧道管理
+- SSH 目标解析
+- 端口转发
+- 可用端口查找
+
+#### 5. Bonjour/mDNS 服务发现
+- 基于 zeroconf
+- 服务发现和监听
+- 服务发布和注销
+
+#### 6. Device Pairing 设备配对
+- 配对请求管理
+- 令牌生成和验证
+- 作用域检查
+
+#### 7. Exec Approvals 执行审批
+- 正则模式匹配
+- 允许列表管理
+- 命令执行检查
+
+#### 8. Voice Wake 语音唤醒
+- 触发词管理
+- 默认触发词: ["lurkbot", "claude", "computer"]
 
 ### 组件结构
 ```
-src/lurkbot/wizard/
-├── __init__.py              # 模块导出
-├── types.py                 # 类型定义 (SetupMode, SetupFlow, WizardStep, etc.)
-├── prompts.py               # 提示器接口 (Prompter 协议)
-├── session.py               # 会话管理 (WizardSession, Deferred)
-├── rich_prompter.py         # Rich CLI 提示器实现
-└── flows/
-    ├── __init__.py
-    ├── gateway.py           # Gateway 配置流程
-    └── onboarding.py        # Onboarding 主流程
+src/lurkbot/infra/
+├── __init__.py              # 模块导出 (~200 exports)
+├── system_events/
+│   ├── __init__.py          # SystemEventQueue
+│   └── types.py             # SystemEvent, SessionQueue
+├── system_presence/
+│   ├── __init__.py          # 存在感管理
+│   └── types.py             # SystemPresence, SystemPresenceUpdate
+├── tailscale/
+│   ├── __init__.py          # TailscaleClient
+│   └── types.py             # TailscaleNode, TailscaleStatus
+├── ssh_tunnel/
+│   ├── __init__.py          # SshTunnelManager
+│   └── types.py             # SshParsedTarget, SshTunnel
+├── bonjour/
+│   ├── __init__.py          # BonjourBrowser, BonjourPublisher
+│   └── types.py             # BonjourService, BonjourConfig
+├── device_pairing/
+│   ├── __init__.py          # DevicePairingManager
+│   └── types.py             # PairedDevice, DeviceAuthToken
+├── exec_approvals/
+│   ├── __init__.py          # ExecApprovalsManager
+│   └── types.py             # ExecSecurity, ExecAsk
+└── voicewake/
+    ├── __init__.py          # VoiceWakeManager
+    └── types.py             # VoiceWakeConfig
 ```
 
-## Implementation Plan (23 Phases)
+## Implementation Plan (23 Phases) - 全部完成 🎉
 
 | Phase | 内容 | 状态 |
 |-------|------|------|
@@ -87,55 +127,19 @@ src/lurkbot/wizard/
 | **Phase 20** | TUI 终端界面 | ✅ 完成 |
 | **Phase 21** | TTS 语音合成 | ✅ 完成 |
 | **Phase 22** | Wizard 配置向导 | ✅ 完成 |
-| **Phase 23** | Infra 基础设施 | ⏳ 待开始 |
+| **Phase 23** | Infra 基础设施 | ✅ 完成 |
 
 ## Quick Start for Next Session
 
 ```bash
-# 1. 运行测试确认当前状态
-python -m pytest tests/main/ -xvs
+# 1. 运行所有测试确认项目状态
+python -m pytest tests/ -v --tb=short
 
-# 2. 验证 Phase 22 Wizard 模块
-python -m lurkbot.cli.main wizard --help
+# 2. 验证 Phase 23 Infra 模块
+python -c "from lurkbot.infra import *; print('All imports successful!')"
 
-# 3. 验证所有测试通过
-python -m pytest tests/unit/wizard/ -v
-
-# 4. 开始 Phase 23 - Infra 基础设施
-```
-
-## Phase 22 完成的目录结构
-```
-src/lurkbot/
-├── wizard/                      # Phase 22 [新增]
-│   ├── __init__.py             # 模块导出
-│   ├── types.py                # Wizard 类型定义
-│   ├── prompts.py              # 提示器接口
-│   ├── session.py              # 会话管理
-│   ├── rich_prompter.py        # Rich CLI 提示器
-│   └── flows/
-│       ├── __init__.py
-│       ├── gateway.py          # Gateway 配置流程
-│       └── onboarding.py       # Onboarding 流程
-├── tts/                         # Phase 21
-│   └── ...
-├── tui/                         # Phase 20
-│   └── ...
-├── browser/                     # Phase 19
-│   └── ...
-├── acp/                         # Phase 18
-│   └── ...
-├── security/                    # Phase 17
-│   └── ...
-├── hooks/                       # Phase 16
-│   └── ...
-├── usage/                       # Phase 15
-│   └── ...
-├── media/                       # Phase 14
-│   └── ...
-├── daemon/                      # Phase 13
-│   └── ...
-└── ...
+# 3. 运行 Phase 23 测试
+python -m pytest tests/main/test_phase23_infra.py -v
 ```
 
 ## Key References
@@ -165,10 +169,11 @@ tests/main/
 ├── test_phase18_acp.py              # Phase 18 测试 (41 tests)
 ├── test_phase19_browser.py          # Phase 19 测试 (49 tests)
 ├── test_phase20_tui.py              # Phase 20 测试 (85 tests)
-└── test_phase21_tts.py              # Phase 21 测试 (57 tests)
+├── test_phase21_tts.py              # Phase 21 测试 (57 tests)
+└── test_phase23_infra.py            # Phase 23 测试 (84 tests) [新增]
 
 tests/unit/wizard/
-└── test_wizard.py                   # Phase 22 测试 (25 tests) [新增]
+└── test_wizard.py                   # Phase 22 测试 (25 tests)
 
 tests/
 └── test_media_understanding.py      # Phase 14 测试 (12 tests)
@@ -190,37 +195,20 @@ tests/
 - **日志**: Loguru
 - **TUI**: Rich (用于格式化输出)
 - **TTS**: edge-tts (免费), httpx (API 调用)
+- **mDNS**: zeroconf
+- **缓存**: cachetools (TTLCache)
 
-### 下一阶段建议优先级
-| Phase | 模块 | 优先级 | 理由 |
-|-------|------|--------|------|
-| Phase 23 | Infra 基础设施 | P1 | 最后一个阶段，网络发现、SSH 隧道等 |
-
-### Phase 23 Infra 基础设施设计预览
-
-模块结构:
-```
-src/lurkbot/infra/
-├── __init__.py
-├── types.py                  # Infra 类型定义
-├── discovery.py              # 网络发现服务
-├── tunnel.py                 # SSH 隧道管理
-├── health.py                 # 健康检查
-└── metrics.py                # 指标收集
-```
-
-主要功能:
-- **网络发现**: mDNS/Bonjour 服务发现
-- **SSH 隧道**: 远程端口转发
-- **健康检查**: 服务状态监控
-- **指标收集**: Prometheus 格式指标
+### 后续可选工作
+| 任务 | 优先级 | 说明 |
+|------|--------|------|
+| 集成测试 | P2 | 端到端测试 |
+| 性能优化 | P3 | 热点分析和优化 |
+| 文档完善 | P3 | API 文档、用户指南 |
+| 部署脚本 | P3 | Docker、systemd 配置 |
 
 ---
 
 **Document Updated**: 2026-01-30
-**Progress**: 22/23 Phases 完成 (95.7%)
-**Total Tests**: 546 passing (Phase 6: 16, Phase 7: 40, Phase 8: 29, Phase 9: 12, Phase 10: 23, Phase 11: 34, Phase 12: 38, Phase 13: 26, Phase 14: 12, Phase 15: 24, Phase 16: 22, Phase 17: 27, Phase 18: 41, Phase 19: 49, Phase 20: 85, Phase 21: 57, Phase 22: 25), 2 skipped
-**Next Action**:
-1. 开始 Phase 23 - Infra 基础设施 (最后一个阶段)
-2. 阶段完成后与 MoltBot 对比验证
-3. 完成所有 23 个阶段后进行全面集成测试
+**Progress**: 23/23 Phases 完成 (100%) 🎉
+**Total Tests**: 948 passing, 2 skipped
+**Project Status**: 完成！
