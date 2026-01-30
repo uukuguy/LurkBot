@@ -3,9 +3,8 @@
 ## Session Context
 
 **Last Session Date**: 2026-01-31
-**Current Status**: 🎉 README 重写完成！文档体系优化
-**Design Document**: `docs/design/LURKBOT_COMPLETE_DESIGN.md` (v2.3)
-**Architecture Document**: `docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md` (v3.0, 32 章节)
+**Current Status**: LurkBot vs Moltbot/OpenClaw 对比分析文档完成
+**New Document**: `docs/design/COMPARISON_ANALYSIS.md` (v2.0, 721 行)
 **Completion Report**: `docs/main/PROJECT_COMPLETION_REPORT.md` (v1.0)
 **Prompt Comparison**: `docs/design/PROMPT_SYSTEM_COMPARISON.md` (v1.0)
 
@@ -13,159 +12,48 @@
 
 ### 本次会话完成的工作 (2026-01-31)
 
-1. **README 全面重写** (`README.md` + `README.zh.md`)
-   - ✅ 替换老旧标语 "真正做事的 AI — Python 实现" 为更专业的 "Your Personal AI Assistant That Actually Gets Things Done"
-   - ✅ 添加引人入胜的项目简介（参考 MoltBot 风格）
-   - ✅ 强调核心价值：本地优先、真正执行工具、始终在线
-   - ✅ 更新实际实现状态：97% 完成（25/26 模块）
-   - ✅ 添加 Logo 图标：`./imgs/lurkbot-anglefish-github.svg`
-   - ✅ 更新工具数量：15 → **22 个**（与 MoltBot 对齐）
-   - ✅ 添加 Bootstrap 文件系统说明（8 个 .md 文件）
-   - ✅ 添加 Technology Stack 表格
-   - ✅ 双语互链：`README.md` ↔ `README.zh.md`
+1. **对比分析文档重写** (`docs/design/COMPARISON_ANALYSIS.md`)
+   - ✅ 删除旧文档: `docs/main/代码级架构对比分析.md` (1,640 行)
+   - ✅ 创建新文档: `docs/design/COMPARISON_ANALYSIS.md` (721 行)
+   - ✅ 澄清项目关系: Clawdbot → Moltbot → OpenClaw 是同一项目
+   - ✅ 明确 ClawHub 定位: 独立的技能注册中心，不是运行时
+   - ✅ LurkBot vs Moltbot 复现完成度: 97%+
+   - ✅ 架构对比: 定位差异、技术栈对比、可引入功能
+   - ✅ ClawHub 集成方案: 3种方案（CLI包装、HTTP API、本地兼容）
+   - ✅ 企业部署规划: 差距分析、P1-P3 增强计划
 
-2. **文档体系入口清晰化**
-   - ✅ 在 README 中添加文档导航表格：
-     - Getting Started
-     - User Guide
-     - Advanced Features
-     - Developer Guide
-     - API Reference
-     - Troubleshooting
-   - ✅ 链接到 `docs/index.md` 作为文档首页
-   - ✅ 保留设计文档链接（Architecture Design, Moltbot Analysis）
+2. **文档组织优化**
+   - 设计文档统一放置于 `docs/design/`
+   - 工作日志放置于 `docs/main/`
 
-3. **Roadmap 更新**
-   - Phase 1-3: 全部标记为 ✅ Completed
-   - Phase 4: 🚧 In Progress（CLI 完善、渠道适配器、测试覆盖率）
-   - 移除过时的 "Phase 1: Foundation" 描述
-   - 细化各阶段具体实现内容
+### 关键结论
 
-4. **项目结构文档更新**
-   - 从 7 个模块扩展到 **26 个模块**
-   - 反映实际代码库结构（gateway, agents, sessions, tools, skills, hooks, daemon, routing, auto_reply, infra, plugins, security, media, memory, browser, canvas, tui, tts, usage, wizard, auth, autonomous, acp, config, cli, logging）
+```
+项目关系澄清:
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   Clawdbot → Moltbot → OpenClaw (同一项目的不同发展阶段)          │
+│                          │                                      │
+│        ┌─────────────────┼─────────────────┐                    │
+│        │                 │                 │                    │
+│   ClawHub           OpenClaw           LurkBot                  │
+│   (技能注册中心)      (TypeScript)       (Python)                │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 
-5. **对比表格更新**
-   - Status: "In Development" → "Beta (97% Complete)"
-   - 强调与 MoltBot 同等的 Gateway-Centric 架构
+复现完成度: 97%+
+- 九层工具策略: ✅ 完全对齐
+- Gateway 协议: ✅ 完全对齐
+- Agent 运行时: ✅ PydanticAI 实现
+- 不实现: 原生应用、语音唤醒
 
-## 集成测试框架
-
-### 测试基础设施
-
-#### conftest.py 提供的 Fixtures
-```python
-# 临时目录
-@pytest.fixture
-def temp_workspace() -> Path
-
-# Session 管理
-@pytest.fixture
-def session_manager_config() -> SessionManagerConfig
-
-@pytest.fixture
-def session_manager() -> SessionManager
-
-# Agent 上下文
-@pytest.fixture
-def agent_context(temp_workspace) -> AgentContext
-
-# Mock API 客户端
-@pytest.fixture
-def mock_openai_client() -> AsyncMock
-
-# Gateway 测试
-@pytest.fixture
-def gateway_config() -> GatewayConfig
+代码规模对比:
+- Moltbot (TypeScript): ~414,000 行
+- LurkBot (Python): ~45,672 行
+- 比例: 1:9 (Python 更简洁)
 ```
 
-#### 测试标记
-- `@pytest.mark.integration` - 集成测试标记
-- `@pytest.mark.slow` - 慢速测试标记
-- `@pytest.mark.requires_api` - 需要 API key 的测试（自动跳过）
-
-### E2E 测试覆盖
-
-#### E2E Chat Flow (25 tests)
-- ChatRequest/ChatResponse 结构
-- 流式响应事件
-- 消息历史管理
-- 多轮对话
-
-#### E2E Gateway (18 tests)
-- WebSocket 协议帧
-- 错误响应结构
-- 连接参数解析
-- HelloOk 响应
-
-#### E2E Session Persistence (27 tests)
-- SessionStore CRUD
-- 消息追加和加载
-- 多会话管理
-- 会话生命周期
-
-#### E2E Tool Execution (37 tests)
-- 工具结果类型
-- 参数验证
-- 文件系统工具
-- 九层策略过滤
-
-#### E2E Subagent Spawning (26 tests)
-- SpawnParams/SpawnResult
-- 子代理系统提示词
-- 运行跟踪
-- 上下文创建
-
-### 关键 API 签名参考
-
-```python
-# SessionManager - 同步 API
-session, created = session_manager.get_or_create_session(ctx)
-subagent = session_manager.spawn_subagent_session(
-    agent_id="...",
-    parent_session_key="...",
-    task="...",
-)
-
-# EventFrame - 必需字段
-EventFrame(
-    id="evt-001",
-    type="event",
-    at=int(time.time() * 1000),  # 毫秒时间戳
-    event="message",
-    payload={"content": "..."},  # 不是 data
-)
-
-# EventBroadcaster - 事件广播
-broadcaster = EventBroadcaster()
-broadcaster.subscribe(callback)
-await broadcaster.emit(event="test", payload={...})
-
-# build_subagent_system_prompt - 正确参数
-prompt = build_subagent_system_prompt(
-    requester_session_key="agent:test:main",
-    child_session_key="agent:test:subagent:sub-001",
-    task="...",
-    label="...",  # 可选
-)
-
-# ToolFilterContext - 正确字段
-ctx = ToolFilterContext(
-    profile=ToolProfileId.CODING,
-    global_policy=None,
-    agent_policy=None,
-)
-
-# filter_tools_nine_layers - 只有 2 个参数
-filtered = filter_tools_nine_layers(tools, ctx)
-
-# CompiledPattern - 属性
-pattern = compile_pattern("mcp__*")
-pattern.kind  # "exact", "regex", "all"
-pattern.value  # 字符串或正则对象
-```
-
-## Implementation Plan (23 Phases) - 全部完成 🎉
+## Implementation Plan (23 Phases) - 全部完成
 
 | Phase | 内容 | 状态 |
 |-------|------|------|
@@ -197,100 +85,111 @@ pattern.value  # 字符串或正则对象
 
 ```bash
 # 1. 运行所有测试确认项目状态
-python -m pytest tests/ --ignore=tests/main -v --tb=short
+make test
+
+# 或者只运行 Phase 测试（避免异步测试问题）
+python -m pytest tests/main/ -v --tb=short --ignore=tests/main/test_phase19_browser.py
 
 # 2. 验证集成测试 (219 tests)
 python -m pytest tests/integration/ -v
 
-# 3. 运行 E2E 测试
-python -m pytest tests/integration/test_e2e_*.py -v
-
-# 4. 验证所有模块导入
+# 3. 验证所有模块导入
 python -c "from lurkbot.infra import *; from lurkbot.agents import *; print('All imports successful!')"
 ```
 
-## Key References
+## Key Documents
 
-### 文档位置
-```
-docs/design/
-├── MOLTBOT_ANALYSIS.md              # 基础分析
-├── MOLTBOT_COMPLETE_ARCHITECTURE.md # 完整架构（32 章节，v3.0）
-└── LURKBOT_COMPLETE_DESIGN.md       # 复刻设计（v2.3, 23 阶段）
-```
+### 设计文档 (`docs/design/`)
 
-### 测试文件
-```
-tests/integration/                    # 集成测试
-├── __init__.py
-├── conftest.py                      # 共享 fixtures
-├── test_session_integration.py      # Session 测试 (16 tests) ✅
-├── test_cli_integration.py          # CLI 测试 (25 tests) ✅
-├── test_agent_tools_integration.py  # Agent+Tools 测试 (22 tests) ✅
-├── test_gateway_integration.py      # Gateway 测试 (17 tests) ✅
-├── test_subagent_integration.py     # Subagent 测试 (16 tests) ✅
-├── test_e2e_chat_flow.py            # E2E Chat 测试 (25 tests) ✅
-├── test_e2e_gateway.py              # E2E Gateway 测试 (18 tests) ✅
-├── test_e2e_session_persistence.py  # E2E Session 测试 (27 tests) ✅
-├── test_e2e_tool_execution.py       # E2E Tool 测试 (37 tests) ✅
-└── test_e2e_subagent_spawning.py    # E2E Subagent 测试 (26 tests) ✅
+| 文档 | 大小 | 说明 |
+|------|------|------|
+| `COMPARISON_ANALYSIS.md` | 30 KB | **新** LurkBot vs Moltbot/OpenClaw 对比分析 |
+| `LURKBOT_COMPLETE_DESIGN.md` | 148 KB | LurkBot 完整设计文档 |
+| `MOLTBOT_COMPLETE_ARCHITECTURE.md` | 106 KB | Moltbot 完整架构参考 |
+| `AGENT_ARCHITECTURE_DESIGN.md` | 46 KB | Agent 架构设计 |
+| `PROMPT_SYSTEM_COMPARISON.md` | 24 KB | 提示词系统对比 |
 
-tests/main/
-├── test_phase6_sessions.py          # Phase 6 测试 (16 tests)
-├── test_phase7_autonomous.py        # Phase 7 测试 (40 tests)
-├── test_phase8_auth_compaction.py   # Phase 8 测试 (29 tests)
-├── test_phase9_gateway.py           # Phase 9 测试 (12 tests)
-├── test_phase10_skills_plugins.py   # Phase 10 测试 (23 tests)
-├── test_phase11_canvas.py           # Phase 11 测试 (34 tests)
-├── test_phase13_daemon.py           # Phase 13 测试 (26 tests)
-├── test_phase15_usage.py            # Phase 15 测试 (24 tests)
-├── test_phase16_hooks.py            # Phase 16 测试 (22 tests)
-├── test_phase19_browser.py          # Phase 19 测试 (49 tests)
-├── test_phase20_tui.py              # Phase 20 测试 (85 tests)
-├── test_phase21_tts.py              # Phase 21 测试 (57 tests)
-└── test_phase23_infra.py            # Phase 23 测试 (84 tests)
+### 工作日志 (`docs/main/`)
 
-tests/unit/wizard/
-└── test_wizard.py                   # Phase 22 测试 (25 tests)
+| 文档 | 说明 |
+|------|------|
+| `WORK_LOG.md` | 完整开发日志 |
+| `PROJECT_COMPLETION_REPORT.md` | 项目完成报告 |
 
-tests/
-└── test_media_understanding.py      # Phase 14 测试 (12 tests)
-```
+## Next Steps (Recommended)
+
+### 优先级 P1 (高) - 短期
+
+| 任务 | 说明 | 预计工作量 |
+|------|------|-----------|
+| ClawHub CLI 集成 | 添加 `lurkbot skills` 命令组 | 2-3 小时 |
+| 审计日志增强 | 结构化审计记录 | 1-2 小时 |
+| 会话加密选项 | 使用 cryptography 库 | 2-3 小时 |
+| 修复 Pydantic 弃用警告 | 迁移到 ConfigDict | 1 小时 |
+
+### 优先级 P2 (中) - 中期
+
+| 任务 | 说明 |
+|------|------|
+| WhatsApp 渠道适配器 | 实现 WhatsApp API 集成 |
+| 向量记忆集成 | ChromaDB 集成 |
+| Docker Compose 生产配置 | 完整部署方案 |
+
+### 优先级 P3 (低) - 长期
+
+| 任务 | 说明 |
+|------|------|
+| 多租户支持 | 用户/团队隔离 |
+| Kubernetes 部署 | Helm Chart |
+| Web 管理界面 | 可视化控制面板 |
+
+## Known Issues
+
+### 测试问题
+
+1. **test_phase19_browser.py 异步问题**
+   - 问题: `RuntimeError: There is no current event loop in thread 'MainThread'`
+   - 影响: 1 个测试失败
+   - 解决方案: 需要修复 event loop 获取方式
+
+2. **Pydantic 弃用警告**
+   - 问题: 部分模型使用旧式 `class Config`
+   - 影响: 警告信息
+   - 解决方案: 迁移到 `ConfigDict`
+
+### 可选依赖
+
+- **Docker 测试**: 需要 Docker 守护进程运行
+- **浏览器测试**: 需要 `playwright install`
+- **真实 API 测试**: 需要环境变量配置
 
 ## Important Notes
 
 ### 开发原则
+
 1. **完全复刻**: 所有 MoltBot 功能必须实现，不能遗漏
 2. **严格对标**: 时刻参考 MoltBot 源码确保一致性
 3. **不自行乱编**: prompts 等关键内容必须从 MoltBot 源码提取
 4. **有不明之处及时停下来问**: 遇到不确定的地方要确认
 
 ### 技术栈
-- **Agent 框架**: PydanticAI
-- **Web 框架**: FastAPI
-- **验证**: Pydantic
-- **CLI**: Typer
-- **日志**: Loguru
-- **TUI**: Rich (用于格式化输���)
-- **TTS**: edge-tts (免费), httpx (API 调用)
-- **mDNS**: zeroconf
-- **缓存**: cachetools (TTLCache)
-- **测试**: pytest, pytest-asyncio, typer.testing.CliRunner
 
-### 后续可选工作
-| 任务 | 优先级 | 说明 |
-|------|--------|------|
-| CLI 命令完善 | **P1** | 当前只完成约 30%，需要补全更多命令 |
-| 渠道适配器 | P2 | Discord, Slack, WhatsApp 适配器实现 |
-| 测试覆盖率 | P2 | 提高单元测试和集成测试覆盖率 |
-| 生产部署文档 | P2 | Docker Compose, systemd, Kubernetes 配置 |
-| 性能优化 | P3 | 热点分析和优化 |
-| API 文档 | P3 | Swagger/OpenAPI 文档完善 |
-| 真实 API 测试 | P3 | 使用真实 API Key 进行端到端验证 |
+- **Agent 框架**: PydanticAI v1.0.5
+- **Web 框架**: FastAPI 0.115+
+- **验证**: Pydantic V2
+- **CLI**: Typer 0.15+
+- **日志**: Loguru
+- **测试**: pytest, pytest-asyncio
+
+### 文档规范
+
+- 设计文档: `docs/design/` (中文)
+- 工作日志: `docs/main/WORK_LOG.md` (中文)
+- README: 英文 + 中文双版本
 
 ---
 
 **Document Updated**: 2026-01-31
-**Progress**: 23/23 Phases 完成 (100%) + README 重写
-**Total Tests**: 562 passed, 1 skipped (integration: 219 passed)
+**Progress**: 23/23 Phases 完成 (100%) + 对比分析文档
+**Total Tests**: 474 passed, 1 failed, 3 skipped
 **Project Status**: Beta (97% Complete) - 核心功能完整，进入打磨阶段

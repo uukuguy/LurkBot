@@ -1,5 +1,67 @@
 # LurkBot 工作日志
 
+## 2026-01-31 - LurkBot vs Moltbot/OpenClaw 对比分析文档 📊
+
+### 会话概述
+
+编写了全面的对比分析文档，涵盖 LurkBot 与 Moltbot/OpenClaw 的复现完成度、架构差异、ClawHub 集成方案和企业部署规划。
+
+### 主要工作
+
+#### 1. 文档重组 ✅
+
+- 删除旧文档: `docs/main/代码级架构对比分析.md` (1,640 行)
+- 创建新文档: `docs/design/COMPARISON_ANALYSIS.md` (721 行)
+
+#### 2. 新文档内容结构 ✅
+
+| 章节 | 内容 |
+|------|------|
+| §1 项目概述与关系 | 项目关系图、命名历史澄清、LurkBot 定位 |
+| §2 LurkBot vs Moltbot 复现完成度 | 模块对应表、完成度评估、代码统计、关键差异 |
+| §3 LurkBot vs OpenClaw 架构对比 | 定位差异、技术栈对比、架构设计、可引入功能 |
+| §4 ClawHub 集成方案 | ClawHub 关系、核心能力、3种集成方案、实现步骤 |
+| §5 企业部署能力规划 | OpenClaw 特性、差距分析、增强计划 |
+| §6 总结与下一步 | 关键结论、推荐行动、LurkBot 优势 |
+
+#### 3. 关键结论总结
+
+**项目关系澄清**:
+```
+Clawdbot → Moltbot → OpenClaw (同一项目不同阶段)
+                          │
+        ┌─────────────────┼─────────────────┐
+        │                 │                 │
+   ClawHub           OpenClaw           LurkBot
+   (技能注册中心)      (TypeScript)        (Python)
+```
+
+**复现完成度**: 97%+ 核心功能
+- 九层工具策略: ✅ 完全对齐
+- Gateway 协议: ✅ 完全对齐
+- Agent 运行时: ✅ PydanticAI 实现
+- 不实现: 原生应用、语音唤醒
+
+**ClawHub 集成方案**:
+- 方案 A: CLI 包装 (推荐)
+- 方案 B: HTTP API 直接调用
+- 方案 C: 本地 SKILL.md 兼容 (已实现)
+
+### 修改的文件
+
+| 文件 | 操作 | 行数 |
+|------|------|------|
+| `docs/main/代码级架构对比分析.md` | 删除 | -1,640 |
+| `docs/design/COMPARISON_ANALYSIS.md` | 创建 | +721 |
+
+### 下一步工作
+
+- [ ] ClawHub CLI 集成
+- [ ] 审计日志增强
+- [ ] 会话加密选项
+
+---
+
 ## 2026-01-30 - 端到端 (E2E) 集成测试完成 🎉
 
 ### 会话概述
