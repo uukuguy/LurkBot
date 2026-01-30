@@ -17,7 +17,7 @@
 
 ## Why LurkBot?
 
-**LurkBot** is a Python reimplementation of [**Openclaw**](https://github.com/moltbot/moltbot) — the open-source personal AI assistant that took the developer community by storm in early 2026. While Moltbot runs on Node.js, LurkBot brings the same powerful architecture to Python developers who want:
+**LurkBot** is a Python reimplementation of [**OpenClaw**](https://github.com/moltbot/moltbot) — the open-source personal AI assistant that took the developer community by storm in early 2026. While Moltbot runs on Node.js, LurkBot brings the same powerful architecture to Python developers who want:
 
 - **A personal AI that lives where you do** — WhatsApp, Telegram, Discord, Slack, and more
 - **Real tool execution** — Browse the web, run commands, manage files, automate tasks
