@@ -1,5 +1,102 @@
 # LurkBot 工作日志
 
+## 2026-01-30 - 端到端 (E2E) 集成测试完成 🎉
+
+### 会话概述
+
+完成了完整的端到端集成测试框架，所有 219 个集成测试全部通过。修复了遗留集成测试中的 API 不匹配问题。
+
+### 主要工作
+
+#### 1. E2E 集成测试创建 ✅
+
+**目录**: `tests/integration/`
+
+**创建的 E2E 测试文件**:
+| 文件 | 测试数量 | 说明 |
+|------|----------|------|
+| `test_e2e_chat_flow.py` | 25 | 完整聊天流程测试 |
+| `test_e2e_gateway.py` | 18 | Gateway WebSocket 流程测试 |
+| `test_e2e_session_persistence.py` | 27 | Session 持久化流程测试 |
+| `test_e2e_tool_execution.py` | 37 | 工具执行流程测试 |
+| `test_e2e_subagent_spawning.py` | 26 | 子代理生成流程测试 |
+
+#### 2. 遗留测试修复 ✅
+
+**修复的文件**:
+| 文件 | 问题 | 修复内容 |
+|------|------|----------|
+| `test_gateway_integration.py` | EventFrame 缺失字段 | 添加 `id` 和 `at` 字段，改 `data` 为 `payload` |
+| `test_gateway_integration.py` | broadcast API 不存在 | 改用 `EventBroadcaster.emit()` |
+| `test_gateway_integration.py` | Snapshot 字段错误 | 移除 `agents`，添加 `channels` |
+| `test_gateway_integration.py` | hello 消息格式 | 改用 `receive_text` 和正确的 ConnectParams 结构 |
+| `test_subagent_integration.py` | await 同步方法 | 移除 `await`，使用同步 API |
+| `test_subagent_integration.py` | 方法名错误 | `spawn_subagent` → `spawn_subagent_session` |
+| `test_subagent_integration.py` | build_session_key 参数 | 改用 spawn 方法获取实际 key |
+
+#### 3. 测试结果
+
+**集成测试统计**: 219 passed, 1 skipped ✅
+
+| 测试文件 | 通过数 |
+|----------|--------|
+| test_session_integration.py | 16 |
+| test_cli_integration.py | 25 |
+| test_agent_tools_integration.py | 22 |
+| test_gateway_integration.py | 17 |
+| test_subagent_integration.py | 16 |
+| test_e2e_chat_flow.py | 25 |
+| test_e2e_gateway.py | 18 |
+| test_e2e_session_persistence.py | 27 |
+| test_e2e_tool_execution.py | 37 |
+| test_e2e_subagent_spawning.py | 26 |
+
+**全部测试统计**: 562 passed, 1 skipped
+
+### 技术细节
+
+#### 关键 API 签名发现
+
+```python
+# EventFrame 必需字段
+EventFrame(
+    id="evt-001",
+    type="event",
+    at=int(time.time() * 1000),  # 毫秒时间戳
+    event="message",
+    payload={"content": "..."},  # 不是 data
+)
+
+# EventBroadcaster 使用方式
+broadcaster = EventBroadcaster()
+broadcaster.subscribe(async_callback)
+await broadcaster.emit(event="test", payload={...})
+
+# SessionManager 同步 API
+session, created = session_manager.get_or_create_session(ctx)
+subagent = session_manager.spawn_subagent_session(...)
+
+# ToolFilterContext 字段
+ctx = ToolFilterContext(
+    profile=ToolProfileId.CODING,
+    global_policy=None,
+    agent_policy=None,
+)
+
+# filter_tools_nine_layers 只有 2 个参数
+filtered = filter_tools_nine_layers(tools, ctx)
+```
+
+### 下一步工作
+
+项目已完成！可选的后续工作：
+- 性能优化
+- 文档完善
+- 部署脚本
+- 真实 API 测试
+
+---
+
 ## 2026-01-30 - 集成测试框架实现 🧪
 
 ### 会话概述

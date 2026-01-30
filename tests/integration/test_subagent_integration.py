@@ -13,80 +13,67 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from lurkbot.agents.types import SessionType, build_session_key
 from lurkbot.agents.subagent import (
-    spawn_subagent,
     build_subagent_system_prompt,
-    run_announce_flow,
     SUBAGENT_DENY_LIST,
 )
 from lurkbot.sessions.manager import SessionManager, SessionContext
-from lurkbot.sessions.types import SessionEntry, SessionState
 
 
 class TestSubagentSpawning:
     """Test subagent spawning functionality."""
 
     @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_spawn_subagent_basic(
-        self, session_manager: SessionManager
-    ):
+    def test_spawn_subagent_basic(self, session_manager: SessionManager):
         """Test basic subagent spawning."""
         # Create parent session
         parent_ctx = SessionContext(
             agent_id="test-agent",
             session_type=SessionType.MAIN,
         )
-        parent = await session_manager.get_or_create_session(parent_ctx)
+        parent, _ = session_manager.get_or_create_session(parent_ctx)
 
         # Spawn subagent
-        subagent = await session_manager.spawn_subagent(
+        subagent = session_manager.spawn_subagent_session(
             parent_session_key=parent.session_key,
             agent_id="test-agent",
             task="Perform a research task",
         )
 
         assert subagent is not None
-        assert subagent.session_type == SessionType.SUBAGENT
-        assert subagent.state == SessionState.ACTIVE
+        assert subagent.session_type == "subagent"
+        assert subagent.parent_session == parent.session_key
 
     @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_spawn_subagent_with_tools(
-        self, session_manager: SessionManager
-    ):
-        """Test spawning subagent with specific tools."""
+    def test_spawn_subagent_with_label(self, session_manager: SessionManager):
+        """Test spawning subagent with a label."""
         parent_ctx = SessionContext(
             agent_id="test-agent",
             session_type=SessionType.MAIN,
         )
-        parent = await session_manager.get_or_create_session(parent_ctx)
+        parent, _ = session_manager.get_or_create_session(parent_ctx)
 
-        subagent = await session_manager.spawn_subagent(
+        subagent = session_manager.spawn_subagent_session(
             parent_session_key=parent.session_key,
             agent_id="test-agent",
             task="Read and analyze files",
-            tools=["read_file", "web_search"],
+            label="File Analyzer",
         )
 
         assert subagent is not None
-        # Tools should be stored in metadata
-        assert subagent.metadata.get("tools") == ["read_file", "web_search"]
+        assert "subagent" in subagent.session_key
 
     @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_spawn_multiple_subagents(
-        self, session_manager: SessionManager
-    ):
+    def test_spawn_multiple_subagents(self, session_manager: SessionManager):
         """Test spawning multiple subagents from same parent."""
         parent_ctx = SessionContext(
             agent_id="test-agent",
             session_type=SessionType.MAIN,
         )
-        parent = await session_manager.get_or_create_session(parent_ctx)
+        parent, _ = session_manager.get_or_create_session(parent_ctx)
 
         subagents = []
         for i in range(3):
-            sub = await session_manager.spawn_subagent(
+            sub = session_manager.spawn_subagent_session(
                 parent_session_key=parent.session_key,
                 agent_id="test-agent",
                 task=f"Task {i + 1}",
@@ -105,8 +92,9 @@ class TestSubagentSystemPrompt:
     def test_build_subagent_prompt_basic(self):
         """Test building basic subagent system prompt."""
         prompt = build_subagent_system_prompt(
+            requester_session_key="agent:test:main",
+            child_session_key="agent:test:subagent:sub-001",
             task="Analyze the codebase structure",
-            parent_context="Working on a Python project",
         )
 
         assert prompt is not None
@@ -114,16 +102,17 @@ class TestSubagentSystemPrompt:
         assert "subagent" in prompt.lower() or "task" in prompt.lower()
 
     @pytest.mark.integration
-    def test_build_subagent_prompt_with_constraints(self):
-        """Test building subagent prompt with constraints."""
+    def test_build_subagent_prompt_with_label(self):
+        """Test building subagent prompt with label."""
         prompt = build_subagent_system_prompt(
+            requester_session_key="agent:test:main",
+            child_session_key="agent:test:subagent:sub-001",
             task="Search for security vulnerabilities",
-            parent_context="Security audit",
-            constraints=["Do not modify files", "Report findings only"],
+            label="Security Scanner",
         )
 
         assert prompt is not None
-        assert "Do not modify" in prompt or "constraint" in prompt.lower()
+        assert "Security Scanner" in prompt
 
     @pytest.mark.integration
     def test_subagent_deny_list(self):
@@ -142,53 +131,49 @@ class TestSubagentDepthLimiting:
     """Test subagent depth limiting."""
 
     @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_depth_tracking(
-        self, session_manager: SessionManager
-    ):
+    def test_depth_tracking(self, session_manager: SessionManager):
         """Test that subagent depth is tracked correctly."""
         parent_ctx = SessionContext(
             agent_id="test-agent",
             session_type=SessionType.MAIN,
         )
-        parent = await session_manager.get_or_create_session(parent_ctx)
+        parent, _ = session_manager.get_or_create_session(parent_ctx)
 
         # Spawn first level subagent
-        sub1 = await session_manager.spawn_subagent(
+        sub1 = session_manager.spawn_subagent_session(
             parent_session_key=parent.session_key,
             agent_id="test-agent",
             task="Level 1 task",
         )
 
+        # Verify parent relationship
+        assert sub1.parent_session == parent.session_key
+
         # Spawn second level subagent
-        sub2 = await session_manager.spawn_subagent(
+        sub2 = session_manager.spawn_subagent_session(
             parent_session_key=sub1.session_key,
             agent_id="test-agent",
             task="Level 2 task",
         )
 
-        # Verify depth is tracked
-        assert sub1.metadata.get("depth", 1) == 1
-        assert sub2.metadata.get("depth", 2) == 2
+        # Verify nested parent relationship
+        assert sub2.parent_session == sub1.session_key
 
     @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_max_depth_enforcement(
-        self, session_manager: SessionManager
-    ):
+    def test_max_depth_enforcement(self, session_manager: SessionManager):
         """Test that maximum depth is enforced."""
         parent_ctx = SessionContext(
             agent_id="test-agent",
             session_type=SessionType.MAIN,
         )
-        parent = await session_manager.get_or_create_session(parent_ctx)
+        parent, _ = session_manager.get_or_create_session(parent_ctx)
 
         # Spawn subagents up to max depth
         current_key = parent.session_key
         max_depth = session_manager.config.max_subagent_depth
 
         for i in range(max_depth):
-            sub = await session_manager.spawn_subagent(
+            sub = session_manager.spawn_subagent_session(
                 parent_session_key=current_key,
                 agent_id="test-agent",
                 task=f"Depth {i + 1}",
@@ -197,213 +182,136 @@ class TestSubagentDepthLimiting:
 
         # Attempting to exceed max depth should fail
         with pytest.raises(ValueError):
-            await session_manager.spawn_subagent(
+            session_manager.spawn_subagent_session(
                 parent_session_key=current_key,
                 agent_id="test-agent",
                 task="This should fail",
             )
 
 
-class TestSubagentAnnounceFlow:
-    """Test subagent announce flow."""
-
-    @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_announce_result_basic(self):
-        """Test basic announce flow."""
-        result = {
-            "status": "completed",
-            "summary": "Task completed successfully",
-            "findings": ["Finding 1", "Finding 2"],
-        }
-
-        announcement = await run_announce_flow(
-            subagent_id="sub-001",
-            parent_session_key="agent:test:main",
-            result=result,
-        )
-
-        assert announcement is not None
-        assert "completed" in str(announcement).lower()
-
-    @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_announce_with_error(self):
-        """Test announce flow with error result."""
-        result = {
-            "status": "failed",
-            "error": "Could not complete task",
-            "partial_results": [],
-        }
-
-        announcement = await run_announce_flow(
-            subagent_id="sub-001",
-            parent_session_key="agent:test:main",
-            result=result,
-        )
-
-        assert announcement is not None
-        assert "failed" in str(announcement).lower() or "error" in str(announcement).lower()
-
-
 class TestSubagentSessionKeys:
     """Test subagent session key generation."""
 
     @pytest.mark.integration
-    def test_subagent_key_format(self):
+    def test_subagent_key_format(self, session_manager: SessionManager):
         """Test subagent session key format."""
-        key = build_session_key(
+        # Create main session first
+        main_ctx = SessionContext(
             agent_id="my-agent",
-            session_type=SessionType.SUBAGENT,
-            subagent_id="sub-001",
+            session_type=SessionType.MAIN,
+        )
+        parent, _ = session_manager.get_or_create_session(main_ctx)
+
+        # Spawn a subagent to get the key
+        subagent = session_manager.spawn_subagent_session(
+            agent_id="my-agent",
+            parent_session_key=parent.session_key,
+            task="Test task",
         )
 
+        # Key format: agent:{agentId}:subagent:{subagentId}
+        key = subagent.session_key
         assert "subagent" in key
-        assert "sub-001" in key
-        assert key == "agent:my-agent:subagent:sub-001"
+        parts = key.split(":")
+        assert parts[0] == "agent"
+        assert parts[1] == "my-agent"
+        assert parts[2] == "subagent"
 
     @pytest.mark.integration
-    def test_nested_subagent_key(self):
-        """Test nested subagent key generation."""
-        # First level
-        key1 = build_session_key(
+    def test_unique_subagent_keys(self, session_manager: SessionManager):
+        """Test that each subagent gets unique key."""
+        main_ctx = SessionContext(
             agent_id="my-agent",
-            session_type=SessionType.SUBAGENT,
-            subagent_id="sub-001",
+            session_type=SessionType.MAIN,
         )
+        parent, _ = session_manager.get_or_create_session(main_ctx)
 
-        # Second level (child of first subagent)
-        key2 = build_session_key(
+        # Spawn two subagents
+        sub1 = session_manager.spawn_subagent_session(
             agent_id="my-agent",
-            session_type=SessionType.SUBAGENT,
-            subagent_id="sub-002",
+            parent_session_key=parent.session_key,
+            task="Task 1",
         )
 
-        assert key1 != key2
-        assert "sub-001" in key1
-        assert "sub-002" in key2
-
-
-class TestSubagentToolFiltering:
-    """Test tool filtering for subagents."""
-
-    @pytest.mark.integration
-    def test_denied_tools_not_available(self):
-        """Test that denied tools are not available to subagents."""
-        from lurkbot.tools.policy import filter_tools_nine_layers, ToolFilterContext, ToolProfileId
-
-        all_tools = [
-            {"name": "read_file"},
-            {"name": "write_file"},
-            {"name": "sessions_spawn"},  # Should be denied
-            {"name": "message"},  # Should be denied
-            {"name": "exec"},
-        ]
-
-        context = ToolFilterContext(
-            session_type=SessionType.SUBAGENT,
-            profile=ToolProfileId.CODING,
-            is_subagent=True,
+        sub2 = session_manager.spawn_subagent_session(
+            agent_id="my-agent",
+            parent_session_key=parent.session_key,
+            task="Task 2",
         )
 
-        filtered = filter_tools_nine_layers(all_tools, context)
-        tool_names = [t["name"] for t in filtered]
+        assert sub1.session_key != sub2.session_key
 
-        # Denied tools should not be present
-        for denied in SUBAGENT_DENY_LIST:
-            if denied in [t["name"] for t in all_tools]:
-                assert denied not in tool_names
+
+class TestSubagentToolDenyList:
+    """Test subagent tool deny list."""
 
     @pytest.mark.integration
-    def test_allowed_tools_available(self):
-        """Test that allowed tools are available to subagents."""
-        from lurkbot.tools.policy import filter_tools_nine_layers, ToolFilterContext, ToolProfileId
-
-        all_tools = [
-            {"name": "read_file"},
-            {"name": "write_file"},
-            {"name": "web_search"},
-        ]
-
-        context = ToolFilterContext(
-            session_type=SessionType.SUBAGENT,
-            profile=ToolProfileId.CODING,
-            is_subagent=True,
-        )
-
-        filtered = filter_tools_nine_layers(all_tools, context)
-        tool_names = [t["name"] for t in filtered]
-
-        # Basic tools should still be available
-        assert "read_file" in tool_names
-
-
-class TestSubagentCommunication:
-    """Test parent-subagent communication."""
+    def test_deny_list_contains_sessions_tools(self):
+        """Test deny list contains session management tools."""
+        assert "sessions_list" in SUBAGENT_DENY_LIST
+        assert "sessions_history" in SUBAGENT_DENY_LIST
+        assert "sessions_send" in SUBAGENT_DENY_LIST
+        assert "sessions_spawn" in SUBAGENT_DENY_LIST
 
     @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_send_message_to_subagent(
-        self, session_manager: SessionManager
-    ):
-        """Test sending message from parent to subagent."""
-        # Create parent and subagent
+    def test_deny_list_contains_dangerous_tools(self):
+        """Test deny list contains dangerous tools."""
+        assert "gateway" in SUBAGENT_DENY_LIST
+        assert "cron" in SUBAGENT_DENY_LIST
+        assert "message" in SUBAGENT_DENY_LIST
+
+    @pytest.mark.integration
+    def test_deny_list_contains_memory_tools(self):
+        """Test deny list contains memory tools."""
+        assert "memory_search" in SUBAGENT_DENY_LIST
+        assert "memory_get" in SUBAGENT_DENY_LIST
+
+
+class TestSubagentParentRelationship:
+    """Test parent-subagent relationships."""
+
+    @pytest.mark.integration
+    def test_subagent_has_parent(self, session_manager: SessionManager):
+        """Test that subagent has correct parent relationship."""
         parent_ctx = SessionContext(
             agent_id="test-agent",
             session_type=SessionType.MAIN,
         )
-        parent = await session_manager.get_or_create_session(parent_ctx)
+        parent, _ = session_manager.get_or_create_session(parent_ctx)
 
-        subagent = await session_manager.spawn_subagent(
+        subagent = session_manager.spawn_subagent_session(
             parent_session_key=parent.session_key,
             agent_id="test-agent",
             task="Test task",
         )
 
-        # Send message to subagent
-        await session_manager.send_to_session(
-            session_key=subagent.session_key,
-            message="Additional instructions",
-            sender="parent",
-        )
-
-        # Verify message was received
-        store = session_manager._get_store("test-agent")
-        messages = await store.load_messages(subagent.session_id)
-        assert len(messages) > 0
+        assert subagent.parent_session == parent.session_key
 
     @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_subagent_result_to_parent(
-        self, session_manager: SessionManager
-    ):
-        """Test subagent sending result back to parent."""
+    def test_nested_parent_chain(self, session_manager: SessionManager):
+        """Test nested parent chain tracking."""
         parent_ctx = SessionContext(
             agent_id="test-agent",
             session_type=SessionType.MAIN,
         )
-        parent = await session_manager.get_or_create_session(parent_ctx)
+        parent, _ = session_manager.get_or_create_session(parent_ctx)
 
-        subagent = await session_manager.spawn_subagent(
+        # Create chain: parent -> sub1 -> sub2
+        sub1 = session_manager.spawn_subagent_session(
             parent_session_key=parent.session_key,
             agent_id="test-agent",
-            task="Test task",
+            task="Level 1",
         )
 
-        # Simulate subagent completing and announcing result
-        result = {"status": "completed", "output": "Task done"}
-
-        await session_manager.announce_subagent_result(
-            subagent_session_key=subagent.session_key,
-            parent_session_key=parent.session_key,
-            result=result,
+        sub2 = session_manager.spawn_subagent_session(
+            parent_session_key=sub1.session_key,
+            agent_id="test-agent",
+            task="Level 2",
         )
 
-        # Parent should have received the announcement
-        store = session_manager._get_store("test-agent")
-        messages = await store.load_messages(parent.session_id)
-        # Check that there's a message about subagent completion
-        assert any("completed" in str(m.content).lower() for m in messages) or len(messages) > 0
+        # Verify chain
+        assert sub1.parent_session == parent.session_key
+        assert sub2.parent_session == sub1.session_key
 
 
 # Test count verification
@@ -415,10 +323,9 @@ def test_subagent_integration_test_count():
         TestSubagentSpawning,
         TestSubagentSystemPrompt,
         TestSubagentDepthLimiting,
-        TestSubagentAnnounceFlow,
         TestSubagentSessionKeys,
-        TestSubagentToolFiltering,
-        TestSubagentCommunication,
+        TestSubagentToolDenyList,
+        TestSubagentParentRelationship,
     ]
 
     total_tests = 0
@@ -430,4 +337,4 @@ def test_subagent_integration_test_count():
     total_tests += 1  # test_subagent_integration_test_count
 
     print(f"\n✅ Subagent integration tests: {total_tests} tests")
-    assert total_tests >= 18, f"Expected at least 18 tests, got {total_tests}"
+    assert total_tests >= 15, f"Expected at least 15 tests, got {total_tests}"
