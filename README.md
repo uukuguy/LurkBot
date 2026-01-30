@@ -2,8 +2,6 @@
 
 # 🦎 LurkBot
 
-# <img src="./imgs/lurkbot-anglefish-github.svg" height=40> LurkBot
-
 **Your Personal AI Assistant That Actually Gets Things Done**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
