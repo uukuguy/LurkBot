@@ -1,5 +1,83 @@
 # LurkBot 工作日志
 
+## 2026-01-30 - 集成测试框架实现 🧪
+
+### 会话概述
+
+创建了完整的集成测试框架，包括 Session、CLI、Gateway、Agent+Tools、Subagent 等模块的端到端测试。
+
+### 主要工作
+
+#### 1. 集成测试框架 ✅
+
+**目录**: `tests/integration/`
+
+**创建的文件**:
+| 文件 | 测试数量 | 说明 |
+|------|----------|------|
+| `conftest.py` | - | 共享 fixtures 和配置 |
+| `test_session_integration.py` | 16 | Session 持久化测试 |
+| `test_cli_integration.py` | 25 | CLI 命令测试 |
+| `test_gateway_integration.py` | 19 | Gateway WebSocket 测试 |
+| `test_agent_tools_integration.py` | 22 | Agent + Tools 测试 |
+| `test_subagent_integration.py` | 19 | 子代理通信测试 |
+
+**测试覆盖**:
+- Session 生命周期管理
+- 消息持久化和恢复
+- 多会话类型支持
+- 子代理深度限制
+- CLI 命令解析和执行
+- Gateway 协议帧处理
+
+#### 2. 测试结果
+
+**通过的测试**:
+- Session 集成测试: 16/16 ✅
+- CLI 集成测试: 25/25 ✅
+
+**需要 API Key 的测试**:
+- Agent 创建测试（需要 ANTHROPIC_API_KEY）
+
+**需要进一步调整的测试**:
+- Gateway 握手测试（需要完整的 mock 数据）
+- 部分 Agent 测试（API 签名不匹配）
+
+### 技术细节
+
+#### Fixtures 配置
+
+```python
+# 临时目录
+@pytest.fixture
+def temp_lurkbot_home(temp_dir: Path) -> Path
+
+# Session 管理
+@pytest.fixture
+def session_manager(session_manager_config) -> SessionManager
+
+# Agent 上下文
+@pytest.fixture
+def agent_context(temp_workspace: Path) -> AgentContext
+```
+
+#### 测试标记
+
+```python
+@pytest.mark.integration  # 集成测试
+@pytest.mark.requires_api  # 需要 API Key
+@pytest.mark.slow  # 慢速测试
+```
+
+### 下一步工作
+
+1. 修复 Gateway 测试的 mock 数据
+2. 调整 Agent 测试以匹配实际 API 签名
+3. 添加更多边界条件测试
+4. 考虑添加性能测试
+
+---
+
 ## 2026-01-30 - Phase 23 Infra 基础设施模块完成 🎉
 
 ### 会话概述

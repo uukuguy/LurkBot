@@ -3,7 +3,7 @@
 ## Session Context
 
 **Last Session Date**: 2026-01-30
-**Current Status**: 🎉 项目完成！所有 23 个 Phase 全部完成
+**Current Status**: 🎉 项目完成！所有 23 个 Phase 全部完成 + 集成测试框架
 **Design Document**: `docs/design/LURKBOT_COMPLETE_DESIGN.md` (v2.3)
 **Architecture Document**: `docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md` (v3.0, 32 章节)
 
@@ -11,7 +11,18 @@
 
 ### 今日完成的工作
 
-1. **Phase 23 Infra 基础设施** - 全部完成：
+1. **集成测试框架** - 新增完成：
+
+   | 组件 | 文件 | 状态 |
+   |------|------|------|
+   | 测试基础设施 | `tests/integration/conftest.py` | ✅ 完成 |
+   | Session 集成测试 | `tests/integration/test_session_integration.py` | ✅ 16 tests 通过 |
+   | CLI 集成测试 | `tests/integration/test_cli_integration.py` | ✅ 25 tests 通过 |
+   | Agent+Tools 测试 | `tests/integration/test_agent_tools_integration.py` | ⚠️ 需要 mock 数据调整 |
+   | Gateway 测试 | `tests/integration/test_gateway_integration.py` | ⚠️ 需要 mock 数据调整 |
+   | Subagent 测试 | `tests/integration/test_subagent_integration.py` | ⚠️ 需要 mock 数据调整 |
+
+2. **Phase 23 Infra 基础设施** - 已完成：
 
    | 组件 | 文件 | 状态 |
    |------|------|------|
@@ -24,6 +35,75 @@
    | 执行审批 | `infra/exec_approvals/` | ✅ 完成 |
    | 语音唤醒 | `infra/voicewake/` | ✅ 完成 |
    | 单元测试 | `tests/main/test_phase23_infra.py` | ✅ 通过 (84 tests) |
+
+## 集成测试框架 (新增)
+
+### 测试基础设施
+
+#### conftest.py 提供的 Fixtures
+```python
+# 临时目录
+@pytest.fixture
+def temp_workspace() -> Path
+
+# Session 管理
+@pytest.fixture
+def session_manager_config() -> SessionManagerConfig
+
+@pytest.fixture
+def session_manager() -> SessionManager
+
+# Agent 上下文
+@pytest.fixture
+def agent_context(temp_workspace) -> AgentContext
+
+# Mock API 客户端
+@pytest.fixture
+def mock_openai_client() -> AsyncMock
+
+# Gateway 测试
+@pytest.fixture
+def gateway_config() -> GatewayConfig
+```
+
+#### 测试标记
+- `@pytest.mark.integration` - 集成测试标记
+- `@pytest.mark.slow` - 慢速测试标记
+- `@pytest.mark.requires_api` - 需要 API key 的测试（自动跳过）
+
+### 已完成的测试类别
+
+#### Session 集成测试 (16 tests)
+- 会话生命周期测试
+- 多会话操作测试
+- 子代理会话测试
+- 会话清理测试
+- 会话键格式测试
+- 消息分页测试
+
+#### CLI 集成测试 (25 tests)
+- 基本命令测试 (help, version)
+- chat 命令测试
+- gateway 命令测试
+- wizard 命令测试
+- reset 命令测试
+- security 子命令测试
+- 输出格式测试
+- 错误处理测试
+
+### 需要后续完善的测试
+
+#### Agent+Tools 测试
+- 需要调整 mock 数据以匹配实际 API 签名
+- `AgentRunResult` 使用 `aborted`, `assistant_texts` 而非 `text`, `tool_calls`
+
+#### Gateway 测试
+- WebSocket 协议帧需要更精确的 mock
+- 需要配合实际的协议实现
+
+#### Subagent 测试
+- 子代理通信需要完整的 mock 链路
+- 系统提示词构建需要匹配实际签名
 
 ## Infra 基础设施功能 (Phase 23)
 
@@ -135,11 +215,14 @@ src/lurkbot/infra/
 # 1. 运行所有测试确认项目状态
 python -m pytest tests/ -v --tb=short
 
-# 2. 验证 Phase 23 Infra 模块
-python -c "from lurkbot.infra import *; print('All imports successful!')"
+# 2. 验证集成测试
+python -m pytest tests/integration/ -v -m integration
 
-# 3. 运行 Phase 23 测试
-python -m pytest tests/main/test_phase23_infra.py -v
+# 3. 运行 Session 和 CLI 集成测试（已完全通过）
+python -m pytest tests/integration/test_session_integration.py tests/integration/test_cli_integration.py -v
+
+# 4. 验证 Phase 23 Infra 模块
+python -c "from lurkbot.infra import *; print('All imports successful!')"
 ```
 
 ## Key References
@@ -154,6 +237,15 @@ docs/design/
 
 ### 测试文件
 ```
+tests/integration/                    # 集成测试 [新增]
+├── __init__.py
+├── conftest.py                      # 共享 fixtures
+├── test_session_integration.py      # Session 测试 (16 tests) ✅
+├── test_cli_integration.py          # CLI 测试 (25 tests) ✅
+├── test_agent_tools_integration.py  # Agent+Tools 测试 (待完善)
+├── test_gateway_integration.py      # Gateway 测试 (待完善)
+└── test_subagent_integration.py     # Subagent 测试 (待完善)
+
 tests/main/
 ├── test_phase6_sessions.py          # Phase 6 测试 (16 tests)
 ├── test_phase7_autonomous.py        # Phase 7 测试 (40 tests)
@@ -170,7 +262,7 @@ tests/main/
 ├── test_phase19_browser.py          # Phase 19 测试 (49 tests)
 ├── test_phase20_tui.py              # Phase 20 测试 (85 tests)
 ├── test_phase21_tts.py              # Phase 21 测试 (57 tests)
-└── test_phase23_infra.py            # Phase 23 测试 (84 tests) [新增]
+└── test_phase23_infra.py            # Phase 23 测试 (84 tests)
 
 tests/unit/wizard/
 └── test_wizard.py                   # Phase 22 测试 (25 tests)
@@ -197,18 +289,56 @@ tests/
 - **TTS**: edge-tts (免费), httpx (API 调用)
 - **mDNS**: zeroconf
 - **缓存**: cachetools (TTLCache)
+- **测试**: pytest, pytest-asyncio, typer.testing.CliRunner
 
 ### 后续可选工作
 | 任务 | 优先级 | 说明 |
 |------|--------|------|
-| 集成测试 | P2 | 端到端测试 |
+| 完善集成测试 | P2 | 修复 Agent/Gateway/Subagent 测试的 mock 数据 |
 | 性能优化 | P3 | 热点分析和优化 |
 | 文档完善 | P3 | API 文档、用户指南 |
 | 部署脚本 | P3 | Docker、systemd 配置 |
 
+### 集成测试开发注意事项
+
+#### API 签名参考
+```python
+# SessionManager - 同步 API
+session, created = session_manager.get_or_create_session(session_key)
+
+# MessageEntry - 必需字段
+MessageEntry(
+    message_id="msg-001",
+    role="user",  # 字符串，不是枚举
+    content="Hello",
+    timestamp=datetime.now()
+)
+
+# AgentContext - 正确参数
+AgentContext(
+    session_id="...",
+    session_key="...",
+    session_type=SessionType.MAIN,
+    workspace_dir=str(path),  # 不是 workspace
+    message_channel="...",    # 不是 channel
+    spawned_by=None,          # 可选
+)
+
+# SystemPromptParams - 正确参数
+SystemPromptParams(
+    workspace_dir=str(path),
+    tool_names=["tool1", "tool2"],
+    default_think_level="normal"
+)
+
+# AgentRunResult - 正确字段
+result.aborted  # 不是 text
+result.assistant_texts  # 不是 tool_calls
+```
+
 ---
 
 **Document Updated**: 2026-01-30
-**Progress**: 23/23 Phases 完成 (100%) 🎉
-**Total Tests**: 948 passing, 2 skipped
-**Project Status**: 完成！
+**Progress**: 23/23 Phases 完成 (100%) 🎉 + 集成测试框架
+**Total Tests**: 1009 passing, 3 skipped
+**Project Status**: 完成！集成测试框架已建立
