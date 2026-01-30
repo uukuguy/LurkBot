@@ -1,0 +1,139 @@
+"""Application settings and configuration."""
+
+from functools import lru_cache
+from pathlib import Path
+from typing import Literal
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class ModelSettings(BaseSettings):
+    """Model configuration settings."""
+
+    # Default model for new sessions
+    default_model: str = "anthropic/claude-sonnet-4-20250514"
+
+    # Ollama configuration
+    ollama_base_url: str = "http://localhost:11434"
+
+    # Custom model definitions (extends built-in models)
+    # Format: {"model_id": {"name": "...", "api_type": "...", ...}}
+    custom_models: dict[str, dict] = Field(default_factory=dict)
+
+
+class GatewaySettings(BaseSettings):
+    """Gateway server settings."""
+
+    host: str = "127.0.0.1"
+    port: int = 18789
+    mode: Literal["local", "remote"] = "local"
+    auth_mode: Literal["none", "token", "password"] = "token"
+    auth_token: str | None = None
+
+
+class AgentSettings(BaseSettings):
+    """AI agent settings."""
+
+    model: str = "anthropic/claude-sonnet-4-20250514"
+    max_tokens: int = 4096
+    temperature: float = 0.7
+    workspace: Path = Field(default_factory=lambda: Path.home() / "lurkbot")
+
+
+class TelegramSettings(BaseSettings):
+    """Telegram channel settings."""
+
+    enabled: bool = False
+    bot_token: str | None = None
+    allowed_users: list[int] = Field(default_factory=list)
+
+
+class DiscordSettings(BaseSettings):
+    """Discord channel settings."""
+
+    enabled: bool = False
+    bot_token: str | None = None
+    allowed_guilds: list[int] = Field(default_factory=list)
+
+
+class SlackSettings(BaseSettings):
+    """Slack channel settings."""
+
+    enabled: bool = False
+    bot_token: str | None = None
+    app_token: str | None = None
+    allowed_channels: list[str] = Field(default_factory=list)
+
+
+class StorageSettings(BaseSettings):
+    """Session storage settings."""
+
+    enabled: bool = True
+    auto_save: bool = True
+    max_messages: int = 1000  # Max messages to keep per session
+
+
+class SkillSettings(BaseSettings):
+    """Skills system settings."""
+
+    enabled: bool = True
+    # Allowlist for bundled skills (None = all, empty list = none)
+    allow_bundled: list[str] | None = None
+    # Additional directories to load skills from
+    extra_dirs: list[Path] = Field(default_factory=list)
+    # Per-skill configuration (skill_name -> config dict)
+    entries: dict[str, dict] = Field(default_factory=dict)
+
+
+class Settings(BaseSettings):
+    """Main application settings."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="LURKBOT_",
+        env_nested_delimiter="__",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    # Application
+    debug: bool = False
+    log_level: str = "INFO"
+    data_dir: Path = Field(default_factory=lambda: Path.home() / ".lurkbot")
+
+    # Components
+    gateway: GatewaySettings = Field(default_factory=GatewaySettings)
+    agent: AgentSettings = Field(default_factory=AgentSettings)
+    models: ModelSettings = Field(default_factory=ModelSettings)
+
+    # Channels
+    telegram: TelegramSettings = Field(default_factory=TelegramSettings)
+    discord: DiscordSettings = Field(default_factory=DiscordSettings)
+    slack: SlackSettings = Field(default_factory=SlackSettings)
+
+    # Storage
+    storage: StorageSettings = Field(default_factory=StorageSettings)
+
+    # Skills
+    skills: SkillSettings = Field(default_factory=SkillSettings)
+
+    # AI Provider API Keys
+    anthropic_api_key: str | None = None
+    openai_api_key: str | None = None
+
+    @property
+    def sessions_dir(self) -> Path:
+        """Get the sessions directory path."""
+        return self.data_dir / "sessions"
+
+    @property
+    def skills_dir(self) -> Path:
+        """Get the managed skills directory path."""
+        return self.data_dir / "config" / "skills"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Get cached application settings."""
+    return Settings()
