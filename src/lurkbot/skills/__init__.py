@@ -4,8 +4,17 @@
 - Frontmatter 解析
 - 技能加载优先级
 - 技能注册和管理
+- ClawHub 集成
 """
 
+from .clawhub import (
+    ClawHubClient,
+    ClawHubSkill,
+    ClawHubVersion,
+    download_skill,
+    get_skill_info,
+    search_skills,
+)
 from .frontmatter import (
     MoltbotMetadata,
     SkillFrontmatter,
@@ -41,4 +50,11 @@ __all__ = [
     "SkillRegistry",
     "SkillManager",
     "get_skill_manager",
+    # ClawHub
+    "ClawHubClient",
+    "ClawHubSkill",
+    "ClawHubVersion",
+    "search_skills",
+    "get_skill_info",
+    "download_skill",
 ]

@@ -95,8 +95,9 @@ def discover_skills(
             _discover_skills_in_dir(managed_skills_dir, SkillSource.MANAGED, priority=2)
         )
 
-    # 3. 打包技能：bundled skills (假设在 package 中的 skills/ 目录)
-    bundled_skills_dir = Path(__file__).parent.parent.parent / "skills"
+    # 3. 打包技能：bundled skills (in project root skills/ directory)
+    # Navigate from src/lurkbot/skills/workspace.py -> project_root/skills/
+    bundled_skills_dir = Path(__file__).parent.parent.parent.parent / "skills"
     if bundled_skills_dir.exists():
         skills.extend(
             _discover_skills_in_dir(bundled_skills_dir, SkillSource.BUNDLED, priority=3)

@@ -3,11 +3,15 @@
 实现技能的注册、查询和生命周期管理。
 """
 
+import tarfile
+import zipfile
+from io import BytesIO
 from pathlib import Path
 
 from loguru import logger
 
-from .workspace import SkillEntry, load_all_skills
+from .clawhub import ClawHubClient, ClawHubSkill
+from .workspace import SkillEntry, SkillSource, load_all_skills
 
 
 # ============================================================================
@@ -252,6 +256,176 @@ class SkillManager:
             ]
 
         return skills
+
+    # ------------------------------------------------------------------------
+    # ClawHub Integration
+    # ------------------------------------------------------------------------
+
+    async def install_from_clawhub(
+        self,
+        slug: str,
+        version: str | None = None,
+        workspace_root: Path | str | None = None,
+        force: bool = False,
+    ) -> SkillEntry:
+        """Install a skill from ClawHub.
+
+        Args:
+            slug: Skill slug (e.g., 'openclaw/weather')
+            version: Specific version to install (default: latest)
+            workspace_root: Workspace root directory (default: current directory)
+            force: Force reinstall even if already installed
+
+        Returns:
+            Installed skill entry
+
+        Raises:
+            ValueError: If skill already exists and force=False
+            httpx.HTTPError: On API errors
+        """
+        if workspace_root is None:
+            workspace_root = Path.cwd()
+        else:
+            workspace_root = Path(workspace_root)
+
+        # Check if already installed
+        skill_key = slug.split("/")[-1]  # Extract name from slug
+        if not force and self.registry.has(skill_key):
+            raise ValueError(
+                f"Skill {skill_key} already installed. Use force=True to reinstall."
+            )
+
+        # Create ClawHub client
+        async with ClawHubClient() as client:
+            # Get skill info
+            skill_info = await client.info(slug)
+            if version is None:
+                version = skill_info.version
+
+            logger.info(f"Installing {slug}@{version} from ClawHub...")
+
+            # Recursively install dependencies
+            dependencies = await client.get_dependencies(slug, version)
+            for dep_slug in dependencies:
+                dep_key = dep_slug.split("/")[-1]
+                if not self.registry.has(dep_key):
+                    logger.info(f"Installing dependency: {dep_slug}")
+                    await self.install_from_clawhub(
+                        dep_slug,
+                        workspace_root=workspace_root,
+                        force=False,
+                    )
+                else:
+                    logger.debug(f"Dependency {dep_key} already installed")
+
+            # Download skill package
+            package_bytes = await client.download(slug, version, verify_checksum=True)
+
+            # Extract to .skill-bundles/
+            bundles_dir = workspace_root / ".skill-bundles"
+            bundles_dir.mkdir(exist_ok=True)
+
+            skill_dir = bundles_dir / skill_key
+            if skill_dir.exists() and not force:
+                raise ValueError(
+                    f"Skill directory {skill_dir} already exists. Use force=True to overwrite."
+                )
+
+            # Create skill directory
+            skill_dir.mkdir(exist_ok=True)
+
+            # Extract package
+            self._extract_package(package_bytes, skill_dir)
+
+            logger.info(f"Extracted {slug}@{version} to {skill_dir}")
+
+            # Reload skills to pick up the new installation
+            self.reload_skills()
+
+            # Get the installed skill entry
+            installed_skill = self.registry.get(skill_key)
+            if not installed_skill:
+                raise RuntimeError(f"Failed to load installed skill: {skill_key}")
+
+            logger.info(f"Successfully installed {slug}@{version}")
+            return installed_skill
+
+    def _extract_package(self, package_bytes: bytes, target_dir: Path) -> None:
+        """Extract a skill package to target directory.
+
+        Args:
+            package_bytes: Package data (tar.gz or zip)
+            target_dir: Target directory
+
+        Raises:
+            ValueError: If package format is unsupported
+        """
+        # Try tar.gz first
+        try:
+            with tarfile.open(fileobj=BytesIO(package_bytes), mode="r:*") as tar:
+                tar.extractall(target_dir)
+                logger.debug(f"Extracted tar.gz package to {target_dir}")
+                return
+        except tarfile.TarError:
+            pass
+
+        # Try zip
+        try:
+            with zipfile.ZipFile(BytesIO(package_bytes)) as zip_file:
+                zip_file.extractall(target_dir)
+                logger.debug(f"Extracted zip package to {target_dir}")
+                return
+        except zipfile.BadZipFile:
+            pass
+
+        raise ValueError("Unsupported package format (expected tar.gz or zip)")
+
+    async def check_updates(self) -> list[tuple[str, str, str]]:
+        """Check for updates to installed ClawHub skills.
+
+        Returns:
+            List of (skill_key, current_version, latest_version) tuples
+
+        Raises:
+            httpx.HTTPError: On API errors
+        """
+        updates: list[tuple[str, str, str]] = []
+
+        # Get all managed skills (from ClawHub)
+        managed_skills = [
+            s for s in self.registry.list_all() if s.source == SkillSource.MANAGED
+        ]
+
+        if not managed_skills:
+            logger.info("No ClawHub skills installed")
+            return updates
+
+        async with ClawHubClient() as client:
+            for skill in managed_skills:
+                # Try to extract slug from metadata
+                metadata = skill.frontmatter.metadata
+                if not metadata or not hasattr(metadata, "clawhub_slug"):
+                    # Skip skills without ClawHub metadata
+                    continue
+
+                slug = metadata.clawhub_slug
+                current_version = skill.frontmatter.version
+
+                try:
+                    # Get latest version from ClawHub
+                    skill_info = await client.info(slug)
+                    latest_version = skill_info.version
+
+                    if current_version != latest_version:
+                        updates.append((skill.key, current_version, latest_version))
+                        logger.info(
+                            f"Update available: {skill.key} {current_version} -> {latest_version}"
+                        )
+                except Exception as e:
+                    logger.warning(f"Failed to check updates for {skill.key}: {e}")
+                    continue
+
+        return updates
 
     def __repr__(self) -> str:
         return f"SkillManager(skills={len(self.registry)})"

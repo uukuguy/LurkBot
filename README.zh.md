@@ -17,7 +17,7 @@
 
 ## 为什么选择 LurkBot？
 
-**LurkBot** 是 [**Moltbot**](https://github.com/moltbot/moltbot) 的 Python 实现版本 — 这款开源个人 AI 助手在 2026 年初席卷了整个开发者社区。Moltbot 基于 Node.js，而 LurkBot 将同样强大的架构带给了 Python 开发者：
+**LurkBot** 是 [**OpenClaw**](https://github.com/openclaw/openclaw) 的 Python 实现版本 — 这款开源个人 AI 助手在 2026 年初席卷了整个开发者社区。Moltbot 基于 Node.js，而 LurkBot 将同样强大的架构带给了 Python 开发者：
 
 - **AI 助手就在你身边** — WhatsApp、Telegram、Discord、Slack 等平台随时响应
 - **真正执行工具** — 浏览网页、运行命令、管理文件、自动化任务
@@ -314,7 +314,7 @@ MIT 许可证 — 详见 [LICENSE](LICENSE) 文件。
 
 ## 致谢
 
-LurkBot 是 [**Moltbot**](https://github.com/moltbot/moltbot) 的社区驱动 Python 移植版，原作者 [Peter Steinberger](https://github.com/steipete)。特别感谢 Moltbot 社区创造了如此出色的 AI 助手平台。
+LurkBot 是 [**OpenClaw**](https://github.com/openclaw/openclaw) 的社区驱动 Python 移植版，原作者 [Peter Steinberger](https://github.com/steipete)。特别感谢 Moltbot 社区创造了如此出色的 AI 助手平台。
 
 ---
 
