@@ -57,8 +57,11 @@ class SkillFrontmatter(BaseModel):
     """技能 Frontmatter 数据"""
 
     # 基本元数据
+    name: str | None = Field(None, description="技能名称")
     description: str = Field(..., description="技能描述")
+    version: str | None = Field(None, description="技能版本")
     tags: list[str] = Field(default_factory=list, description="标签")
+    tools: list[str] = Field(default_factory=list, description="包装的 Tools 列表")
 
     # 调用策略
     user_invocable: bool = Field(True, description="用户可通过 /skill-name 调用")
