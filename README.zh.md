@@ -2,66 +2,76 @@
 
 # 🦎 LurkBot
 
-**真正做事的 AI — Python 实现**
+**真正能帮你做事的个人 AI 助手**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Status: Beta](https://img.shields.io/badge/status-beta%20(97%25)-brightgreen.svg)](#开发路线)
 
-[特性](#特性) • [安装](#安装) • [快速开始](#快速开始) • [文档](#文档) • [架构](#架构)
+[功能特性](#功能特性) • [快速开始](#快速开始) • [文档](docs/index.md) • [架构](#架构) • [开发路线](#开发路线) • [English](README.md)
 
 </div>
 
 ---
 
-## 项目简介
+## 为什么选择 LurkBot？
 
-**LurkBot** 是 [**moltbot**](https://github.com/moltbot/moltbot) 的忠实 Python 重写版本 — moltbot 是 2026 年初爆火的开源个人 AI 助手。LurkBot 专为喜欢 Python 生态的爱好者和开发者打造，在保持 moltbot 强大架构的同时，充分发挥 Python 的优势。
+**LurkBot** 是 [**Moltbot**](https://github.com/moltbot/moltbot) 的 Python 实现版本 — 这款开源个人 AI 助手在 2026 年初席卷了整个开发者社区。Moltbot 基于 Node.js，而 LurkBot 将同样强大的架构带给了 Python 开发者：
 
-### 为什么选择 LurkBot？
+- **AI 助手就在你身边** — WhatsApp、Telegram、Discord、Slack 等平台随时响应
+- **真正执行工具** — 浏览网页、运行命令、管理文件、自动化任务
+- **本地优先控制** — 你的数据、你的设备、你的规则
+- **全天候在线** — Daemon 模式让助手 24/7 待命
 
-- **Python 原生**：充分利用 Python 丰富的生态（FastAPI、asyncio、Docker SDK）
-- **学习资源**：通过清晰、带类型注解的 Python 代码学习 AI 代理架构
-- **生产就绪**：与 moltbot 同等的企业级设计，不同的实现语言
-- **社区驱动**：为更喜欢 PyPI 而非 npm 的 Python 开发者打造
+> *"如果你想要一个本地化、快速、始终在线的个人助手，这就是它。"*
+
+### 有什么不同？
+
+与纯云端 AI 助手不同，LurkBot 运行在**你的**设备上。它连接**你的**消息应用。它使用**你的**权限执行工具。Gateway 只是控制平面 — 产品本身是那个真正为你做事的助手。
 
 ---
 
-## 特性
+## 功能特性
 
-### 核心能力
+### 核心能力（97% 完成）
 
-- **🔌 多渠道消息**：WhatsApp、Telegram、Discord、Slack、Signal、iMessage 等
-- **🤖 多模型支持**：Claude、GPT、Gemini、Ollama（本地）及任何 OpenAI 兼容 API
-- **🌐 WebSocket 网关**：本地优先的控制平面，管理会话、渠道和工具
-- **🛠️ 工具执行**：浏览器自动化、文件操作、Shell 命令、自定义工具
-- **🔒 沙箱隔离**：基于 Docker 的安全隔离（群聊、公开频道等不可信环境）
-- **💬 会话管理**：持久化对话，上下文跟踪
-- **📱 设备节点**：控制 iOS/macOS/Android 设备（相机、屏幕、位置）
+| 功能 | 描述 |
+|------|------|
+| **多渠道收件箱** | Telegram（已完整实现），可扩展至 WhatsApp、Discord、Slack、Signal |
+| **多模型支持** | 通过 PydanticAI 集成 Claude、GPT、Gemini、Ollama（本地） |
+| **WebSocket Gateway** | 完整的会话、渠道和工具控制平面 |
+| **22 个原生工具** | exec、read、write、edit、web_search、browser、memory、sessions、cron... |
+| **九层策略引擎** | Profile/Provider/Global/Agent/Channel/Sandbox/Subagent 过滤 |
+| **Bootstrap 文件** | 8 个 Markdown 文件定义 Agent 人格和上下文 |
+| **沙箱隔离** | Docker 容器保护不受信任的执行 |
 
 ### 架构亮点
 
-- **网关中心设计**：单一控制平面路由所有消息
-- **会话隔离**：按用户/渠道/主题隔离，可配置策略
-- **工具策略**：细粒度控制每个会话可执行的操作
-- **技能系统**：可扩展的插件架构支持自定义能力
-- **流式响应**：通过 WebSocket 实时输出 AI 回复
+- **Gateway 中心化设计** — 单一控制平面路由所有消息
+- **会话隔离** — 按用户/渠道/主题隔离，策略可配置
+- **Skills 系统** — 可扩展的插件架构，支持自定义能力
+- **Hooks 系统** — 事件驱动的自动化，支持工具前后钩子
+- **Daemon 系统** — 跨平台后台服务管理
+- **Auto-Reply & Routing** — 智能消息路由和自动回复
+- **Infra 系统** — 8 个基础设施子系统，支持生产部署
+- **ACP 协议** — Agent 通信协议，支持多 Agent 协作
 
 ---
 
-## 安装
+## 快速开始
 
-### 环境要求
+### 前置要求
 
 - **Python 3.12+**
 - **[uv](https://docs.astral.sh/uv/)**（推荐）或 pip
 - **Docker**（可选，用于沙箱隔离）
 
-### 快速安装
+### 安装
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yourusername/lurkbot.git
+git clone https://github.com/uukuguy/lurkbot.git
 cd lurkbot
 
 # 安装依赖
@@ -73,10 +83,10 @@ make test
 
 ### 配置
 
-创建 `~/.lurkbot/.env` 文件：
+创建 `~/.lurkbot/.env`：
 
 ```bash
-# AI 提供商（选择其一）
+# AI 提供商（选择一个）
 LURKBOT_ANTHROPIC_API_KEY=sk-ant-...
 LURKBOT_OPENAI_API_KEY=sk-...
 
@@ -85,44 +95,38 @@ LURKBOT_TELEGRAM__BOT_TOKEN=123456:ABC...
 LURKBOT_TELEGRAM__ENABLED=true
 ```
 
----
-
-## 快速开始
-
-### 启动网关
+### 运行
 
 ```bash
-make gateway
-# 网关监听在 ws://127.0.0.1:18789
-```
+# 启动 Gateway
+lurkbot gateway start
+# Gateway listening on ws://127.0.0.1:18789
 
-### 交互式聊天（CLI）
-
-```bash
+# 开始聊天（CLI 模式）
 lurkbot agent chat
-# 直接与 Claude 对话
 ```
-
-### 启用 Telegram
-
-1. 通过 [@BotFather](https://t.me/botfather) 创建 Bot
-2. 将 token 添加到 `.env`：`LURKBOT_TELEGRAM__BOT_TOKEN=...`
-3. 重启网关：`make gateway`
 
 ---
 
 ## 文档
 
-### 项目文档
+📚 **[完整文档](docs/index.md)** — 从这里开始阅读全面的指南
 
-- **[架构设计](docs/design/ARCHITECTURE_DESIGN.zh.md)**：系统架构与设计决策
-- **[Moltbot 分析](docs/design/MOLTBOT_ANALYSIS.zh.md)**：原 TypeScript 实现的深度分析
-- **[下次会话指南](docs/dev/NEXT_SESSION_GUIDE.md)**：开发路线图和优先级
+### 快速链接
 
-### 外部资源
+| 章节 | 描述 |
+|------|------|
+| [快速入门](docs/getting-started/index.md) | 安装、快速开始、第一个 Bot |
+| [用户指南](docs/user-guide/index.md) | CLI、渠道、Agent、工具、配置 |
+| [高级功能](docs/advanced/index.md) | Gateway、Hooks、Skills、Daemon、Cron |
+| [开发者指南](docs/developer/index.md) | 架构、贡献、扩展 |
+| [API 参考](docs/api/index.md) | CLI 参考、RPC 方法 |
+| [故障排除](docs/troubleshooting/index.md) | FAQ、常见问题 |
 
-- **[Moltbot 官方文档](https://docs.molt.bot/)**：原项目文档
-- **[Moltbot GitHub](https://github.com/moltbot/moltbot)**：TypeScript 参考实现
+### 设计文档
+
+- [架构设计](docs/design/ARCHITECTURE_DESIGN.md) — 系统架构和设计决策
+- [Moltbot 分析](docs/design/MOLTBOT_ANALYSIS.md) — 原版 TypeScript 实现的深度分析
 
 ---
 
@@ -132,34 +136,44 @@ lurkbot agent chat
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Telegram   Discord   Slack   WhatsApp   Signal   iMessage  │
+│  Telegram   Discord   Slack   WhatsApp   Signal   CLI       │
 └────────────────────────┬────────────────────────────────────┘
                          │
                     ┌────▼────┐
-                    │ Gateway │ (WebSocket 服务器)
+                    │ Gateway │  FastAPI + WebSocket
+                    │ :18789  │  ws://127.0.0.1:18789
                     └────┬────┘
                          │
         ┌────────────────┼────────────────┐
         │                │                │
     ┌───▼───┐      ┌────▼────┐      ┌───▼────┐
-    │ Agent │      │ Channel │      │  Tool  │
-    │Runtime│      │Adapters │      │Registry│
+    │Agent  │      │ Channel │      │22 Tools│
+    │Runtime│      │Adapters │      │+ Policy│
     └───┬───┘      └─────────┘      └───┬────┘
         │                                │
     ┌───▼──────────┐              ┌─────▼─────┐
-    │Claude/GPT/   │              │bash/文件/ │
-    │Gemini/Ollama │              │浏览器/... │
+    │Claude/GPT/   │              │exec/read/ │
+    │Gemini/Ollama │              │write/web..│
     └──────────────┘              └───────────┘
+
+Bootstrap 文件系统：
+~/.lurkbot/
+├── SOUL.md      (核心人格与价值观)
+├── IDENTITY.md  (名称与外观)
+├── USER.md      (用户偏好)
+├── AGENTS.md    (工作区指南)
+├── TOOLS.md     (工具配置)
+├── MEMORY.md    (长期记忆)
+├── HEARTBEAT.md (定期检查)
+└── BOOTSTRAP.md (首次运行设置)
 ```
 
 ### 关键设计模式
 
-- **网关模式**：集中式消息路由和会话管理
-- **适配器模式**：消息平台和 AI 模型的统一接口
-- **策略模式**：按会话的工具策略和沙箱模式
-- **插件模式**：可扩展的技能和自定义工具
-
-详细架构请参阅 [ARCHITECTURE_DESIGN.zh.md](docs/design/ARCHITECTURE_DESIGN.zh.md)。
+- **Gateway 模式** — 集中式消息路由和会话管理
+- **Adapter 模式** — 消息平台和 AI 模型的统一接口
+- **Strategy 模式** — 按会话的工具策略和沙箱模式
+- **Plugin 模式** — 可扩展的 Skills 和自定义工具
 
 ---
 
@@ -171,68 +185,96 @@ lurkbot agent chat
 lurkbot/
 ├── src/lurkbot/
 │   ├── gateway/          # WebSocket 服务器 + RPC 协议
-│   ├── agents/           # AI 代理运行时 + 模型适配器
-│   ├── channels/         # 消息平台适配器
-│   ├── tools/            # 内置工具实现
+│   ├── agents/           # AI Agent 运行时 + PydanticAI 集成
+│   ├── sessions/         # 会话管理 + JSONL 持久化
+│   ├── tools/            # 22 个内置工具 + 9 层策略引擎
+│   ├── skills/           # 可扩展的 Skills 系统
+│   ├── hooks/            # 事件驱动的 Hook 系统
+│   ├── daemon/           # 跨平台 Daemon 管理
+│   ├── routing/          # 消息路由系统
+│   ├── auto_reply/       # 自动回复系统
+│   ├── infra/            # 基础设施（8 个子系统）
+│   ├── plugins/          # 插件系统
+│   ├── security/         # 安全 + 沙箱隔离
+│   ├── media/            # 媒体处理
+│   ├── memory/           # 向量搜索 + 知识持久化
+│   ├── browser/          # Playwright 浏览器自动化
+│   ├── canvas/           # Canvas 渲染
+│   ├── tui/              # 终端 UI
+│   ├── tts/              # 文本转语音
+│   ├── usage/            # 使用量跟踪
+│   ├── wizard/           # 配置向导
+│   ├── auth/             # 认证
+│   ├── autonomous/       # 自主运行模式
+│   ├── acp/              # Agent 通信协议
 │   ├── config/           # 配置管理
-│   ├── cli/              # 命令行界面
-│   └── utils/            # 日志、工具函数
+│   ├── cli/              # 命令行接口
+│   └── logging/          # 结构化日志
 ├── tests/                # pytest 测试套件
 ├── docs/                 # 文档
-│   ├── design/           # 架构文档（中英双语）
-│   └── dev/              # 开发指南
 └── Makefile              # 开发命令
 ```
 
-### 常用命令
+### 命令
 
 ```bash
 make help       # 显示所有可用命令
 make dev        # 安装开发依赖
-make test       # 运行 pytest 测试
-make lint       # 运行 ruff 代码检查
+make test       # 使用 pytest 运行测试
+make lint       # 运行 ruff 检查
 make format     # 使用 ruff 格式化代码
 make typecheck  # 运行 mypy 类型检查
 make check      # 运行所有检查（lint + typecheck + test）
 ```
 
-### 贡献指南
+### 贡献
 
-我们欢迎贡献！LurkBot 的目标是**忠实移植** moltbot，同时拥抱 Python 习惯用法：
+欢迎贡献！LurkBot 致力于成为 Moltbot 的**忠实 Python 移植版**，同时拥抱 Python 惯用法：
 
-- 遵循现有代码风格（ruff、mypy strict mode）
+- 遵循现有代码风格（ruff、mypy 严格模式）
 - 为新功能添加测试
-- API 变更时更新文档
-- 不确定时参考 moltbot 的 TypeScript 实现
+- 为 API 变更更新文档
+- 有疑问时参考 Moltbot 的 TypeScript 实现
 
 ---
 
 ## 开发路线
 
-### ✅ Phase 1：基础搭建（已完成）
+### ✅ Phase 1：核心基础设施（已完成）
 - [x] Gateway WebSocket 服务器
-- [x] Agent 运行时（Claude 集成）
-- [x] Telegram 渠道适配器
+- [x] Agent 运行时（PydanticAI 集成）
 - [x] 配置系统
-- [x] CLI 接口
+- [x] 日志系统
 
-### 🚧 Phase 2：工具系统（进行中）
-- [ ] 工具注册表和策略引擎
-- [ ] 内置工具（bash、文件操作、浏览器）
-- [ ] Docker 沙箱隔离
-- [ ] 工具调用与 AI 模型集成
+### ✅ Phase 2：工具与会话系统（已完成）
+- [x] 工具注册表 + 九层策略引擎
+- [x] 22 个内置工具（bash、文件操作、浏览器等）
+- [x] 会话管理 + JSONL 持久化
+- [x] Skills 系统
+- [x] Hooks 系统
 
-### 📋 Phase 3：渠道扩展
-- [ ] Discord 适配器
-- [ ] Slack 适配器
-- [ ] WhatsApp 适配器（Baileys）
-- [ ] Signal 适配器
+### ✅ Phase 3：高级特性（已完成）
+- [x] Daemon 系统（跨平台）
+- [x] Auto-Reply & Routing 系统
+- [x] 安全系统 + 沙箱隔离
+- [x] Memory 系统（向量搜索）
+- [x] 媒体处理
+- [x] 浏览器自动化（Playwright）
+- [x] Canvas & TUI
+- [x] TTS 系统
+- [x] 插件系统
+- [x] Infra 系统（8 个子系统）
+- [x] ACP（Agent 通信协议）
+- [x] 自主运行模式
+- [x] 认证系统
+- [x] 配置向导
+- [x] 使用量跟踪
 
-### 📋 Phase 4：高级特性
-- [ ] 会话持久化（JSONL 格式）
-- [ ] 技能系统
-- [ ] 多代理协作
-- [ ] 设备节点（iOS/macOS/Android）
+### 🚧 Phase 4：完善与生产化（进行中）
+- [ ] 完善 CLI 命令集（当前约 30%）
+- [ ] 添加更多渠道适配器（Discord、Slack、WhatsApp）
+- [ ] 提高测试覆盖率
+- [ ] 生产部署文档
 
 ---
 
@@ -247,26 +289,39 @@ make check      # 运行所有检查（lint + typecheck + test）
 | **CLI** | Commander | Typer |
 | **测试** | Vitest | pytest |
 | **架构** | Gateway-Centric | Gateway-Centric |
-| **状态** | 生产环境 | 开发中 |
+| **状态** | 生产环境 | Beta（97% 完成） |
 
 ---
 
-## 开源许可
+## 技术栈
 
-MIT License - 详见 [LICENSE](LICENSE) 文件。
+| 组件 | 技术 |
+|------|------|
+| Agent 框架 | **PydanticAI** — 现代 Python Agent 框架 |
+| Web 框架 | **FastAPI** — 异步 ASGI 服务器 |
+| CLI | **Typer** — 命令行接口 |
+| 数据验证 | **Pydantic** — 类型安全 |
+| 日志 | **Loguru** — 结构化日志 |
+| 包管理器 | **uv** — 快速 Python 包管理器 |
+
+---
+
+## 许可证
+
+MIT 许可证 — 详见 [LICENSE](LICENSE) 文件。
 
 ---
 
 ## 致谢
 
-LurkBot 是社区驱动的 [**moltbot**](https://github.com/moltbot/moltbot) Python 移植版本，原项目由 [Peter Steinberger](https://github.com/steipete) 创建。特别感谢 moltbot 社区创造了如此出色的 AI 助手平台。
+LurkBot 是 [**Moltbot**](https://github.com/moltbot/moltbot) 的社区驱动 Python 移植版，原作者 [Peter Steinberger](https://github.com/steipete)。特别感谢 Moltbot 社区创造了如此出色的 AI 助手平台。
 
 ---
 
 <div align="center">
 
-**Python 打造 • Moltbot 启发 • 社区驱动**
+**基于 Python 构建 • 灵感来自 Moltbot • 由 PydanticAI 驱动**
 
-[⭐ Star on GitHub](https://github.com/yourusername/lurkbot) • [📖 阅读文档](docs/) • [💬 加入 Discord](#)
+[⭐ GitHub 上点星](https://github.com/uukuguy/lurkbot) • [📖 文档](docs/index.md) • [💬 加入 Discord](#)
 
 </div>

@@ -2,34 +2,52 @@
 
 ## Session Context
 
-**Last Session Date**: 2026-01-30
-**Current Status**: 🎉 项目完成！+ 项目完成报告 + 提示词体系对比分析
+**Last Session Date**: 2026-01-31
+**Current Status**: 🎉 README 重写完成！文档体系优化
 **Design Document**: `docs/design/LURKBOT_COMPLETE_DESIGN.md` (v2.3)
 **Architecture Document**: `docs/design/MOLTBOT_COMPLETE_ARCHITECTURE.md` (v3.0, 32 章节)
 **Completion Report**: `docs/main/PROJECT_COMPLETION_REPORT.md` (v1.0)
 **Prompt Comparison**: `docs/design/PROMPT_SYSTEM_COMPARISON.md` (v1.0)
 
-## What Was Accomplished
+## What Was Accomplished This Session
 
-### 本次会话完成的工作
+### 本次会话完成的工作 (2026-01-31)
 
-1. **项目完成报告** (`docs/main/PROJECT_COMPLETION_REPORT.md`)
-   - 完整的项目交付报告（2,700+ 行）
-   - 包含：执行摘要、架构概览、功能特性、测试统计、代码质量、技术栈
-   - 23 个 Phase 逐个回顾
-   - 与 MoltBot 对标情况
-   - 后续优化建议
+1. **README 全面重写** (`README.md` + `README.zh.md`)
+   - ✅ 替换老旧标语 "真正做事的 AI — Python 实现" 为更专业的 "Your Personal AI Assistant That Actually Gets Things Done"
+   - ✅ 添加引人入胜的项目简介（参考 MoltBot 风格）
+   - ✅ 强调核心价值：本地优先、真正执行工具、始终在线
+   - ✅ 更新实际实现状态：97% 完成（25/26 模块）
+   - ✅ 添加 Logo 图标：`./imgs/lurkbot-anglefish-github.svg`
+   - ✅ 更新工具数量：15 → **22 个**（与 MoltBot 对齐）
+   - ✅ 添加 Bootstrap 文件系统说明（8 个 .md 文件）
+   - ✅ 添加 Technology Stack 表格
+   - ✅ 双语互链：`README.md` ↔ `README.zh.md`
 
-2. **提示词体系对比分析** (`docs/design/PROMPT_SYSTEM_COMPARISON.md`)
-   - LurkBot vs MoltBot 提示词体系深度对比
-   - 23 节系统提示词结构对照
-   - Token 系统、Bootstrap 文件、工具描述对比
-   - 对齐度评分：**95.6% (A+)**
-   - 已知差异和改进建议
+2. **文档体系入口清晰化**
+   - ✅ 在 README 中添加文档导航表格：
+     - Getting Started
+     - User Guide
+     - Advanced Features
+     - Developer Guide
+     - API Reference
+     - Troubleshooting
+   - ✅ 链接到 `docs/index.md` 作为文档首页
+   - ✅ 保留设计文档链接（Architecture Design, Moltbot Analysis）
 
-3. **总测试统计**：
-   - 集成测试: **219 passed**, 1 skipped
-   - 全部测试: **562 passed**, 1 skipped
+3. **Roadmap 更新**
+   - Phase 1-3: 全部标记为 ✅ Completed
+   - Phase 4: 🚧 In Progress（CLI 完善、渠道适配器、测试覆盖率）
+   - 移除过时的 "Phase 1: Foundation" 描述
+   - 细化各阶段具体实现内容
+
+4. **项目结构文档更新**
+   - 从 7 个模块扩展到 **26 个模块**
+   - 反映实际代码库结构（gateway, agents, sessions, tools, skills, hooks, daemon, routing, auto_reply, infra, plugins, security, media, memory, browser, canvas, tui, tts, usage, wizard, auth, autonomous, acp, config, cli, logging）
+
+5. **对比表格更新**
+   - Status: "In Development" → "Beta (97% Complete)"
+   - 强调与 MoltBot 同等的 Gateway-Centric 架构
 
 ## 集成测试框架
 
@@ -262,14 +280,17 @@ tests/
 ### 后续可选工作
 | 任务 | 优先级 | 说明 |
 |------|--------|------|
+| CLI 命令完善 | **P1** | 当前只完成约 30%，需要补全更多命令 |
+| 渠道适配器 | P2 | Discord, Slack, WhatsApp 适配器实现 |
+| 测试覆盖率 | P2 | 提高单元测试和集成测试覆盖率 |
+| 生产部署文档 | P2 | Docker Compose, systemd, Kubernetes 配置 |
 | 性能优化 | P3 | 热点分析和优化 |
-| 文档完善 | P3 | API 文档、用户指南 |
-| 部署脚本 | P3 | Docker、systemd 配置 |
+| API 文档 | P3 | Swagger/OpenAPI 文档完善 |
 | 真实 API 测试 | P3 | 使用真实 API Key 进行端到端验证 |
 
 ---
 
-**Document Updated**: 2026-01-30
-**Progress**: 23/23 Phases 完成 (100%) 🎉 + 端到端集成测试
+**Document Updated**: 2026-01-31
+**Progress**: 23/23 Phases 完成 (100%) + README 重写
 **Total Tests**: 562 passed, 1 skipped (integration: 219 passed)
-**Project Status**: 完成！端到端集成测试全部通过
+**Project Status**: Beta (97% Complete) - 核心功能完整，进入打磨阶段
