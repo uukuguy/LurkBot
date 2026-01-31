@@ -58,6 +58,7 @@ dependencies = [
     "lark-oapi>=1.5.3",
     "larkpy>=0.3.0",
     "chromadb>=1.4.1",
+    "watchdog>=6.0.0",
 ]
 
 [project.optional-dependencies]

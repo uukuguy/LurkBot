@@ -514,26 +514,205 @@ Execution Time: 0.3s
 - 错误信息记录到日志
 - 可选择是否将错误信息注入到 system_prompt
 
-## 10. 未来优化方向
+## 10. Phase 5-B: 高级功能实现
 
-### 10.1 短期优化（Phase 5-B）
+### 10.1 插件热重载（已实现）
 
-1. **插件热重载**：支持不重启服务更新插件
-2. **插件市场**：提供插件发现和安装机制
-3. **更严格的沙箱**：使用 Docker 或 gVisor 隔离插件
-4. **插件间通信**：支持插件之间的数据共享
+**功能描述**：支持不重启服务更新插件，通过文件监控自动检测插件变化并重新加载。
 
-### 10.2 长期优化（Phase 6+）
+**核心组件**：
+- `PluginReloadHandler`：文件系统事件处理器，监控插件目录变化
+- `HotReloadManager`：热重载管理器，协调文件监控和插件重载流程
+
+**关键特性**：
+- 使用 watchdog 库监控文件系统变化
+- 防抖机制避免频繁重载（默认 1 秒）
+- 保持插件状态（启用/禁用状态）
+- 支持动态添加/移除监控路径
+
+**使用示例**：
+```python
+from lurkbot.plugins.hot_reload import HotReloadManager
+from lurkbot.plugins.manager import PluginManager
+
+manager = PluginManager()
+hot_reload = HotReloadManager(
+    manager,
+    watch_paths=[Path("plugins")],
+    debounce_seconds=1.0
+)
+
+# 启动热重载
+hot_reload.start()
+
+# 停止热重载
+hot_reload.stop()
+```
+
+**相关文件**：
+- `src/lurkbot/plugins/hot_reload.py`
+- `tests/test_plugin_hot_reload.py`
+
+### 10.2 插件市场（已实现）
+
+**功能描述**：提供插件发现、下载、安装和版本管理功能。
+
+**核心组件**：
+- `PluginMarketplace`：插件市场管理器
+- `PluginIndex`：插件索引数据结构
+- `PluginPackageInfo`：插件包信息模型
+
+**关键特性**：
+- 从远程索引刷新插件列表
+- 按关键词和标签搜索插件
+- 下载并验证插件包（支持 SHA256 校验）
+- 自动解析和安装依赖
+- 本地缓存机制
+- 插件更新检测
+
+**使用示例**：
+```python
+from lurkbot.plugins.marketplace import PluginMarketplace
+from lurkbot.plugins.manager import PluginManager
+
+manager = PluginManager()
+marketplace = PluginMarketplace(
+    manager,
+    index_url="https://plugins.lurkbot.io/index.json"
+)
+
+# 刷新索引
+await marketplace.refresh_index()
+
+# 搜索插件
+results = await marketplace.search(query="weather", tags=["utility"])
+
+# 安装插件
+await marketplace.install_plugin("weather-plugin", version="1.0.0")
+
+# 更新插件
+await marketplace.update_plugin("weather-plugin")
+```
+
+**相关文件**：
+- `src/lurkbot/plugins/marketplace.py`
+- `tests/test_plugin_marketplace.py`
+
+### 10.3 容器沙箱（已实现）
+
+**功能描述**：使用 Docker 容器技术实现更严格的插件隔离。
+
+**核心组件**：
+- `ContainerSandbox`：容器沙箱管理器
+- Docker SDK for Python
+
+**关键特性**：
+- 完全隔离的执行环境
+- 资源配额管理（CPU、内存）
+- 网络隔离（支持 none、bridge、host 模式）
+- 文件系统隔离（只读模式）
+- 安全选项（no-new-privileges、cap-drop）
+- 超时控制
+
+**使用示例**：
+```python
+from lurkbot.plugins.container_sandbox import ContainerSandbox
+from lurkbot.plugins.models import PluginConfig, PluginExecutionContext
+
+config = PluginConfig(
+    allow_network=False,
+    max_memory_mb=128,
+    max_cpu_percent=50.0
+)
+
+sandbox = ContainerSandbox(config, image="python:3.12-slim")
+
+context = PluginExecutionContext(
+    channel_id="test-channel",
+    user_id="test-user"
+)
+
+result = await sandbox.execute(
+    plugin_name="test-plugin",
+    plugin_code=plugin_code,
+    context=context,
+    timeout=30.0
+)
+```
+
+**相关文件**：
+- `src/lurkbot/plugins/container_sandbox.py`
+- `tests/test_container_sandbox.py`
+
+### 10.4 插件间通信（已实现）
+
+**功能描述**：支持插件之间的数据共享和通信。
+
+**核心组件**：
+- `MessageBus`：消息总线，实现发布-订阅模式
+- `SharedState`：共享状态管理器
+- `PluginCommunication`：通信管理器
+
+**关键特性**：
+- 发布-订阅消息模式
+- 主题订阅和取消订阅
+- 异步消息分发
+- 命名空间隔离的共享状态
+- 线程安全的状态访问
+- 支持同步和异步回调
+
+**使用示例**：
+```python
+from lurkbot.plugins.communication import get_communication, Message
+
+comm = get_communication()
+comm.start()
+
+# 订阅消息
+async def on_message(message: Message):
+    print(f"收到消息: {message.data}")
+
+comm.message_bus.subscribe("my-topic", on_message)
+
+# 发布消息
+msg = Message(
+    id="msg-1",
+    sender="plugin-a",
+    topic="my-topic",
+    data={"key": "value"}
+)
+await comm.message_bus.publish(msg)
+
+# 共享状态
+await comm.shared_state.set("plugin-a", "key1", "value1")
+value = await comm.shared_state.get("plugin-a", "key1")
+```
+
+**相关文件**：
+- `src/lurkbot/plugins/communication.py`
+- `tests/test_plugin_communication.py`
+
+## 11. 未来优化方向
+
+### 11.1 短期优化（Phase 6）
+
+1. **插件编排**：支持插件依赖和执行顺序
+2. **插件版本管理**：支持多版本共存和回滚
+3. **插件性能分析**：提供详细的性能分析工具
+4. **插件权限细化**：更细粒度的权限控制
+
+### 11.2 长期优化（Phase 7+）
 
 1. **分布式插件执行**：支持远程插件服务
-2. **插件编排**：支持插件依赖和执行顺序
-3. **插件版本管理**：支持多版本共存和回滚
-4. **插件性能分析**：提供详细的性能分析工具
+2. **插件 WebAssembly 支持**：支持 WASM 插件
+3. **插件 AI 辅助开发**：AI 辅助插件开发和调试
+4. **插件生态系统**：建立完整的插件生态
 
-## 11. 参考资料
+## 12. 参考资料
 
-### 11.1 相关文件
+### 12.1 相关文件
 
+**核心模块**：
 - `src/lurkbot/plugins/manager.py` - 插件管理器
 - `src/lurkbot/plugins/loader.py` - 插件加载器
 - `src/lurkbot/plugins/registry.py` - 插件注册表
@@ -541,18 +720,29 @@ Execution Time: 0.3s
 - `src/lurkbot/plugins/manifest.py` - 插件清单
 - `src/lurkbot/plugins/models.py` - 数据模型
 - `src/lurkbot/agents/runtime.py` - Agent 运行时
-- `tests/test_plugin_*.py` - 测试文件
 
-### 11.2 设计模式
+**Phase 5-B 新增模块**：
+- `src/lurkbot/plugins/hot_reload.py` - 插件热重载
+- `src/lurkbot/plugins/marketplace.py` - 插件市场
+- `src/lurkbot/plugins/container_sandbox.py` - 容器沙箱
+- `src/lurkbot/plugins/communication.py` - 插件间通信
 
-- **单例模式**：PluginManager、PluginLoader、PluginRegistry 使用全局单例
+**测试文件**：
+- `tests/test_plugin_*.py` - 所有插件系统测试
+
+### 12.2 设计模式
+
+- **单例模式**：PluginManager、PluginLoader、PluginRegistry、HotReloadManager、PluginMarketplace、PluginCommunication 使用全局单例
 - **工厂模式**：PluginLoader 负责创建插件实例
-- **观察者模式**：事件系统实现插件生命周期监控
-- **策略模式**：PluginSandbox 根据配置应用不同的安全策略
+- **观察者模式**：事件系统实现插件生命周期监控；MessageBus 实现发布-订阅模式
+- **策略模式**：PluginSandbox 和 ContainerSandbox 根据配置应用不同的安全策略
 
-### 11.3 技术参考
+### 12.3 技术参考
 
 - [Pydantic Documentation](https://docs.pydantic.dev/)
 - [asyncio Documentation](https://docs.python.org/3/library/asyncio.html)
 - [Python Import System](https://docs.python.org/3/reference/import.html)
+- [Watchdog Documentation](https://python-watchdog.readthedocs.io/)
+- [Docker SDK for Python](https://docker-py.readthedocs.io/)
+- [httpx Documentation](https://www.python-httpx.org/)
 - [Resource Limits (Linux)](https://man7.org/linux/man-pages/man2/setrlimit.2.html)
