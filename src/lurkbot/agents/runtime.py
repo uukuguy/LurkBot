@@ -191,11 +191,13 @@ async def run_embedded_agent(
     images: list[str] | None = None,
     message_history: list[dict[str, Any]] | None = None,
     enable_context_aware: bool = True,  # Enable context-aware by default
+    enable_proactive: bool = True,  # Enable proactive task identification by default
 ) -> AgentRunResult:
-    """Run an embedded agent session with optional context-aware support.
+    """Run an embedded agent session with context-aware and proactive capabilities.
 
     This is the main entry point for running an agent, equivalent to
-    MoltBot's runEmbeddedPiAgent function. Now with context-aware capabilities.
+    MoltBot's runEmbeddedPiAgent function. Now with context-aware and
+    proactive task identification capabilities.
 
     Args:
         context: The agent execution context
@@ -204,6 +206,7 @@ async def run_embedded_agent(
         images: Optional list of image URLs or base64 data
         message_history: Optional previous message history
         enable_context_aware: Enable context-aware retrieval (default: True)
+        enable_proactive: Enable proactive task identification (default: True)
 
     Returns:
         AgentRunResult containing the execution results
@@ -239,6 +242,52 @@ async def run_embedded_agent(
                 relevant_contexts = [rc.context.model_dump() for rc in retrieved]
             except Exception as e:
                 logger.warning(f"Context-aware loading failed, continuing without: {e}")
+
+        # Step 1.5: Proactive task identification (if enabled)
+        if enable_proactive:
+            try:
+                from .proactive import InputAnalyzer, TaskSuggester
+
+                # Analyze user input
+                analyzer = InputAnalyzer(model=f"{context.provider}:{context.model_id}")
+                analysis = await analyzer.analyze(
+                    prompt=prompt,
+                    context_history=message_history,
+                )
+
+                logger.debug(
+                    f"Input analysis: intent={analysis.intent.value}, "
+                    f"sentiment={analysis.sentiment.value}, "
+                    f"confidence={analysis.confidence:.2f}"
+                )
+
+                # Check if we should generate suggestions
+                if analyzer.should_trigger_proactive(analysis):
+                    suggester = TaskSuggester(model=f"{context.provider}:{context.model_id}")
+
+                    # Create context summary from relevant contexts
+                    context_summary = None
+                    if relevant_contexts:
+                        # Simple summary: take last 2 contexts
+                        recent = relevant_contexts[-2:]
+                        context_summary = "\n".join(
+                            [f"- {ctx.get('content', '')[:100]}" for ctx in recent]
+                        )
+
+                    suggestions = await suggester.suggest(
+                        user_prompt=prompt,
+                        analysis=analysis,
+                        context_summary=context_summary,
+                    )
+
+                    if suggestions:
+                        # Format and append suggestions to system prompt
+                        suggestions_text = suggester.format_suggestions_for_prompt(suggestions)
+                        system_prompt = f"{system_prompt}\n\n{suggestions_text}"
+                        logger.info(f"Generated {len(suggestions)} proactive task suggestions")
+
+            except Exception as e:
+                logger.warning(f"Proactive task identification failed, continuing without: {e}")
 
         # Step 2: Create the agent (now supports both native and OpenAI-compatible providers)
         agent = create_agent(
