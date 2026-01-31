@@ -192,6 +192,7 @@ async def run_embedded_agent(
     message_history: list[dict[str, Any]] | None = None,
     enable_context_aware: bool = True,  # Enable context-aware by default
     enable_proactive: bool = True,  # Enable proactive task identification by default
+    enable_plugins: bool = True,  # Enable plugin execution by default
 ) -> AgentRunResult:
     """Run an embedded agent session with context-aware and proactive capabilities.
 
@@ -207,6 +208,7 @@ async def run_embedded_agent(
         message_history: Optional previous message history
         enable_context_aware: Enable context-aware retrieval (default: True)
         enable_proactive: Enable proactive task identification (default: True)
+        enable_plugins: Enable plugin execution (default: True)
 
     Returns:
         AgentRunResult containing the execution results
@@ -215,6 +217,60 @@ async def run_embedded_agent(
 
     try:
         logger.info(f"Running agent with provider={context.provider} model={context.model_id}")
+
+        # Step 0.5: Execute plugins (if enabled)
+        plugin_results_text = ""
+        if enable_plugins:
+            try:
+                from lurkbot.plugins import get_plugin_manager
+                from lurkbot.plugins.models import PluginExecutionContext
+
+                plugin_manager = get_plugin_manager()
+
+                # Create plugin execution context
+                plugin_context = PluginExecutionContext(
+                    user_id=context.sender_id or context.session_id,
+                    channel_id=context.channel_id,
+                    session_id=context.session_id,
+                    input_data={"query": prompt},
+                    parameters={},
+                    environment={},
+                    config={},
+                    metadata={"provider": context.provider, "model": context.model_id},
+                )
+
+                # Execute all enabled plugins
+                plugin_results = await plugin_manager.execute_plugins(plugin_context)
+
+                # Format plugin results for injection into system prompt
+                if plugin_results:
+                    successful_results = [
+                        (name, result)
+                        for name, result in plugin_results.items()
+                        if result.success
+                    ]
+
+                    if successful_results:
+                        plugin_results_text = "\n\n## Plugin Results\n\n"
+                        plugin_results_text += (
+                            "The following plugins have been executed to assist with your query:\n\n"
+                        )
+
+                        for name, result in successful_results:
+                            plugin_results_text += f"### Plugin: {name}\n"
+                            plugin_results_text += f"- Execution time: {result.execution_time:.2f}s\n"
+                            plugin_results_text += f"- Result: {result.result}\n\n"
+
+                        logger.info(
+                            f"Executed {len(successful_results)} plugins successfully"
+                        )
+
+            except Exception as e:
+                logger.warning(f"Plugin execution failed (continuing without plugins): {e}")
+
+        # Inject plugin results into system prompt
+        if plugin_results_text:
+            system_prompt = system_prompt + plugin_results_text
 
         # Step 1: Load relevant contexts (if enabled)
         relevant_contexts = []
