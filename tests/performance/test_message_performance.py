@@ -4,7 +4,6 @@
 """
 
 import asyncio
-import json
 from typing import Any
 
 import pytest
@@ -12,6 +11,7 @@ from fastapi import WebSocket
 from unittest.mock import AsyncMock, MagicMock
 
 from lurkbot.gateway.server import GatewayConnection, GatewayServer
+from lurkbot.utils import json_utils as json
 
 
 class MockWebSocket:

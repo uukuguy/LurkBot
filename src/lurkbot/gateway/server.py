@@ -4,12 +4,13 @@ Gateway WebSocket 服务器
 对标 MoltBot src/gateway/server.ts
 """
 
-import json
 import uuid
 import asyncio
 from typing import Set
 from fastapi import WebSocket, WebSocketDisconnect
 from loguru import logger
+
+from lurkbot.utils import json_utils as json
 
 from lurkbot.gateway.protocol.frames import (
     ConnectParams,
