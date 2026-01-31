@@ -1,0 +1,27 @@
+{
+  "name": "skill-exporter",
+  "version": "1.0.0",
+  "description": "Export learned skills as plugins (Phase 3-C integration)",
+  "type": "tool",
+  "language": "python",
+  "author": {
+    "name": "LurkBot Team",
+    "email": "team@lurkbot.ai"
+  },
+  "entry": "exporter.py",
+  "main_class": "SkillExporterPlugin",
+  "dependencies": {
+    "python": [],
+    "system": [],
+    "env": []
+  },
+  "permissions": {
+    "filesystem": true,
+    "network": false,
+    "exec": false,
+    "channels": []
+  },
+  "tags": ["skill", "export", "integration"],
+  "keywords": ["skill", "export", "plugin", "learning"],
+  "enabled": true
+}

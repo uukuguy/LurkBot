@@ -1,0 +1,27 @@
+{
+  "name": "translator-plugin",
+  "version": "1.0.0",
+  "description": "Translate text between languages",
+  "type": "tool",
+  "language": "python",
+  "author": {
+    "name": "LurkBot Team",
+    "email": "team@lurkbot.ai"
+  },
+  "entry": "translator.py",
+  "main_class": "TranslatorPlugin",
+  "dependencies": {
+    "python": [],
+    "system": [],
+    "env": []
+  },
+  "permissions": {
+    "filesystem": false,
+    "network": true,
+    "exec": false,
+    "channels": []
+  },
+  "tags": ["translator", "tool", "nlp"],
+  "keywords": ["translate", "language", "i18n"],
+  "enabled": true
+}

@@ -1,0 +1,27 @@
+{
+  "name": "weather-plugin",
+  "version": "1.0.0",
+  "description": "Query weather information for cities",
+  "type": "tool",
+  "language": "python",
+  "author": {
+    "name": "LurkBot Team",
+    "email": "team@lurkbot.ai"
+  },
+  "entry": "weather.py",
+  "main_class": "WeatherPlugin",
+  "dependencies": {
+    "python": [],
+    "system": [],
+    "env": []
+  },
+  "permissions": {
+    "filesystem": false,
+    "network": true,
+    "exec": false,
+    "channels": []
+  },
+  "tags": ["weather", "tool", "api"],
+  "keywords": ["weather", "forecast", "temperature"],
+  "enabled": true
+}
