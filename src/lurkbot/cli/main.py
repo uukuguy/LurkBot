@@ -12,9 +12,11 @@ app = typer.Typer(
 )
 
 # 注册子命令
+from .models import app as models_app
 from .security import app as security_app
 from .skills import app as skills_app
 
+app.add_typer(models_app, name="models")
 app.add_typer(security_app, name="security")
 app.add_typer(skills_app, name="skills")
 

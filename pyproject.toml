@@ -52,6 +52,7 @@ dependencies = [
     "docker>=7.0.0",
     # YAML parsing (for skills)
     "pyyaml>=6.0.0",
+    "cryptography>=46.0.4",
 ]
 
 [project.optional-dependencies]
