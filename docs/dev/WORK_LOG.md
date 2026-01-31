@@ -1,5 +1,157 @@
 # LurkBot 开发工作日志
 
+## 2026-01-31 会话 (Phase 5-B 完成 + Bug 修复) - 100% 完成 ✅
+
+### 📊 会话概述
+- **会话时间**: 2026-01-31 17:15 - 17:25
+- **会话类型**: Bug 修复、测试验证
+- **主要工作**: 修复容器沙箱 PluginExecutionResult 字段不匹配问题
+- **完成度**: 100% (Phase 5-B 全部测试通过)
+
+### ✅ 完成的工作
+
+#### 1. 修复容器沙箱 Bug ✅
+
+**问题描述**:
+- `PluginExecutionResult` 模型字段不匹配
+- 容器沙箱代码使用了不存在的 `plugin_name` 字段
+- 缺少必需的 `execution_time` 字段
+- Runner 脚本输出的 JSON 格式与模型不匹配
+
+**修复内容**:
+
+1. **src/lurkbot/plugins/container_sandbox.py** (3 处修复)
+   - 移除错误的 `plugin_name` 参数
+   - 添加必需的 `execution_time` 字段
+   - 修复 `_wait_for_container` 方法的结果构造
+   - 更新 `_generate_runner_script` 输出格式
+
+2. **tests/test_container_sandbox.py** (1 处修复)
+   - 修正测试断言：`result.data` → `result.result`
+
+**修复细节**:
+
+```python
+# 修复前 (错误)
+return PluginExecutionResult(
+    plugin_name=plugin_name,  # ❌ 不存在的字段
+    success=False,
+    error="执行超时",
+    # ❌ 缺少 execution_time
+)
+
+# 修复后 (正确)
+return PluginExecutionResult(
+    success=False,
+    error="执行超时",
+    execution_time=timeout,  # ✅ 添加必需字段
+)
+```
+
+**Runner 脚本修复**:
+```python
+# 修复前 (旧格式)
+output = {
+    "plugin_name": "unknown",  # ❌ 不存在的字段
+    "success": True,
+    "data": result,  # ❌ 应该是 result
+}
+
+# 修复后 (新格式)
+output = {
+    "success": True,
+    "result": result,  # ✅ 正确字段名
+    "execution_time": execution_time,  # ✅ 添加执行时间
+}
+```
+
+**JSON 解析优化**:
+- 修改 `_wait_for_container` 方法，无论退出码如何都尝试解析 JSON
+- 确保错误情况下也能正确提取错误信息
+
+#### 2. 测试验证 ✅
+
+**测试结果**:
+```bash
+======================== 50 passed, 5 warnings in 5.11s ========================
+```
+
+**测试覆盖**:
+- Hot Reload: 13 tests ✅
+- Marketplace: 15 tests ✅
+- Container Sandbox: 8 tests ✅
+- Communication: 14 tests ✅
+
+**关键测试通过**:
+- `test_container_sandbox_execute_success` - 容器执行成功 ✅
+- `test_container_sandbox_execute_error` - 容器执行错误处理 ✅
+- `test_container_sandbox_timeout` - 超时处理 ✅
+- `test_container_sandbox_resource_limits` - 资源限制 ✅
+
+### 📝 技术要点
+
+#### PluginExecutionResult 模型结构
+
+```python
+class PluginExecutionResult(BaseModel):
+    success: bool = Field(..., description="是否成功")
+    result: Any = Field(None, description="执行结果")
+    error: str | None = Field(None, description="错误信息")
+    execution_time: float = Field(..., description="执行时间（秒）")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="结果元数据")
+```
+
+**注意事项**:
+- `execution_time` 是必需字段 (required)
+- 没有 `plugin_name` 字段
+- 结果数据存储在 `result` 字段，不是 `data`
+- 错误信息存储在 `error` 字段，不是 `output`
+
+#### 容器执行流程
+
+1. **准备阶段**:
+   - 创建临时目录
+   - 写入插件代码 (`plugin.py`)
+   - 写入上下文数据 (`context.json`)
+   - 写入执行脚本 (`runner.py`)
+
+2. **执行阶段**:
+   - 创建 Docker 容器
+   - 挂载工作目录
+   - 设置资源限制 (CPU、内存)
+   - 启动容器并等待完成
+
+3. **结果处理**:
+   - 获取容器日志
+   - 解析 JSON 输出
+   - 构造 `PluginExecutionResult`
+   - 清理容器
+
+### 🎯 Phase 5-B 完成状态
+
+**所有任务完成** (4/4):
+- ✅ Task 1: 插件热重载 (13 tests)
+- ✅ Task 2: 插件市场 (15 tests)
+- ✅ Task 3: 容器沙箱 (8 tests)
+- ✅ Task 4: 插件间通信 (14 tests)
+
+**总测试数**: 50 tests
+**通过率**: 100%
+
+### 📚 相关文件
+
+**修改的文件**:
+- `src/lurkbot/plugins/container_sandbox.py` - 容器沙箱实现
+- `tests/test_container_sandbox.py` - 容器沙箱测试
+
+**参考文档**:
+- `docs/design/PLUGIN_SYSTEM_DESIGN.md` - 插件系统设计
+- `docs/dev/NEXT_SESSION_GUIDE.md` - 下一阶段指南
+
+---
+
+# LurkBot 开发工作日志
+
 ## 2026-01-31 会话 (Phase 5-A 完成) - 100% 完成 ✅
 
 ### 📊 会话概述
