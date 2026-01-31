@@ -980,3 +980,633 @@ Permission is hereby granted...
 ---
 
 **祝你开发愉快！** 🚀
+
+## 11. 实际示例插件详解
+
+### 11.1 天气查询插件（weather-plugin）
+
+**完整实现**：
+
+```python
+# .plugins/weather-plugin/main.py
+"""天气查询插件 - 使用 wttr.in API"""
+
+import httpx
+from loguru import logger
+from lurkbot.plugins.models import PluginExecutionContext
+
+
+async def execute(context: PluginExecutionContext) -> dict:
+    """查询城市天气信息
+
+    Args:
+        context: 执行上下文，需要 input_data 包含 'city' 字段
+
+    Returns:
+        天气信息字典
+
+    Raises:
+        ValueError: 缺少必需参数
+        httpx.HTTPError: API 请求失败
+    """
+    # 1. 验证输入
+    city = context.input_data.get("city")
+    if not city:
+        raise ValueError("city parameter is required")
+
+    logger.info(f"Fetching weather for city: {city}")
+
+    # 2. 调用 wttr.in API（无需 API Key）
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"https://wttr.in/{city}",
+                params={"format": "j1"}  # JSON 格式
+            )
+            response.raise_for_status()
+            data = response.json()
+
+    except httpx.HTTPError as e:
+        logger.error(f"Failed to fetch weather: {e}")
+        raise RuntimeError(f"Weather API request failed: {e}")
+
+    # 3. 解析数据
+    current = data["current_condition"][0]
+    location = data["nearest_area"][0]
+
+    # 4. 返回结构化结果
+    return {
+        "city": city,
+        "location": {
+            "name": location["areaName"][0]["value"],
+            "country": location["country"][0]["value"],
+        },
+        "temperature": {
+            "celsius": int(current["temp_C"]),
+            "fahrenheit": int(current["temp_F"]),
+        },
+        "condition": current["weatherDesc"][0]["value"],
+        "humidity": int(current["humidity"]),
+        "wind_speed": f"{current['windspeedKmph']} km/h",
+        "feels_like": int(current["FeelsLikeC"]),
+    }
+```
+
+**plugin.json 配置**：
+
+```json
+{
+  "name": "weather-plugin",
+  "version": "1.0.0",
+  "author": {
+    "name": "LurkBot Team",
+    "email": "team@lurkbot.dev"
+  },
+  "description": "查询实时天气信息（使用 wttr.in API）",
+  "plugin_type": "tool",
+  "entry_point": "main.py",
+  "enabled": true,
+  "permissions": {
+    "filesystem": false,
+    "network": true,
+    "exec": false,
+    "channels": []
+  },
+  "dependencies": [
+    "httpx>=0.27.0"
+  ],
+  "tags": ["weather", "api", "utility"]
+}
+```
+
+**关键要点**：
+
+1. **无需 API Key**：使用免费的 wttr.in API
+2. **超时控制**：设置 10 秒超时避免长时间等待
+3. **错误处理**：捕获 HTTP 错误并转换为友好消息
+4. **结构化输出**：返回清晰的嵌套字典结构
+5. **日志记录**：使用 loguru 记录关键操作
+
+### 11.2 时间工具插件（time-utils-plugin）
+
+**完整实现**：
+
+```python
+# .plugins/time-utils-plugin/main.py
+"""时间工具插件 - 多时区支持"""
+
+from datetime import datetime
+from zoneinfo import ZoneInfo, available_timezones
+from loguru import logger
+from lurkbot.plugins.models import PluginExecutionContext
+
+
+async def execute(context: PluginExecutionContext) -> dict:
+    """获取指定时区的当前时间
+
+    Args:
+        context: 执行上下文，可选 input_data 包含 'timezone' 字段
+
+    Returns:
+        时间信息字典
+    """
+    # 1. 获取时区参数（默认 UTC）
+    timezone_name = context.input_data.get("timezone", "UTC")
+
+    # 2. 验证时区
+    if timezone_name not in available_timezones():
+        # 提供常用时区建议
+        common_timezones = [
+            "UTC", "America/New_York", "Europe/London",
+            "Asia/Shanghai", "Asia/Tokyo"
+        ]
+        raise ValueError(
+            f"Invalid timezone: {timezone_name}. "
+            f"Common timezones: {', '.join(common_timezones)}"
+        )
+
+    logger.info(f"Getting time for timezone: {timezone_name}")
+
+    # 3. 获取当前时间
+    tz = ZoneInfo(timezone_name)
+    now = datetime.now(tz)
+
+    # 4. 返回多种格式
+    return {
+        "timezone": timezone_name,
+        "datetime": now.isoformat(),
+        "formatted": {
+            "date": now.strftime("%Y-%m-%d"),
+            "time": now.strftime("%H:%M:%S"),
+            "full": now.strftime("%Y-%m-%d %H:%M:%S %Z"),
+        },
+        "components": {
+            "year": now.year,
+            "month": now.month,
+            "day": now.day,
+            "hour": now.hour,
+            "minute": now.minute,
+            "second": now.second,
+            "weekday": now.strftime("%A"),
+        },
+        "unix_timestamp": int(now.timestamp()),
+    }
+```
+
+**关键要点**：
+
+1. **无需外部依赖**：使用 Python 标准库 `zoneinfo`
+2. **时区验证**：检查时区有效性并提供建议
+3. **多种格式**：返回 ISO、格式化、组件等多种时间表示
+4. **默认值**：提供合理的默认时区（UTC）
+
+### 11.3 系统信息插件（system-info-plugin）
+
+**完整实现**：
+
+```python
+# .plugins/system-info-plugin/main.py
+"""系统信息插件 - CPU/内存/磁盘监控"""
+
+import psutil
+from loguru import logger
+from lurkbot.plugins.models import PluginExecutionContext
+
+
+async def execute(context: PluginExecutionContext) -> dict:
+    """获取系统资源使用情况
+
+    Returns:
+        系统信息字典
+    """
+    logger.info("Collecting system information")
+
+    # 1. CPU 信息
+    cpu_percent = psutil.cpu_percent(interval=1)
+    cpu_count = psutil.cpu_count()
+
+    # 2. 内存信息
+    memory = psutil.virtual_memory()
+
+    # 3. 磁盘信息
+    disk = psutil.disk_usage("/")
+
+    # 4. 网络信息（可选）
+    net_io = psutil.net_io_counters()
+
+    # 5. 返回结构化数据
+    return {
+        "cpu": {
+            "percent": round(cpu_percent, 2),
+            "count": cpu_count,
+            "status": "high" if cpu_percent > 80 else "normal",
+        },
+        "memory": {
+            "total_gb": round(memory.total / (1024**3), 2),
+            "used_gb": round(memory.used / (1024**3), 2),
+            "available_gb": round(memory.available / (1024**3), 2),
+            "percent": round(memory.percent, 2),
+            "status": "high" if memory.percent > 80 else "normal",
+        },
+        "disk": {
+            "total_gb": round(disk.total / (1024**3), 2),
+            "used_gb": round(disk.used / (1024**3), 2),
+            "free_gb": round(disk.free / (1024**3), 2),
+            "percent": round(disk.percent, 2),
+            "status": "high" if disk.percent > 80 else "normal",
+        },
+        "network": {
+            "bytes_sent_mb": round(net_io.bytes_sent / (1024**2), 2),
+            "bytes_recv_mb": round(net_io.bytes_recv / (1024**2), 2),
+        },
+    }
+```
+
+**plugin.json 配置**：
+
+```json
+{
+  "name": "system-info-plugin",
+  "version": "1.0.0",
+  "author": {
+    "name": "LurkBot Team"
+  },
+  "description": "监控系统 CPU、内存、磁盘使用情况",
+  "plugin_type": "tool",
+  "entry_point": "main.py",
+  "enabled": true,
+  "permissions": {
+    "filesystem": true,
+    "network": false,
+    "exec": false
+  },
+  "dependencies": [
+    "psutil>=5.9.0"
+  ],
+  "tags": ["system", "monitoring", "utility"]
+}
+```
+
+**关键要点**：
+
+1. **需要文件系统权限**：psutil 需要读取系统文件
+2. **单位转换**：将字节转换为 GB/MB 便于阅读
+3. **状态判断**：提供 "high"/"normal" 状态标识
+4. **精度控制**：使用 `round()` 保留 2 位小数
+
+## 12. 调试技巧
+
+### 12.1 启用详细日志
+
+**方法 1：在插件中启用**
+
+```python
+from loguru import logger
+import sys
+
+# 在插件入口添加
+logger.remove()
+logger.add(sys.stderr, level="DEBUG")
+
+async def execute(context: PluginExecutionContext) -> dict:
+    logger.debug(f"Context: {context}")
+    logger.debug(f"Input data: {context.input_data}")
+
+    # 业务逻辑
+    result = await some_operation()
+
+    logger.debug(f"Result: {result}")
+    return result
+```
+
+**方法 2：环境变量控制**
+
+```bash
+# 设置日志级别
+export LOGURU_LEVEL=DEBUG
+
+# 运行测试
+pytest tests/test_my_plugin.py -v
+```
+
+### 12.2 使用断点调试
+
+**使用 pdb**：
+
+```python
+async def execute(context: PluginExecutionContext) -> dict:
+    import pdb; pdb.set_trace()  # 设置断点
+
+    city = context.input_data.get("city")
+    # ... 继续执行
+```
+
+**使用 ipdb（推荐）**：
+
+```bash
+# 安装 ipdb
+pip install ipdb
+```
+
+```python
+async def execute(context: PluginExecutionContext) -> dict:
+    import ipdb; ipdb.set_trace()  # 更友好的调试器
+
+    # 调试命令：
+    # n - 下一行
+    # s - 进入函数
+    # c - 继续执行
+    # p variable - 打印变量
+    # l - 显示代码
+```
+
+### 12.3 手动测试脚本
+
+创建独立的测试脚本：
+
+```python
+# tests/manual/test_my_plugin_manual.py
+import asyncio
+from pathlib import Path
+from lurkbot.plugins.manager import PluginManager
+from lurkbot.plugins.models import PluginExecutionContext
+from lurkbot.plugins.schema_validator import load_plugin_manifest
+
+
+async def main():
+    """手动测试插件"""
+
+    # 1. 加载插件
+    plugin_dir = Path(".plugins/weather-plugin")
+    manifest = load_plugin_manifest(plugin_dir)
+
+    manager = PluginManager()
+    await manager.load_plugin(plugin_dir, manifest)
+
+    # 2. 创建测试上下文
+    context = PluginExecutionContext(
+        user_id="test-user",
+        channel_id="test-channel",
+        input_data={"city": "Beijing"}
+    )
+
+    # 3. 执行插件
+    print("执行插件...")
+    result = await manager.execute_plugin("weather-plugin", context)
+
+    # 4. 打印结果
+    print(f"\n成功: {result.success}")
+    print(f"耗时: {result.execution_time:.3f}秒")
+
+    if result.success:
+        print(f"\n结果:")
+        import json
+        print(json.dumps(result.result, indent=2, ensure_ascii=False))
+    else:
+        print(f"\n错误: {result.error}")
+
+    # 5. 查看事件
+    print(f"\n最近事件:")
+    events = manager.get_events("weather-plugin", limit=5)
+    for event in events:
+        print(f"  [{event.timestamp}] {event.event_type}: {event.message}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+**运行**：
+
+```bash
+python tests/manual/test_my_plugin_manual.py
+```
+
+### 12.4 性能分析
+
+**使用 cProfile**：
+
+```python
+import cProfile
+import pstats
+from io import StringIO
+
+async def execute(context: PluginExecutionContext) -> dict:
+    # 启用性能分析
+    profiler = cProfile.Profile()
+    profiler.enable()
+
+    # 业务逻辑
+    result = await some_operation()
+
+    # 停止分析
+    profiler.disable()
+
+    # 打印统计
+    s = StringIO()
+    ps = pstats.Stats(profiler, stream=s).sort_stats("cumulative")
+    ps.print_stats(10)  # 打印前 10 个最慢的函数
+    logger.debug(s.getvalue())
+
+    return result
+```
+
+**使用 time 模块**：
+
+```python
+import time
+
+async def execute(context: PluginExecutionContext) -> dict:
+    start = time.time()
+
+    # 步骤 1
+    step1_start = time.time()
+    await step1()
+    logger.debug(f"Step 1: {time.time() - step1_start:.3f}s")
+
+    # 步骤 2
+    step2_start = time.time()
+    await step2()
+    logger.debug(f"Step 2: {time.time() - step2_start:.3f}s")
+
+    total_time = time.time() - start
+    logger.debug(f"Total: {total_time:.3f}s")
+
+    return result
+```
+
+### 12.5 Mock 外部依赖
+
+**使用 pytest-mock**：
+
+```python
+# tests/test_weather_plugin.py
+import pytest
+from unittest.mock import AsyncMock
+
+@pytest.mark.asyncio
+async def test_weather_plugin_with_mock(mocker):
+    # Mock httpx.AsyncClient
+    mock_response = AsyncMock()
+    mock_response.json.return_value = {
+        "current_condition": [{
+            "temp_C": "25",
+            "weatherDesc": [{"value": "Sunny"}],
+            "humidity": "60"
+        }],
+        "nearest_area": [{
+            "areaName": [{"value": "Beijing"}],
+            "country": [{"value": "China"}]
+        }]
+    }
+
+    mock_client = AsyncMock()
+    mock_client.get.return_value = mock_response
+    mock_client.__aenter__.return_value = mock_client
+
+    mocker.patch("httpx.AsyncClient", return_value=mock_client)
+
+    # 测试插件
+    context = PluginExecutionContext(
+        input_data={"city": "Beijing"}
+    )
+    result = await manager.execute_plugin("weather-plugin", context)
+
+    assert result.success is True
+    assert result.result["temperature"]["celsius"] == 25
+```
+
+### 12.6 常见问题排查
+
+**问题 1：插件加载失败**
+
+```bash
+# 检查语法错误
+python -m py_compile .plugins/my-plugin/main.py
+
+# 检查 JSON 格式
+python -m json.tool .plugins/my-plugin/plugin.json
+
+# 检查导入
+python -c "from lurkbot.plugins.models import PluginExecutionContext"
+```
+
+**问题 2：依赖缺失**
+
+```bash
+# 查看插件依赖
+cat .plugins/my-plugin/plugin.json | grep dependencies
+
+# 安装依赖
+pip install httpx psutil
+
+# 验证安装
+python -c "import httpx; import psutil"
+```
+
+**问题 3：权限错误**
+
+```python
+# 在插件中添加权限检查日志
+async def execute(context: PluginExecutionContext) -> dict:
+    logger.debug(f"Channel ID: {context.channel_id}")
+    logger.debug(f"Allowed channels: {manifest.permissions.channels}")
+
+    # 检查权限
+    if context.channel_id not in manifest.permissions.channels:
+        raise PermissionError(f"No permission for channel: {context.channel_id}")
+```
+
+**问题 4：异步问题**
+
+```python
+# ❌ 错误：使用同步函数
+def execute(context):  # 缺少 async
+    result = requests.get(url)  # 同步调用
+    return result
+
+# ✅ 正确：使用异步函数
+async def execute(context):
+    async with httpx.AsyncClient() as client:
+        result = await client.get(url)
+    return result
+```
+
+## 13. 最佳实践总结
+
+### 13.1 代码质量
+
+**✅ 推荐**：
+
+- 使用类型注解
+- 添加文档字符串
+- 验证输入参数
+- 使用异步操作
+- 记录关键日志
+- 处理异常情况
+
+**❌ 避免**：
+
+- 硬编码配置
+- 忽略错误
+- 阻塞操作
+- 过度捕获异常
+- 缺少日志
+
+### 13.2 性能优化
+
+**✅ 推荐**：
+
+- 使用缓存
+- 并发请求
+- 设置超时
+- 限制数据量
+- 异步 I/O
+
+**❌ 避免**：
+
+- 同步阻塞
+- 无限循环
+- 内存泄漏
+- 重复计算
+- 过度日志
+
+### 13.3 安全性
+
+**✅ 推荐**：
+
+- 验证输入
+- 参数化查询
+- 最小权限
+- 敏感信息加密
+- 错误信息脱敏
+
+**❌ 避免**：
+
+- SQL 注入
+- 命令注入
+- 路径遍历
+- 硬编码密钥
+- 暴露敏感信息
+
+### 13.4 可维护性
+
+**✅ 推荐**：
+
+- 模块化设计
+- 单一职责
+- 清晰命名
+- 完整文档
+- 充分测试
+
+**❌ 避免**：
+
+- 过度复杂
+- 重复代码
+- 魔法数字
+- 缺少注释
+- 无测试
+
+---
+
+**祝你开发愉快！** 🚀
