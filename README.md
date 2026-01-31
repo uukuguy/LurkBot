@@ -46,6 +46,16 @@ Unlike cloud-only AI assistants, LurkBot runs on **your** devices. It connects t
 | **Bootstrap Files** | 8 Markdown files define agent personality and context |
 | **Sandbox Isolation** | Docker container protection for untrusted execution |
 
+### China Ecosystem Support (Phase 2 Complete) 🇨🇳
+
+| Feature | Description |
+|---------|-------------|
+| **Enterprise Messaging** | WeWork (企业微信), DingTalk (钉钉), Feishu (飞书) — Full integration with encryption support |
+| **Domestic LLMs** | DeepSeek, Qwen (通义千问), Kimi (月之暗面), ChatGLM (智谱) — 13 models via OpenAI-compatible API |
+| **Vector Database** | sqlite-vec — Lightweight vector search without external dependencies |
+
+> **42 integration tests passed** ✅ — See [China Ecosystem Guide](docs/design/CHINA_ECOSYSTEM_GUIDE.md) for configuration details.
+
 ### Architectural Highlights
 
 - **Gateway-Centric Design** — Single control plane routes all messages
