@@ -1,0 +1,68 @@
+# LurkBot 插件 CLI 命令参考
+
+本文档自动生成于 CLI 命令定义。
+
+---
+
+{% for command in commands %}
+## `{{ command.name }}`
+
+{% if command.help_text %}
+{{ command.help_text }}
+{% endif %}
+
+{% if command.params %}
+### 参数
+
+| 名称 | 类型 | 必需 | 默认值 | 说明 |
+|------|------|------|--------|------|
+{% for param in command.params %}
+| `{{ param.name }}` | `{{ param.type }}` | {{ '是' if param.required else '否' }} | `{{ param.default or 'N/A' }}` | {{ param.help or '-' }} |
+{% endfor %}
+{% endif %}
+
+{% if command.subcommands %}
+### 子命令
+
+{% for subcmd in command.subcommands %}
+#### `{{ command.name }} {{ subcmd.name }}`
+
+{% if subcmd.help_text %}
+{{ subcmd.help_text }}
+{% endif %}
+
+{% if subcmd.params %}
+**参数**:
+
+| 名称 | 类型 | 必需 | 默认值 | 说明 |
+|------|------|------|--------|------|
+{% for param in subcmd.params %}
+| `{{ param.name }}` | `{{ param.type }}` | {{ '是' if param.required else '否' }} | `{{ param.default or 'N/A' }}` | {{ param.help or '-' }} |
+{% endfor %}
+{% endif %}
+
+**使用示例**:
+
+```bash
+lurkbot {{ command.name }} {{ subcmd.name }} [OPTIONS]
+```
+
+---
+
+{% endfor %}
+{% endif %}
+
+**使用示例**:
+
+```bash
+lurkbot {{ command.name }} [OPTIONS]
+```
+
+---
+
+{% endfor %}
+
+## 生成信息
+
+- **生成时间**: {{ now() }}
+- **生成工具**: LurkBot 文档生成器

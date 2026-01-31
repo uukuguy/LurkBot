@@ -1,0 +1,13 @@
+# {{ title }}
+
+{% for section in sections %}
+## {{ section.title }}
+
+{{ section.content }}
+
+{% endfor %}
+
+---
+
+**生成时间**: {{ now() }}
+**生成工具**: LurkBot 文档生成器

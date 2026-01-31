@@ -866,5 +866,102 @@ def show_dependencies(
         console.print(graph)
 
 
+# ============================================================================
+# 文档生成命令
+# ============================================================================
+
+
+class DocTypeEnum(str, Enum):
+    """文档类型枚举"""
+
+    API = "api"
+    GUIDE = "guide"
+    CLI = "cli"
+    ALL = "all"
+
+
+class DocFormatEnum(str, Enum):
+    """文档格式枚举"""
+
+    MARKDOWN = "markdown"
+    HTML = "html"
+    JSON = "json"
+
+
+@app.command("docs")
+def generate_docs(
+    doc_type: Annotated[
+        DocTypeEnum,
+        typer.Argument(help="Type of documentation to generate"),
+    ] = DocTypeEnum.ALL,
+    output_dir: Annotated[
+        Optional[Path],
+        typer.Option("--output", "-o", help="Output directory for generated docs"),
+    ] = None,
+    format: Annotated[
+        DocFormatEnum,
+        typer.Option("--format", "-f", help="Output format"),
+    ] = DocFormatEnum.MARKDOWN,
+) -> None:
+    """Generate plugin system documentation.
+
+    Generate comprehensive documentation for the plugin system, including:
+    - API reference documentation
+    - Plugin development guide
+    - CLI command reference
+
+    Examples:
+        lurkbot plugin docs api
+        lurkbot plugin docs guide --format html
+        lurkbot plugin docs all --output ./docs
+    """
+    from lurkbot.plugins.doc_generator import CLIDocGenerator, DocFormat, DocGenerator, DocType
+
+    # 设置输出目录
+    if output_dir is None:
+        output_dir = Path.cwd() / "docs" / "generated"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # 转换格式枚举
+    doc_format = DocFormat(format.value)
+
+    console.print(f"\n[bold]Generating {doc_type.value} documentation...[/bold]\n")
+
+    try:
+        if doc_type == DocTypeEnum.API or doc_type == DocTypeEnum.ALL:
+            # 生成 API 文档
+            console.print("[cyan]→[/cyan] Generating API documentation...")
+            generator = DocGenerator()
+            source_dir = Path(__file__).parent.parent / "plugins"
+            output_file = output_dir / f"api_reference.{format.value}"
+
+            generator.generate_api_docs(source_dir, output_file, doc_format)
+            print_success(f"API docs generated: {output_file}")
+
+        if doc_type == DocTypeEnum.GUIDE or doc_type == DocTypeEnum.ALL:
+            # 生成开发指南
+            console.print("[cyan]→[/cyan] Generating development guide...")
+            generator = DocGenerator()
+            output_file = output_dir / f"development_guide.{format.value}"
+
+            generator.generate_guide_docs(output_file, doc_format)
+            print_success(f"Guide docs generated: {output_file}")
+
+        if doc_type == DocTypeEnum.CLI or doc_type == DocTypeEnum.ALL:
+            # 生成 CLI 文档
+            console.print("[cyan]→[/cyan] Generating CLI documentation...")
+            cli_generator = CLIDocGenerator()
+            output_file = output_dir / f"cli_reference.{format.value}"
+
+            cli_generator.generate_cli_docs(app, output_file, doc_format)
+            print_success(f"CLI docs generated: {output_file}")
+
+        console.print(f"\n[green]✓[/green] Documentation generated successfully in: {output_dir}\n")
+
+    except Exception as e:
+        print_error(f"Failed to generate documentation: {e}")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

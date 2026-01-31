@@ -1,0 +1,148 @@
+# LurkBot 插件系统 API 参考
+
+本文档自动生成于插件系统源代码。
+
+---
+
+{% for module in modules %}
+## 模块: `{{ module.name }}`
+
+**路径**: `{{ module.path }}`
+
+{% if module.docstring %}
+{{ module.docstring }}
+{% endif %}
+
+{% if module.classes %}
+### 类
+
+{% for class in module.classes %}
+#### `{{ class.name }}`
+
+{% if class.bases %}
+**继承**: {{ class.bases | join(', ') }}
+{% endif %}
+
+{% if class.docstring %}
+{{ class.docstring }}
+{% endif %}
+
+{% if class.attributes %}
+**属性**:
+
+| 名称 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+{% for attr in class.attributes %}
+| `{{ attr.name }}` | `{{ attr.type_hint | format_type }}` | `{{ attr.default or 'N/A' }}` | {{ attr.description or '-' }} |
+{% endfor %}
+{% endif %}
+
+{% if class.methods %}
+**方法**:
+
+{% for method in class.methods %}
+##### `{{ method.name }}`
+
+```python
+{{ method.signature }}
+```
+
+{% if method.docstring %}
+{{ method.docstring }}
+{% endif %}
+
+{% if method.parameters %}
+**参数**:
+
+| 名称 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+{% for param in method.parameters %}
+| `{{ param.name }}` | `{{ param.type_hint | format_type }}` | `{{ param.default or 'N/A' }}` | {{ param.description or '-' }} |
+{% endfor %}
+{% endif %}
+
+{% if method.return_type %}
+**返回**: `{{ method.return_type }}`{% if method.return_description %} - {{ method.return_description }}{% endif %}
+{% endif %}
+
+{% if method.examples %}
+**示例**:
+
+{% for example in method.examples %}
+```python
+{{ example }}
+```
+{% endfor %}
+{% endif %}
+
+---
+
+{% endfor %}
+{% endif %}
+
+{% if class.examples %}
+**类使用示例**:
+
+{% for example in class.examples %}
+```python
+{{ example }}
+```
+{% endfor %}
+{% endif %}
+
+---
+
+{% endfor %}
+{% endif %}
+
+{% if module.functions %}
+### 函数
+
+{% for func in module.functions %}
+#### `{{ func.name }}`
+
+```python
+{{ func.signature }}
+```
+
+{% if func.docstring %}
+{{ func.docstring }}
+{% endif %}
+
+{% if func.parameters %}
+**参数**:
+
+| 名称 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+{% for param in func.parameters %}
+| `{{ param.name }}` | `{{ param.type_hint | format_type }}` | `{{ param.default or 'N/A' }}` | {{ param.description or '-' }} |
+{% endfor %}
+{% endif %}
+
+{% if func.return_type %}
+**返回**: `{{ func.return_type }}`{% if func.return_description %} - {{ func.return_description }}{% endif %}
+{% endif %}
+
+{% if func.examples %}
+**示例**:
+
+{% for example in func.examples %}
+```python
+{{ example }}
+```
+{% endfor %}
+{% endif %}
+
+---
+
+{% endfor %}
+{% endif %}
+
+---
+
+{% endfor %}
+
+## 生成信息
+
+- **生成时间**: {{ now() }}
+- **生成工具**: LurkBot 文档生成器

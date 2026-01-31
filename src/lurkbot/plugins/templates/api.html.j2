@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LurkBot 插件系统 API 参考</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; border-bottom: 2px solid #95a5a6; padding-bottom: 8px; margin-top: 30px; }
+        h3 { color: #7f8c8d; margin-top: 25px; }
+        h4 { color: #2c3e50; margin-top: 20px; }
+        code {
+            background-color: #f8f8f8;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: "Courier New", monospace;
+            font-size: 0.9em;
+        }
+        pre {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        pre code {
+            background-color: transparent;
+            color: inherit;
+            padding: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .module {
+            margin-bottom: 40px;
+        }
+        .class {
+            margin-bottom: 30px;
+            padding: 15px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+        }
+        .method {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: white;
+            border-left: 4px solid #3498db;
+        }
+        .signature {
+            font-weight: bold;
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>LurkBot 插件系统 API 参考</h1>
+        <p>本文档自动生成于插件系统源代码。</p>
+
+        {% for module in modules %}
+        <div class="module">
+            <h2>模块: <code>{{ module.name }}</code></h2>
+            <p><strong>路径</strong>: <code>{{ module.path }}</code></p>
+
+            {% if module.docstring %}
+            <p>{{ module.docstring }}</p>
+            {% endif %}
+
+            {% if module.classes %}
+            <h3>类</h3>
+
+            {% for class in module.classes %}
+            <div class="class">
+                <h4><code>{{ class.name }}</code></h4>
+
+                {% if class.bases %}
+                <p><strong>继承</strong>: {{ class.bases | join(', ') }}</p>
+                {% endif %}
+
+                {% if class.docstring %}
+                <p>{{ class.docstring }}</p>
+                {% endif %}
+
+                {% if class.attributes %}
+                <h5>属性</h5>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>名称</th>
+                            <th>类型</th>
+                            <th>默认值</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for attr in class.attributes %}
+                        <tr>
+                            <td><code>{{ attr.name }}</code></td>
+                            <td><code>{{ attr.type_hint | format_type }}</code></td>
+                            <td><code>{{ attr.default or 'N/A' }}</code></td>
+                            <td>{{ attr.description or '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% endif %}
+
+                {% if class.methods %}
+                <h5>方法</h5>
+
+                {% for method in class.methods %}
+                <div class="method">
+                    <h6><code>{{ method.name }}</code></h6>
+                    <pre><code>{{ method.signature }}</code></pre>
+
+                    {% if method.docstring %}
+                    <p>{{ method.docstring }}</p>
+                    {% endif %}
+
+                    {% if method.parameters %}
+                    <p><strong>参数</strong>:</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>名称</th>
+                                <th>类型</th>
+                                <th>默认值</th>
+                                <th>说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for param in method.parameters %}
+                            <tr>
+                                <td><code>{{ param.name }}</code></td>
+                                <td><code>{{ param.type_hint | format_type }}</code></td>
+                                <td><code>{{ param.default or 'N/A' }}</code></td>
+                                <td>{{ param.description or '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% endif %}
+
+                    {% if method.return_type %}
+                    <p><strong>返回</strong>: <code>{{ method.return_type }}</code>{% if method.return_description %} - {{ method.return_description }}{% endif %}</p>
+                    {% endif %}
+
+                    {% if method.examples %}
+                    <p><strong>示例</strong>:</p>
+                    {% for example in method.examples %}
+                    <pre><code>{{ example }}</code></pre>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% if module.functions %}
+            <h3>函数</h3>
+
+            {% for func in module.functions %}
+            <div class="method">
+                <h4><code>{{ func.name }}</code></h4>
+                <pre><code>{{ func.signature }}</code></pre>
+
+                {% if func.docstring %}
+                <p>{{ func.docstring }}</p>
+                {% endif %}
+
+                {% if func.parameters %}
+                <p><strong>参数</strong>:</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>名称</th>
+                            <th>类型</th>
+                            <th>默认值</th>
+                            <th>说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for param in func.parameters %}
+                        <tr>
+                            <td><code>{{ param.name }}</code></td>
+                            <td><code>{{ param.type_hint | format_type }}</code></td>
+                            <td><code>{{ param.default or 'N/A' }}</code></td>
+                            <td>{{ param.description or '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% endif %}
+
+                {% if func.return_type %}
+                <p><strong>返回</strong>: <code>{{ func.return_type }}</code>{% if func.return_description %} - {{ func.return_description }}{% endif %}</p>
+                {% endif %}
+
+                {% if func.examples %}
+                <p><strong>示例</strong>:</p>
+                {% for example in func.examples %}
+                <pre><code>{{ example }}</code></pre>
+                {% endfor %}
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <hr>
+        <p><small>生成时间: {{ now() }} | 生成工具: LurkBot 文档生成器</small></p>
+    </div>
+</body>
+</html>
