@@ -4,6 +4,7 @@ This module provides the core agent execution functionality,
 implementing MoltBot's runEmbeddedPiAgent equivalent using PydanticAI.
 """
 
+import os
 from typing import Any, AsyncIterator
 
 from pydantic import BaseModel, ConfigDict
@@ -16,7 +17,10 @@ from pydantic_ai.messages import (
     PartStartEvent,
     TextPartDelta,
 )
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.openai import OpenAIProvider
 
+from lurkbot.config.models import get_client_config, get_model
 from lurkbot.logging import get_logger
 
 from .types import (
@@ -43,7 +47,7 @@ class AgentDependencies(BaseModel):
     message_history: list[dict[str, Any]] = []
 
 
-# Model ID mapping from provider:model format
+# Model ID mapping from provider:model format for native PydanticAI providers
 MODEL_MAPPING = {
     "anthropic": {
         "claude-sonnet-4-20250514": "anthropic:claude-sonnet-4-20250514",
@@ -62,6 +66,9 @@ MODEL_MAPPING = {
         "gemini-1.5-flash": "google-gla:gemini-1.5-flash",
     },
 }
+
+# Providers that use OpenAI-compatible API with custom endpoints
+OPENAI_COMPATIBLE_PROVIDERS = {"deepseek", "qwen", "kimi", "glm"}
 
 
 def resolve_model_id(provider: str, model_id: str) -> str:
@@ -90,7 +97,8 @@ def resolve_model_id(provider: str, model_id: str) -> str:
 
 
 def create_agent(
-    model: str,
+    provider: str,
+    model_id: str,
     system_prompt: str,
     deps_type: type = AgentDependencies,
 ) -> Agent[AgentDependencies, str | DeferredToolRequests]:
@@ -99,20 +107,78 @@ def create_agent(
     This is a factory function that creates an agent with the given
     configuration. Tools are registered separately after creation.
 
+    For OpenAI-compatible providers (DeepSeek, Qwen, Kimi, GLM), this function
+    creates an OpenAIChatModel with custom base_url. For native providers
+    (Anthropic, OpenAI, Google), it uses the standard model string format.
+
     Args:
-        model: PydanticAI model string (e.g., "anthropic:claude-sonnet-4-20250514")
+        provider: Provider name (e.g., "anthropic", "deepseek", "qwen")
+        model_id: Model identifier (e.g., "claude-sonnet-4-20250514", "deepseek-chat")
         system_prompt: The system prompt to use
         deps_type: The dependencies type for the agent
 
     Returns:
         Configured PydanticAI Agent instance
     """
-    agent: Agent[AgentDependencies, str | DeferredToolRequests] = Agent(
-        model,
-        deps_type=deps_type,
-        output_type=[str, DeferredToolRequests],
-        system_prompt=system_prompt,
-    )
+    provider_lower = provider.lower()
+
+    # Check if this is an OpenAI-compatible provider that needs custom endpoint
+    if provider_lower in OPENAI_COMPATIBLE_PROVIDERS:
+        # Get model configuration
+        model_config = get_model(provider_lower, model_id)
+        if not model_config:
+            logger.warning(
+                f"Unknown model {provider_lower}:{model_id}, attempting with defaults"
+            )
+            # Fallback: use get_client_config which may raise if truly unknown
+            config = get_client_config(provider_lower, model_id)
+        else:
+            config = {
+                "base_url": model_config.base_url,
+                "api_key_env": model_config.api_key_env,
+                "model": model_config.model_id,
+            }
+
+        # Get API key from environment
+        api_key = os.getenv(config["api_key_env"])
+        if not api_key:
+            raise ValueError(
+                f"Missing API key: please set {config['api_key_env']} environment variable"
+            )
+
+        # Create OpenAI-compatible model
+        openai_model = OpenAIChatModel(
+            config["model"],
+            provider=OpenAIProvider(
+                base_url=config["base_url"],
+                api_key=api_key,
+            ),
+        )
+
+        agent: Agent[AgentDependencies, str | DeferredToolRequests] = Agent(
+            openai_model,
+            deps_type=deps_type,
+            output_type=[str, DeferredToolRequests],
+            system_prompt=system_prompt,
+        )
+
+        logger.info(
+            f"Created agent with OpenAI-compatible provider: {provider_lower} "
+            f"at {config['base_url']}"
+        )
+
+    else:
+        # Use native PydanticAI provider format
+        model_string = resolve_model_id(provider_lower, model_id)
+
+        agent: Agent[AgentDependencies, str | DeferredToolRequests] = Agent(
+            model_string,
+            deps_type=deps_type,
+            output_type=[str, DeferredToolRequests],
+            system_prompt=system_prompt,
+        )
+
+        logger.info(f"Created agent with native provider: {model_string}")
 
     return agent
 
@@ -142,13 +208,12 @@ async def run_embedded_agent(
     result = AgentRunResult(session_id_used=context.session_id)
 
     try:
-        # Resolve the model ID
-        model_id = resolve_model_id(context.provider, context.model_id)
-        logger.info(f"Running agent with model: {model_id}")
+        logger.info(f"Running agent with provider={context.provider} model={context.model_id}")
 
-        # Create the agent
+        # Create the agent (now supports both native and OpenAI-compatible providers)
         agent = create_agent(
-            model=model_id,
+            provider=context.provider,
+            model_id=context.model_id,
             system_prompt=system_prompt,
         )
 
@@ -203,13 +268,14 @@ async def run_embedded_agent_stream(
     Yields:
         StreamEvent objects for real-time updates
     """
-    # Resolve the model ID
-    model_id = resolve_model_id(context.provider, context.model_id)
-    logger.info(f"Running streaming agent with model: {model_id}")
+    logger.info(
+        f"Running streaming agent with provider={context.provider} model={context.model_id}"
+    )
 
     # Create the agent
     agent = create_agent(
-        model=model_id,
+        provider=context.provider,
+        model_id=context.model_id,
         system_prompt=system_prompt,
     )
 
@@ -254,13 +320,14 @@ async def run_embedded_agent_events(
     Yields:
         StreamEvent objects for each agent event
     """
-    # Resolve the model ID
-    model_id = resolve_model_id(context.provider, context.model_id)
-    logger.info(f"Running event-streaming agent with model: {model_id}")
+    logger.info(
+        f"Running event-streaming agent with provider={context.provider} model={context.model_id}"
+    )
 
     # Create the agent
     agent = create_agent(
-        model=model_id,
+        provider=context.provider,
+        model_id=context.model_id,
         system_prompt=system_prompt,
     )
 
