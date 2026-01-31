@@ -57,6 +57,9 @@ class ChannelType(str, Enum):
     DISCORD = "discord"
     SLACK = "slack"
     TELEGRAM = "telegram"
+    WEWORK = "wework"
+    DINGTALK = "dingtalk"
+    FEISHU = "feishu"
     CLI = "cli"
     WEB = "web"
 
@@ -200,6 +203,28 @@ _channel_registry: dict[str, type[MessageChannel]] = {
 }
 
 
+# Register WeWork channel if available
+try:
+    from lurkbot.channels.wework import WeWorkChannel
+    _channel_registry["wework"] = WeWorkChannel
+except ImportError:
+    pass  # WeWork channel not available
+
+# Register DingTalk channel if available
+try:
+    from lurkbot.channels.dingtalk import DingTalkChannel
+    _channel_registry["dingtalk"] = DingTalkChannel
+except ImportError:
+    pass  # DingTalk channel not available
+
+# Register Feishu channel if available
+try:
+    from lurkbot.channels.feishu import FeishuChannel
+    _channel_registry["feishu"] = FeishuChannel
+except ImportError:
+    pass  # Feishu channel not available
+
+
 def register_channel(channel_type: str, channel_class: type[MessageChannel]) -> None:
     """Register a channel type."""
     _channel_registry[channel_type] = channel_class
@@ -231,7 +256,7 @@ class MessageParams(BaseModel):
     channel_type: str | None = Field(
         default=None,
         alias="channelType",
-        description="Channel type: discord, slack, telegram, cli"
+        description="Channel type: discord, slack, telegram, wework, dingtalk, feishu, cli"
     )
     content: str | None = Field(
         default=None,
