@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ============================================================================
@@ -66,8 +66,8 @@ class PluginConfig(BaseModel):
     # 自定义配置
     custom: dict[str, Any] = Field(default_factory=dict, description="自定义配置项")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "enabled": True,
                 "auto_load": True,
@@ -82,6 +82,7 @@ class PluginConfig(BaseModel):
                 "custom": {"api_key": "xxx", "endpoint": "https://api.example.com"},
             }
         }
+    )
 
 
 # ============================================================================
@@ -103,8 +104,8 @@ class PluginEvent(BaseModel):
     error: str | None = Field(None, description="错误信息")
     metadata: dict[str, Any] = Field(default_factory=dict, description="事件元数据")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "plugin_name": "weather-plugin",
                 "event_type": "execute",
@@ -115,6 +116,7 @@ class PluginEvent(BaseModel):
                 "metadata": {"execution_time": 0.5, "result": "sunny"},
             }
         }
+    )
 
 
 # ============================================================================
@@ -144,8 +146,8 @@ class PluginExecutionContext(BaseModel):
     # 元数据
     metadata: dict[str, Any] = Field(default_factory=dict, description="额外元数据")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "user_id": "user123",
                 "channel_id": "discord-general",
@@ -157,6 +159,7 @@ class PluginExecutionContext(BaseModel):
                 "metadata": {"request_id": "req789"},
             }
         }
+    )
 
 
 # ============================================================================
@@ -176,8 +179,8 @@ class PluginExecutionResult(BaseModel):
     execution_time: float = Field(..., description="执行时间（秒）")
     metadata: dict[str, Any] = Field(default_factory=dict, description="结果元数据")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "success": True,
                 "result": {"temperature": 25, "condition": "sunny"},
@@ -186,3 +189,4 @@ class PluginExecutionResult(BaseModel):
                 "metadata": {"cached": False, "api_calls": 1},
             }
         }
+    )

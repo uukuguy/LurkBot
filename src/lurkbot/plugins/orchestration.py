@@ -15,7 +15,7 @@ from enum import Enum
 from typing import Any, Callable
 
 from loguru import logger
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from lurkbot.plugins.models import PluginExecutionContext, PluginExecutionResult
 
@@ -45,8 +45,7 @@ class ExecutionCondition(BaseModel):
         None, description="自定义条件检查函数"
     )
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class PluginNode(BaseModel):
@@ -59,8 +58,7 @@ class PluginNode(BaseModel):
     )
     priority: int = Field(100, description="优先级（数字越小优先级越高）")
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 @dataclass

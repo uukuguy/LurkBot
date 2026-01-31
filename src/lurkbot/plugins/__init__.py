@@ -6,8 +6,30 @@
 - 插件生命周期管理
 - 插件沙箱执行
 - 插件注册表和索引
+- 统一异常处理
 """
 
+from .exceptions import (
+    PluginAlreadyRegisteredError,
+    PluginConfigError,
+    PluginCyclicDependencyError,
+    PluginDependencyError,
+    PluginError,
+    PluginExecutionError,
+    PluginLoadError,
+    PluginManifestError,
+    PluginNotFoundError,
+    PluginOrchestrationError,
+    PluginPermissionError,
+    PluginRegistryError,
+    PluginResourceError,
+    PluginSandboxError,
+    PluginSandboxViolationError,
+    PluginTimeoutError,
+    PluginVersionConflictError,
+    PluginVersionError,
+    PluginVersionNotFoundError,
+)
 from .loader import PluginInstance, PluginLoader, PluginState, get_plugin_loader
 from .manager import PluginManager, get_plugin_manager
 from .manifest import (
@@ -39,6 +61,26 @@ from .schema_validator import (
 )
 
 __all__ = [
+    # Exceptions
+    "PluginError",
+    "PluginLoadError",
+    "PluginManifestError",
+    "PluginDependencyError",
+    "PluginExecutionError",
+    "PluginTimeoutError",
+    "PluginResourceError",
+    "PluginPermissionError",
+    "PluginVersionError",
+    "PluginVersionNotFoundError",
+    "PluginVersionConflictError",
+    "PluginRegistryError",
+    "PluginAlreadyRegisteredError",
+    "PluginNotFoundError",
+    "PluginConfigError",
+    "PluginSandboxError",
+    "PluginSandboxViolationError",
+    "PluginOrchestrationError",
+    "PluginCyclicDependencyError",
     # Manifest
     "PluginManifest",
     "PluginType",

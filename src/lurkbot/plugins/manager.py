@@ -77,6 +77,11 @@ class PluginManager:
         self._events: list[PluginEvent] = []
         self._event_handlers: list[callable] = []
 
+        # Phase 7 Task 4: 性能优化 - 添加缓存机制
+        self._plugin_cache: dict[str, PluginInstance] = {}  # 插件实例缓存
+        self._manifest_cache: dict[str, PluginManifest] = {}  # Manifest 缓存
+        self._cache_enabled: bool = True  # 缓存开关
+
         # Phase 7: 集成新功能模块
         self._enable_orchestration = enable_orchestration
         self._enable_permissions = enable_permissions
@@ -138,6 +143,13 @@ class PluginManager:
         """
         name = manifest.name
         version = manifest.version
+        cache_key = f"{name}:{version}"
+
+        # Phase 7 Task 4: 检查缓存
+        if self._cache_enabled and cache_key in self._plugin_cache:
+            logger.debug(f"从缓存加载插件: {name} v{version}")
+            return self._plugin_cache[cache_key]
+
         logger.info(f"加载插件: {name} v{version}")
 
         try:
@@ -147,8 +159,10 @@ class PluginManager:
                 existing_version = self.version_manager.get_version_info(name, version)
                 if existing_version:
                     logger.warning(f"插件 {name} v{version} 已存在，跳过加载")
-                    # 返回已存在的插件实例
-                    return existing_version.plugin
+                    # 从 loader 获取已加载的插件实例
+                    existing_plugin = self.loader.get(name)
+                    if existing_plugin:
+                        return existing_plugin
 
             # 使用 loader 加载插件
             plugin = self.loader.load(plugin_dir, manifest)
@@ -158,7 +172,12 @@ class PluginManager:
 
             # Phase 7: 版本管理集成 - 注册版本
             if self._enable_versioning and self.version_manager:
-                self.version_manager.register_version(name, version, plugin)
+                # 将插件信息存储在 metadata 中
+                version_metadata = {
+                    "plugin_dir": str(plugin_dir),
+                    "manifest": manifest.model_dump(),
+                }
+                self.version_manager.register_version(name, version, version_metadata)
                 logger.debug(f"注册插件版本: {name} v{version}")
 
             # 创建配置和沙箱
@@ -207,6 +226,12 @@ class PluginManager:
             if config.enabled and config.auto_load:
                 await self.enable_plugin(name)
 
+            # Phase 7 Task 4: 添加到缓存
+            if self._cache_enabled:
+                self._plugin_cache[cache_key] = plugin
+                self._manifest_cache[cache_key] = manifest
+                logger.debug(f"插件已缓存: {cache_key}")
+
             return plugin
 
         except Exception as e:
@@ -249,6 +274,16 @@ class PluginManager:
                 # 清理配置和沙箱
                 self._configs.pop(name, None)
                 self._sandboxes.pop(name, None)
+
+                # Phase 7 Task 4: 清理缓存
+                if self._cache_enabled:
+                    # 清理所有该插件的版本缓存
+                    keys_to_remove = [k for k in self._plugin_cache.keys() if k.startswith(f"{name}:")]
+                    for key in keys_to_remove:
+                        self._plugin_cache.pop(key, None)
+                        self._manifest_cache.pop(key, None)
+                    if keys_to_remove:
+                        logger.debug(f"清理插件缓存: {keys_to_remove}")
 
                 # 发布卸载事件
                 await self._emit_event(
@@ -845,10 +880,8 @@ class PluginManager:
             success = self.version_manager.set_active_version(plugin_name, target_version)
             if success:
                 logger.info(f"插件 {plugin_name} 切换到版本 {target_version}")
-                # 更新注册表中的插件实例
-                version_info = self.version_manager.get_version_info(plugin_name, target_version)
-                if version_info:
-                    self.registry.register(version_info.plugin)
+                # 注意：版本切换不会自动重新加载插件
+                # 需要手动卸载并重新加载插件以应用新版本
             return success
         except Exception as e:
             logger.error(f"切换插件版本失败: {e}")
@@ -874,10 +907,8 @@ class PluginManager:
                 current_version = self.version_manager.get_active_version(plugin_name)
                 if current_version:
                     logger.info(f"插件 {plugin_name} 回滚到版本 {current_version}")
-                    # 更新注册表中的插件实例
-                    version_info = self.version_manager.get_version_info(plugin_name, current_version)
-                    if version_info:
-                        self.registry.register(version_info.plugin)
+                    # 注意：版本回滚不会自动重新加载插件
+                    # 需要手动卸载并重新加载插件以应用回滚版本
                 return True
             return False
         except Exception as e:
@@ -992,6 +1023,70 @@ class PluginManager:
         # 注意：orchestrator.create_execution_plan() 不接受参数
         # 它会为所有已注册的插件创建执行计划
         return self.orchestrator.create_execution_plan()
+
+    # ========================================================================
+    # Phase 7 Task 4: 缓存管理方法
+    # ========================================================================
+
+    def clear_cache(self, plugin_name: str | None = None) -> int:
+        """清理插件缓存
+
+        Args:
+            plugin_name: 插件名称（None 表示清理所有缓存）
+
+        Returns:
+            清理的缓存项数量
+        """
+        if not self._cache_enabled:
+            return 0
+
+        if plugin_name is None:
+            # 清理所有缓存
+            count = len(self._plugin_cache)
+            self._plugin_cache.clear()
+            self._manifest_cache.clear()
+            logger.info(f"已清理所有插件缓存: {count} 项")
+            return count
+        else:
+            # 清理指定插件的缓存
+            keys_to_remove = [k for k in self._plugin_cache.keys() if k.startswith(f"{plugin_name}:")]
+            for key in keys_to_remove:
+                self._plugin_cache.pop(key, None)
+                self._manifest_cache.pop(key, None)
+            logger.info(f"已清理插件 {plugin_name} 的缓存: {len(keys_to_remove)} 项")
+            return len(keys_to_remove)
+
+    def get_cache_stats(self) -> dict[str, Any]:
+        """获取缓存统计信息
+
+        Returns:
+            缓存统计信息字典
+        """
+        if not self._cache_enabled:
+            return {
+                "enabled": False,
+                "plugin_count": 0,
+                "manifest_count": 0,
+                "total_size": 0,
+            }
+
+        return {
+            "enabled": True,
+            "plugin_count": len(self._plugin_cache),
+            "manifest_count": len(self._manifest_cache),
+            "plugins": list(self._plugin_cache.keys()),
+        }
+
+    def enable_cache(self, enabled: bool = True) -> None:
+        """启用或禁用缓存
+
+        Args:
+            enabled: 是否启用缓存
+        """
+        self._cache_enabled = enabled
+        if not enabled:
+            self.clear_cache()
+        logger.info(f"插件缓存已{'启用' if enabled else '禁用'}")
 
 
 # ============================================================================

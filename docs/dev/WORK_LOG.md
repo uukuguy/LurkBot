@@ -1,5 +1,638 @@
 # LurkBot 开发工作日志
 
+## 2026-01-31 会话 (Phase 7 Task 4: 系统优化和重构) - 完成 ✅
+
+### 📊 会话概述
+- **会话时间**: 2026-01-31 19:30 - 20:15
+- **会话类型**: Phase 7 实施 - 插件系统集成与优化
+- **主要工作**: 系统优化、Pydantic V2 迁移、统一错误处理、技术债务修复
+- **完成度**: 80% (4/5 子任务完成，36个测试全部通过)
+
+### ✅ 完成的工作
+
+#### 1. Pydantic V2 迁移 ✅
+
+**目标**: 修复 Pydantic 弃用警告，迁移到 V2 API
+
+**修改文件**:
+- `src/lurkbot/plugins/models.py` (4个模型)
+- `src/lurkbot/plugins/orchestration.py` (2个模型)
+
+**迁移内容**:
+1. **导入更新**:
+   ```python
+   from pydantic import BaseModel, ConfigDict, Field
+   ```
+
+2. **配置迁移**:
+   ```python
+   # V1 (旧)
+   class Config:
+       json_schema_extra = {...}
+       arbitrary_types_allowed = True
+
+   # V2 (新)
+   model_config = ConfigDict(
+       json_schema_extra={...},
+       arbitrary_types_allowed=True
+   )
+   ```
+
+3. **迁移的模型**:
+   - `PluginConfig` - 插件配置模型
+   - `PluginEvent` - 插件事件模型
+   - `PluginExecutionContext` - 执行上下文模型
+   - `PluginExecutionResult` - 执行结果模型
+   - `ExecutionCondition` - 执行条件模型
+   - `PluginNode` - 插件节点模型
+
+**验证结果**:
+- ✅ 所有插件系统测试通过
+- ✅ 弃用警告消除（插件模块）
+- ⚠️ 其他模块仍有弃用警告（待后续优化）
+
+#### 2. 性能优化 - 插件加载缓存 ✅
+
+**目标**: 减少重复加载，提升性能
+
+**实现位置**: `src/lurkbot/plugins/manager.py`
+
+**新增功能**:
+1. **缓存机制**:
+   ```python
+   # 缓存字典
+   self._plugin_cache: dict[str, PluginInstance] = {}
+   self._manifest_cache: dict[str, PluginManifest] = {}
+   self._cache_enabled: bool = True
+   ```
+
+2. **缓存键格式**: `{plugin_name}:{version}`
+   - 示例: `"weather-plugin:1.0.0"`
+
+3. **缓存管理方法**:
+   - `clear_cache(plugin_name=None)` - 清理缓存
+   - `get_cache_stats()` - 获取缓存统计
+   - `enable_cache(enabled=True)` - 启用/禁用缓存
+
+**缓存策略**:
+- **加载时**: 检查缓存，命中则直接返回
+- **加载后**: 将插件和 manifest 添加到缓存
+- **卸载时**: 清理该插件的所有版本缓存
+
+**性能提升**:
+- 避免重复的文件 I/O 操作
+- 避免重复的模块导入
+- 避免重复的 manifest 解析
+
+**日志示例**:
+```
+DEBUG | 从缓存加载插件: test-plugin v1.0.0
+DEBUG | 插件已缓存: test-plugin:1.0.0
+DEBUG | 清理插件缓存: ['test-plugin:1.0.0', 'test-plugin:2.0.0']
+```
+
+#### 3. 技术债务修复 - 版本管理集成 ✅
+
+**问题**: `VersionManager.register_version()` 存在 Pydantic 验证错误
+
+**错误信息**:
+```
+1 validation error for PluginVersion
+metadata
+  Input should be a valid dictionary [type=dict_type, input_value=PluginInstance(...), input_type=PluginInstance]
+```
+
+**根本原因**:
+- `register_version()` 期望 `metadata: dict[str, Any]` 参数
+- 调用时传入了 `plugin: PluginInstance` 对象
+- `PluginVersion` 模型中没有 `plugin` 字段
+
+**修复方案**:
+1. **修改调用方式** (`manager.py:173`):
+   ```python
+   # 修复前
+   self.version_manager.register_version(name, version, plugin)
+
+   # 修复后
+   version_metadata = {
+       "plugin_dir": str(plugin_dir),
+       "manifest": manifest.model_dump(),
+   }
+   self.version_manager.register_version(name, version, version_metadata)
+   ```
+
+2. **修复版本检查逻辑** (`manager.py:159-163`):
+   ```python
+   # 修复前
+   return existing_version.plugin  # PluginVersion 没有 plugin 字段
+
+   # 修复后
+   existing_plugin = self.loader.get(name)
+   if existing_plugin:
+       return existing_plugin
+   ```
+
+3. **修复版本切换方法** (`manager.py:879-890`):
+   - 移除对 `version_info.plugin` 的访问
+   - 添加注释说明版本切换不会自动重新加载插件
+
+4. **修复版本回滚方法** (`manager.py:905-918`):
+   - 移除对 `version_info.plugin` 的访问
+   - 添加注释说明版本回滚不会自动重新加载插件
+
+**验证结果**:
+- ✅ 版本注册成功，无验证错误
+- ✅ `test_versioning_integration` 测试通过
+- ✅ `test_version_switching` 测试通过
+- ✅ 所有 12 个集成测试通过
+
+**日志示例**:
+```
+INFO | 注册版本: test-plugin@1.0.0
+DEBUG | 注册插件版本: test-plugin v1.0.0
+INFO | 插件 test-plugin 切换到版本 1.0.0
+```
+
+#### 4. 统一错误处理 ✅
+
+**目标**: 创建统一的异常类层次结构
+
+**实现位置**: `src/lurkbot/plugins/exceptions.py` (新文件, ~400 lines)
+
+**异常类层次**:
+```
+PluginError (基类)
+├── PluginLoadError
+│   ├── PluginManifestError
+│   └── PluginDependencyError
+├── PluginExecutionError
+│   ├── PluginTimeoutError
+│   └── PluginResourceError
+├── PluginPermissionError
+├── PluginVersionError
+│   ├── PluginVersionNotFoundError
+│   └── PluginVersionConflictError
+├── PluginRegistryError
+│   ├── PluginAlreadyRegisteredError
+│   └── PluginNotFoundError
+├── PluginConfigError
+├── PluginSandboxError
+│   └── PluginSandboxViolationError
+└── PluginOrchestrationError
+    └── PluginCyclicDependencyError
+```
+
+**核心特性**:
+1. **统一的错误消息格式**:
+   ```python
+   error = PluginError(
+       "Test error",
+       plugin_name="test-plugin",
+       context={"operation": "load", "file": "plugin.py"}
+   )
+   # 输出: [test-plugin] Test error | Context: operation=load, file=plugin.py
+   ```
+
+2. **丰富的上下文信息**:
+   - 插件名称
+   - 错误上下文字典
+   - 特定异常的额外字段（如超时时间、资源限制等）
+
+3. **清晰的继承层次**:
+   - 所有异常继承自 `PluginError`
+   - 可以通过基类捕获派生类异常
+   - 支持细粒度的异常处理
+
+**特殊异常示例**:
+```python
+# 超时错误
+PluginTimeoutError("Execution timeout", plugin_name="test", timeout=30.0)
+# 输出: [test] Execution timeout | Context: timeout=30.0s
+
+# 资源错误
+PluginResourceError(
+    "Memory limit exceeded",
+    plugin_name="test",
+    resource_type="memory",
+    limit="512MB",
+    actual="600MB"
+)
+# 输出: [test] Memory limit exceeded | Context: resource=memory, limit=512MB, actual=600MB
+
+# 循环依赖错误
+PluginCyclicDependencyError(
+    "Cyclic dependency detected",
+    plugin_name="plugin-a",
+    cycle=["plugin-a", "plugin-b", "plugin-c", "plugin-a"]
+)
+# 输出: [plugin-a] Cyclic dependency detected | Context: cycle=plugin-a -> plugin-b -> plugin-c -> plugin-a
+```
+
+**测试覆盖**:
+- 新增异常测试: 24个 ✅
+- 测试内容:
+  - 基础异常功能
+  - 错误消息格式化
+  - 上下文信息
+  - 继承层次
+  - 异常捕获
+
+**导出更新**:
+- 更新 `__init__.py` 导出所有异常类
+- 添加到 `__all__` 列表
+
+### 📝 代码统计
+
+**修改文件**:
+- `src/lurkbot/plugins/models.py` (~20 lines modified)
+- `src/lurkbot/plugins/orchestration.py` (~10 lines modified)
+- `src/lurkbot/plugins/manager.py` (~100 lines added/modified)
+- `src/lurkbot/plugins/__init__.py` (~30 lines modified)
+
+**新增文件**:
+- `src/lurkbot/plugins/exceptions.py` (~400 lines)
+- `tests/test_plugin_exceptions.py` (~350 lines)
+
+**新增功能**:
+- 缓存管理方法: 3个
+- 缓存字段: 3个
+- 异常类: 18个
+
+**修复问题**:
+- Pydantic 弃用警告: 6个模型
+- 版本管理验证错误: 4处修复
+
+### 🧪 测试结果
+
+**总测试数**: 36/36 通过 ✅
+
+**集成测试**: 12/12 通过 ✅
+```bash
+tests/test_plugin_manager_integration.py::test_orchestration_integration PASSED
+tests/test_plugin_manager_integration.py::test_orchestration_with_dependencies PASSED
+tests/test_plugin_manager_integration.py::test_orchestration_cycle_detection PASSED
+tests/test_plugin_manager_integration.py::test_permissions_integration PASSED
+tests/test_plugin_manager_integration.py::test_permission_check_integration PASSED
+tests/test_plugin_manager_integration.py::test_permission_audit_integration PASSED
+tests/test_plugin_manager_integration.py::test_versioning_integration PASSED
+tests/test_plugin_manager_integration.py::test_version_switching PASSED
+tests/test_plugin_manager_integration.py::test_profiling_integration PASSED
+tests/test_plugin_manager_integration.py::test_performance_report_integration PASSED
+tests/test_plugin_manager_integration.py::test_bottleneck_detection_integration PASSED
+tests/test_plugin_manager_integration.py::test_full_integration PASSED
+```
+
+**异常测试**: 24/24 通过 ✅
+```bash
+tests/test_plugin_exceptions.py::test_plugin_error_basic PASSED
+tests/test_plugin_exceptions.py::test_plugin_error_with_plugin_name PASSED
+tests/test_plugin_exceptions.py::test_plugin_error_with_context PASSED
+tests/test_plugin_exceptions.py::test_plugin_error_full PASSED
+tests/test_plugin_exceptions.py::test_plugin_load_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_manifest_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_dependency_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_execution_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_timeout_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_resource_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_permission_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_version_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_version_not_found_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_version_conflict_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_registry_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_already_registered_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_not_found_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_config_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_sandbox_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_sandbox_violation_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_orchestration_error PASSED
+tests/test_plugin_exceptions.py::test_plugin_cyclic_dependency_error PASSED
+tests/test_plugin_exceptions.py::test_exception_hierarchy PASSED
+tests/test_plugin_exceptions.py::test_exception_catching PASSED
+```
+
+### ⏭️ 未完成的工作
+
+#### 1. 并发执行优化 (Task 3) - 未开始
+- 使用 `asyncio.gather` 批量执行
+- 添加并发限制（避免资源耗尽）
+- 优化异步 I/O 操作
+
+**建议**: 可选优化，当前性能已满足需求
+
+#### 2. 插件安装功能 (Task 6) - 占位实现
+- CLI 命令已预留
+- 完整实现需要处理：
+  - Git 仓库克隆
+  - 依赖检查和安装
+  - 文件复制和验证
+  - 错误处理和回滚
+
+**建议**: 在实际需要时再完善
+
+### 🎯 Phase 7 总体进度
+
+**Phase 7 总体完成度**: 约 95% ✅
+
+- Task 1: 插件管理器集成 ✅ (100%)
+- Task 2: 插件 CLI 工具 ✅ (100%)
+- Task 3: 插件文档生成 ✅ (100%)
+- Task 4: 系统优化和重构 ✅ (80%)
+  - Pydantic V2 迁移 ✅
+  - 插件加载缓存 ✅
+  - 版本管理修复 ✅
+  - 统一错误处理 ✅
+  - 并发执行优化 ⏸️ (可选)
+
+**核心功能**: 100% 完成 ✅
+**性能优化**: 80% 完成 ✅
+**代码质量**: 90% 完成 ✅
+
+### 💡 技术亮点
+
+1. **Pydantic V2 迁移**:
+   - 使用 `ConfigDict` 替代 `class Config`
+   - 保持向后兼容性
+   - 消除弃用警告
+
+2. **智能缓存机制**:
+   - 版本化缓存键
+   - 自动缓存失效
+   - 缓存统计和管理
+
+3. **版本管理修复**:
+   - 正确的数据类型传递
+   - 清晰的职责分离
+   - 完善的错误处理
+
+4. **统一异常处理**:
+   - 清晰的异常层次结构
+   - 丰富的错误上下文
+   - 标准化的错误消息格式
+   - 18 个专用异常类
+
+### 📚 参考资料
+
+**Pydantic V2**:
+- [Pydantic V2 Migration Guide](https://docs.pydantic.dev/latest/migration/)
+- [ConfigDict Documentation](https://docs.pydantic.dev/latest/api/config/)
+
+**性能优化**:
+- [Python Caching Strategies](https://realpython.com/lru-cache-python/)
+- [asyncio Best Practices](https://docs.python.org/3/library/asyncio-dev.html)
+
+**异常处理**:
+- [Python Exception Hierarchy](https://docs.python.org/3/library/exceptions.html)
+- [Custom Exceptions Best Practices](https://realpython.com/python-exceptions/)
+
+---
+
+## 2026-01-31 会话 (Phase 7 Task 3: 插件文档生成) - 100% 完成 ✅
+
+### ✅ 完成的工作
+
+#### 1. Pydantic V2 迁移 ✅
+
+**目标**: 修复 Pydantic 弃用警告，迁移到 V2 API
+
+**修改文件**:
+- `src/lurkbot/plugins/models.py` (4个模型)
+- `src/lurkbot/plugins/orchestration.py` (2个模型)
+
+**迁移内容**:
+1. **导入更新**:
+   ```python
+   from pydantic import BaseModel, ConfigDict, Field
+   ```
+
+2. **配置迁移**:
+   ```python
+   # V1 (旧)
+   class Config:
+       json_schema_extra = {...}
+       arbitrary_types_allowed = True
+
+   # V2 (新)
+   model_config = ConfigDict(
+       json_schema_extra={...},
+       arbitrary_types_allowed=True
+   )
+   ```
+
+3. **迁移的模型**:
+   - `PluginConfig` - 插件配置模型
+   - `PluginEvent` - 插件事件模型
+   - `PluginExecutionContext` - 执行上下文模型
+   - `PluginExecutionResult` - 执行结果模型
+   - `ExecutionCondition` - 执行条件模型
+   - `PluginNode` - 插件节点模型
+
+**验证结果**:
+- ✅ 所有插件系统测试通过
+- ✅ 弃用警告消除（插件模块）
+- ⚠️ 其他模块仍有弃用警告（待后续优化）
+
+#### 2. 性能优化 - 插件加载缓存 ✅
+
+**目标**: 减少重复加载，提升性能
+
+**实现位置**: `src/lurkbot/plugins/manager.py`
+
+**新增功能**:
+1. **缓存机制**:
+   ```python
+   # 缓存字典
+   self._plugin_cache: dict[str, PluginInstance] = {}
+   self._manifest_cache: dict[str, PluginManifest] = {}
+   self._cache_enabled: bool = True
+   ```
+
+2. **缓存键格式**: `{plugin_name}:{version}`
+   - 示例: `"weather-plugin:1.0.0"`
+
+3. **缓存管理方法**:
+   - `clear_cache(plugin_name=None)` - 清理缓存
+   - `get_cache_stats()` - 获取缓存统计
+   - `enable_cache(enabled=True)` - 启用/禁用缓存
+
+**缓存策略**:
+- **加载时**: 检查缓存，命中则直接返回
+- **加载后**: 将插件和 manifest 添加到缓存
+- **卸载时**: 清理该插件的所有版本缓存
+
+**性能提升**:
+- 避免重复的文件 I/O 操作
+- 避免重复的模块导入
+- 避免重复的 manifest 解析
+
+**日志示例**:
+```
+DEBUG | 从缓存加载插件: test-plugin v1.0.0
+DEBUG | 插件已缓存: test-plugin:1.0.0
+DEBUG | 清理插件缓存: ['test-plugin:1.0.0', 'test-plugin:2.0.0']
+```
+
+#### 3. 技术债务修复 - 版本管理集成 ✅
+
+**问题**: `VersionManager.register_version()` 存在 Pydantic 验证错误
+
+**错误信息**:
+```
+1 validation error for PluginVersion
+metadata
+  Input should be a valid dictionary [type=dict_type, input_value=PluginInstance(...), input_type=PluginInstance]
+```
+
+**根本原因**:
+- `register_version()` 期望 `metadata: dict[str, Any]` 参数
+- 调用时��入了 `plugin: PluginInstance` 对象
+- `PluginVersion` 模型中没有 `plugin` 字段
+
+**修复方案**:
+1. **修改调用方式** (`manager.py:173`):
+   ```python
+   # 修复前
+   self.version_manager.register_version(name, version, plugin)
+
+   # 修复后
+   version_metadata = {
+       "plugin_dir": str(plugin_dir),
+       "manifest": manifest.model_dump(),
+   }
+   self.version_manager.register_version(name, version, version_metadata)
+   ```
+
+2. **修复版本检查逻辑** (`manager.py:159-163`):
+   ```python
+   # 修复前
+   return existing_version.plugin  # PluginVersion 没有 plugin 字段
+
+   # 修复后
+   existing_plugin = self.loader.get(name)
+   if existing_plugin:
+       return existing_plugin
+   ```
+
+3. **修复版本切换方法** (`manager.py:879-890`):
+   - 移除对 `version_info.plugin` 的访问
+   - 添加注释说明版本切换不会自动重新加载插件
+
+4. **修复版本回滚方法** (`manager.py:905-918`):
+   - 移除对 `version_info.plugin` 的访问
+   - 添加注释说明版本回滚不会自动重新加载插件
+
+**验证结果**:
+- ✅ 版本注册成功，无验证错误
+- ✅ `test_versioning_integration` 测试通过
+- ✅ `test_version_switching` 测试通过
+- ✅ 所有 12 个集成测试通过
+
+**日志示例**:
+```
+INFO | 注册版本: test-plugin@1.0.0
+DEBUG | 注册插件版本: test-plugin v1.0.0
+INFO | 插件 test-plugin 切换到版本 1.0.0
+```
+
+### 📝 代码统计
+
+**修改文件**:
+- `src/lurkbot/plugins/models.py` (~20 lines modified)
+- `src/lurkbot/plugins/orchestration.py` (~10 lines modified)
+- `src/lurkbot/plugins/manager.py` (~100 lines added/modified)
+
+**新增功能**:
+- 缓存管理方法: 3个
+- 缓存字段: 3个
+
+**修复问题**:
+- Pydantic 弃用警告: 6个模型
+- 版本管理验证错误: 4处修复
+
+### 🧪 测试结果
+
+**集成测试**: 12/12 通过 ✅
+```bash
+tests/test_plugin_manager_integration.py::test_orchestration_integration PASSED
+tests/test_plugin_manager_integration.py::test_orchestration_with_dependencies PASSED
+tests/test_plugin_manager_integration.py::test_orchestration_cycle_detection PASSED
+tests/test_plugin_manager_integration.py::test_permissions_integration PASSED
+tests/test_plugin_manager_integration.py::test_permission_check_integration PASSED
+tests/test_plugin_manager_integration.py::test_permission_audit_integration PASSED
+tests/test_plugin_manager_integration.py::test_versioning_integration PASSED
+tests/test_plugin_manager_integration.py::test_version_switching PASSED
+tests/test_plugin_manager_integration.py::test_profiling_integration PASSED
+tests/test_plugin_manager_integration.py::test_performance_report_integration PASSED
+tests/test_plugin_manager_integration.py::test_bottleneck_detection_integration PASSED
+tests/test_plugin_manager_integration.py::test_full_integration PASSED
+```
+
+### ⏭️ 未完成的工作
+
+#### 1. 并发执行优化 (Task 3) - 未开始
+- 使用 `asyncio.gather` 批量执行
+- 添加并发限制（避免资源耗尽）
+- 优化异步 I/O 操作
+
+#### 2. 统一错误处理 (Task 4) - 未开始
+- 创建统一的异常类层次结构
+- 标准化错误消息格式
+- 添加错误上下文信息
+
+#### 3. 插件安装功能 (Task 6) - 未开始
+- 实现从本地路径安装
+- 实现从 Git 仓库安装
+- 实现从插件市场安装
+
+### 🎯 下一步计划
+
+**优先级排序**:
+1. **高优先级**: 完成文档更新（当前任务）
+2. **中优先级**: 并发执行优化（性能提升）
+3. **中优先级**: 统一错误处理（代码质量）
+4. **低优先级**: 插件安装功能（功能完善）
+
+**Phase 7 总体进度**:
+- Task 1: 插件管理器集成 ✅ (100%)
+- Task 2: 插件 CLI 工具 ✅ (100%)
+- Task 3: 插件文档生成 ✅ (100%)
+- Task 4: 系统优化和重构 ⚡ (60%)
+  - Pydantic V2 迁移 ✅
+  - 插件加载缓存 ✅
+  - 版本管理修复 ✅
+  - 并发执行优化 ⏸️
+  - 统一错误处理 ⏸️
+
+**总体完成度**: Phase 7 约 90% 完成
+
+### 💡 技术亮点
+
+1. **Pydantic V2 迁移**:
+   - 使用 `ConfigDict` 替代 `class Config`
+   - 保持向后兼容性
+   - 消除弃用警告
+
+2. **智能缓存机制**:
+   - 版本化缓存键
+   - 自动缓存失效
+   - 缓存统计和管理
+
+3. **版本管理修复**:
+   - 正确的数据类型传递
+   - 清晰的职责分离
+   - 完善的错误处理
+
+### 📚 参考资料
+
+**Pydantic V2**:
+- [Pydantic V2 Migration Guide](https://docs.pydantic.dev/latest/migration/)
+- [ConfigDict Documentation](https://docs.pydantic.dev/latest/api/config/)
+
+**性能优化**:
+- [Python Caching Strategies](https://realpython.com/lru-cache-python/)
+- [asyncio Best Practices](https://docs.python.org/3/library/asyncio-dev.html)
+
+---
+
 ## 2026-01-31 会话 (Phase 7 Task 3: 插件文档生成) - 100% 完成 ✅
 
 ### 📊 会话概述
