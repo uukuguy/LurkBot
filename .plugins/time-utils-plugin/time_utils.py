@@ -3,6 +3,7 @@
 This plugin provides time-related utility functions.
 """
 
+import time
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -68,6 +69,8 @@ class TimeUtilsPlugin:
         Returns:
             PluginExecutionResult: 包含时间信息的执行结果
         """
+        start_time = time.time()
+
         try:
             # 获取时区参数
             timezone_str = context.parameters.get("timezone", self.default_timezone)
@@ -83,19 +86,23 @@ class TimeUtilsPlugin:
             # 获取时间信息
             time_info = self._get_time_info(timezone_str)
 
+            execution_time = time.time() - start_time
             return PluginExecutionResult(
                 success=True,
-                data=time_info,
                 result=self._format_time_text(time_info),
-                message=f"成功获取 {timezone_str} 的时间信息",
+                error=None,
+                execution_time=execution_time,
+                metadata={"timezone": timezone_str, "data": time_info},
             )
 
         except Exception as e:
             logger.error(f"时间查询异常: {e}")
+            execution_time = time.time() - start_time
             return PluginExecutionResult(
                 success=False,
+                result=None,
                 error=str(e),
-                message="时间查询失败",
+                execution_time=execution_time,
             )
 
     def _get_time_info(self, timezone_str: str) -> dict:

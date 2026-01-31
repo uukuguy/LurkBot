@@ -3,6 +3,8 @@
 This plugin provides system monitoring and information retrieval.
 """
 
+import time
+
 import psutil
 from lurkbot.logging import get_logger
 from lurkbot.plugins.models import (
@@ -51,25 +53,31 @@ class SystemInfoPlugin:
         Returns:
             PluginExecutionResult: 包含系统信息的执行结果
         """
+        start_time = time.time()
+
         try:
             logger.info("查询系统信息")
 
             # 获取系统信息
             system_info = self._get_system_info()
 
+            execution_time = time.time() - start_time
             return PluginExecutionResult(
                 success=True,
-                data=system_info,
                 result=self._format_system_info_text(system_info),
-                message="成功获取系统信息",
+                error=None,
+                execution_time=execution_time,
+                metadata={"data": system_info},
             )
 
         except Exception as e:
             logger.error(f"系统信息查询异常: {e}")
+            execution_time = time.time() - start_time
             return PluginExecutionResult(
                 success=False,
+                result=None,
                 error=str(e),
-                message="系统信息查询失败",
+                execution_time=execution_time,
             )
 
     def _get_system_info(self) -> dict:

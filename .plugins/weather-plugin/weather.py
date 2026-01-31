@@ -3,6 +3,8 @@
 This plugin queries weather information using the wttr.in API.
 """
 
+import time
+
 import httpx
 from lurkbot.logging import get_logger
 from lurkbot.plugins.models import (
@@ -48,6 +50,8 @@ class WeatherPlugin:
         Returns:
             PluginExecutionResult: 包含天气数据或错误信息的执行结果
         """
+        start_time = time.time()
+
         try:
             # 从上下文获取城市名称
             city = context.parameters.get("city")
@@ -67,26 +71,32 @@ class WeatherPlugin:
             # 调用 wttr.in API
             weather_data = await self._fetch_weather(city)
 
+            execution_time = time.time() - start_time
             return PluginExecutionResult(
                 success=True,
-                data=weather_data,
                 result=self._format_weather_text(weather_data),
-                message=f"成功获取 {city} 的天气信息",
+                error=None,
+                execution_time=execution_time,
+                metadata={"city": city, "data": weather_data},
             )
 
         except httpx.HTTPError as e:
             logger.error(f"HTTP 请求失败: {e}")
+            execution_time = time.time() - start_time
             return PluginExecutionResult(
                 success=False,
+                result=None,
                 error=f"HTTP 请求失败: {str(e)}",
-                message="天气查询失败",
+                execution_time=execution_time,
             )
         except Exception as e:
             logger.error(f"天气查询异常: {e}")
+            execution_time = time.time() - start_time
             return PluginExecutionResult(
                 success=False,
+                result=None,
                 error=str(e),
-                message="天气查询失败",
+                execution_time=execution_time,
             )
 
     async def _fetch_weather(self, city: str) -> dict:

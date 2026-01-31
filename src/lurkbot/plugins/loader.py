@@ -304,11 +304,15 @@ class PluginLoader:
         """
         # 检查 Python 包依赖
         missing_packages = []
-        for package in manifest.dependencies.python:
+        for package_spec in manifest.dependencies.python:
+            # 解析包名（去除版本号）
+            # 支持格式: package, package>=1.0.0, package==1.0.0, package~=1.0.0
+            package_name = package_spec.split(">=")[0].split("==")[0].split("~=")[0].split("<")[0].split(">")[0].strip()
+
             try:
-                importlib.import_module(package)
+                importlib.import_module(package_name)
             except ImportError:
-                missing_packages.append(package)
+                missing_packages.append(package_spec)
 
         if missing_packages:
             raise ImportError(f"缺少 Python 包依赖: {', '.join(missing_packages)}")
