@@ -59,6 +59,7 @@ dependencies = [
     "larkpy>=0.3.0",
     "chromadb>=1.4.1",
     "watchdog>=6.0.0",
+    "orjson>=3.11.6",
 ]
 
 [project.optional-dependencies]

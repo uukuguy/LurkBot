@@ -4,7 +4,6 @@ This module provides HTTP/SSE endpoints for running agents,
 using PydanticAI's AG-UI integration for streaming responses.
 """
 
-import json
 from http import HTTPStatus
 from typing import Any
 
@@ -14,6 +13,7 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field, ValidationError
 
 from lurkbot.logging import get_logger
+from lurkbot.utils import json_utils as json
 
 from .runtime import (
     AgentDependencies,
