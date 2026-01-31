@@ -50,7 +50,8 @@ Unlike cloud-only AI assistants, LurkBot runs on **your** devices. It connects t
 
 - **Gateway-Centric Design** — Single control plane routes all messages
 - **Session Isolation** — Per-user/channel/topic isolation with configurable policies
-- **Skills System** — Extensible plugin architecture for custom capabilities
+- **Plugin System** — Extensible plugin architecture for custom capabilities
+- **Skills System** — Reusable skill templates for common tasks
 - **Hooks System** — Event-driven automation with pre/post tool hooks
 - **Daemon System** — Cross-platform background service management
 - **Auto-Reply & Routing** — Intelligent message routing and auto-response
@@ -104,6 +105,146 @@ lurkbot gateway start
 
 # Start chatting (CLI mode)
 lurkbot agent chat
+```
+
+---
+
+## Plugin System
+
+### Overview
+
+LurkBot features a powerful plugin system that allows you to extend the AI assistant with custom capabilities. Plugins are isolated, sandboxed modules that can:
+
+- 🌐 **Access External APIs** — Weather, news, databases, cloud services
+- 🔧 **Execute System Operations** — File processing, monitoring, automation
+- 🎨 **Add Custom Features** — Tailored functionality for your specific needs
+- 🔒 **Run Securely** — Permission-based access control and sandbox isolation
+
+### Quick Example
+
+**Create a simple plugin** (`.plugins/hello-plugin/`):
+
+```json
+// plugin.json
+{
+  "name": "hello-plugin",
+  "version": "1.0.0",
+  "author": {"name": "Your Name"},
+  "description": "A simple greeting plugin",
+  "plugin_type": "tool",
+  "entry_point": "main.py",
+  "enabled": true,
+  "permissions": {
+    "network": false,
+    "filesystem": false
+  }
+}
+```
+
+```python
+# main.py
+from lurkbot.plugins.models import PluginExecutionContext
+
+async def execute(context: PluginExecutionContext) -> dict:
+    name = context.input_data.get("name", "World")
+    return {"message": f"Hello, {name}!"}
+```
+
+**Use the plugin**:
+
+```bash
+# List plugins
+lurkbot plugin list
+
+# Execute plugin
+lurkbot plugin exec hello-plugin --input '{"name": "Alice"}'
+# Output: {"message": "Hello, Alice!"}
+```
+
+### Built-in Example Plugins
+
+LurkBot includes three production-ready example plugins:
+
+| Plugin | Description | Permissions |
+|--------|-------------|-------------|
+| **weather-plugin** | Real-time weather information using wttr.in API | network |
+| **time-utils-plugin** | Multi-timezone time conversion and formatting | none |
+| **system-info-plugin** | CPU, memory, and disk usage monitoring | filesystem |
+
+**Try them out**:
+
+```bash
+# Get weather for a city
+lurkbot plugin exec weather-plugin --input '{"city": "Tokyo"}'
+
+# Get current time in a timezone
+lurkbot plugin exec time-utils-plugin --input '{"timezone": "America/New_York"}'
+
+# Check system resources
+lurkbot plugin exec system-info-plugin
+```
+
+### Plugin Features
+
+- **🔐 Permission System** — Fine-grained control over filesystem, network, and command execution
+- **⚡ Async Execution** — Non-blocking plugin execution with timeout protection
+- **📊 Performance Tracking** — Built-in metrics for execution time and success rates
+- **🎯 Event System** — Track plugin lifecycle events (loaded, executed, errors)
+- **🧪 Testing Support** — Comprehensive testing utilities and examples
+- **📝 Type Safety** — Full Pydantic validation for inputs and outputs
+
+### Plugin Development
+
+**Create your own plugin in 3 steps**:
+
+1. **Create plugin directory**:
+   ```bash
+   mkdir -p .plugins/my-plugin
+   ```
+
+2. **Define plugin.json**:
+   ```json
+   {
+     "name": "my-plugin",
+     "version": "1.0.0",
+     "author": {"name": "Your Name"},
+     "description": "My custom plugin",
+     "plugin_type": "tool",
+     "entry_point": "main.py",
+     "permissions": {"network": true},
+     "dependencies": ["httpx>=0.27.0"]
+   }
+   ```
+
+3. **Implement main.py**:
+   ```python
+   async def execute(context):
+       # Your plugin logic here
+       return {"result": "success"}
+   ```
+
+### Documentation
+
+- **[Plugin User Guide](docs/design/PLUGIN_USER_GUIDE.md)** — Installation, configuration, usage
+- **[Plugin Development Guide](docs/design/PLUGIN_DEVELOPMENT_GUIDE.md)** — Create custom plugins
+- **[Plugin API Reference](docs/api/PLUGIN_API.md)** — Complete API documentation
+- **[Plugin System Design](docs/design/PLUGIN_SYSTEM_DESIGN.md)** — Architecture and design
+
+### Integration with Agents
+
+Plugins seamlessly integrate with LurkBot's AI agents:
+
+```python
+from lurkbot.agents.runtime import run_embedded_agent
+
+# Agent automatically discovers and uses available plugins
+result = await run_embedded_agent(
+    user_message="What's the weather in Paris?",
+    enable_plugins=True
+)
+
+# Plugin results are injected into the agent's context
+print(result.system_prompt)  # Contains weather-plugin results
 ```
 
 ---
