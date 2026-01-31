@@ -1,8 +1,21 @@
 # ClawHub Integration
 
+> **⚠️ Important Note (Updated 2026-01-31)**
+>
+> ClawHub uses a **Convex backend** (not a traditional REST API). The implementation in this document assumes HTTP API endpoints that may not exist. The official method to interact with ClawHub is through the `clawhub` CLI tool (TypeScript/Bun).
+>
+> **Current Status**: Phase 1.1 complete (API client code ready), but actual ClawHub integration requires either:
+> 1. Installing and wrapping the Node.js `clawhub` CLI
+> 2. Downloading skills directly from [github.com/openclaw/skills](https://github.com/openclaw/skills)
+> 3. Waiting for an official Python SDK or stable HTTP API
+>
+> See [Phase 1.2 Research Findings](#phase-12-research-findings) below for details.
+
 ## Overview
 
-LurkBot now integrates with ClawHub (https://clawhub.ai), the official skill marketplace for OpenClaw/Moltbot ecosystem. This allows you to discover, install, and manage skills from a centralized repository.
+LurkBot integrates with ClawHub (https://clawhub.com), the official skill marketplace for OpenClaw ecosystem. This allows you to discover, install, and manage skills from a centralized repository.
+
+**Note**: The API client implementation is complete, but the assumed REST endpoints need verification/adjustment to match ClawHub's actual Convex-based architecture.
 
 ## Features
 
@@ -295,7 +308,261 @@ See [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) for the complete roadmap.
 
 ## References
 
-- [ClawHub Website](https://clawhub.ai)
+- [ClawHub Website](https://clawhub.com)
 - [OpenClaw Repository](https://github.com/openclaw/openclaw)
-- [Moltbot Original](https://github.com/moltbot/moltbot)
-- [LurkBot Skills Documentation](./skills/)
+- [ClawHub Repository](https://github.com/openclaw/clawhub)
+- [Skills Archive](https://github.com/openclaw/skills)
+- [OpenClaw Documentation](https://docs.openclaw.ai/tools/skills)
+
+---
+
+## Phase 1.2 Research Findings
+
+**Date**: 2026-01-31
+
+### ClawHub Architecture Discovery
+
+During Phase 1.2 implementation, we discovered that ClawHub's architecture differs significantly from initially assumed:
+
+#### Actual Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ ClawHub Architecture (Actual)                           │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  Frontend: TanStack Start (React, Vite/Nitro)          │
+│     │                                                   │
+│     ├─ https://clawhub.com (SPA)                       │
+│     └─ https://clawhub.com/skills (Vector search UI)   │
+│                                                         │
+│  Backend: Convex (Serverless)                          │
+│     │                                                   │
+│     ├─ Database + File Storage                         │
+│     ├─ HTTP Actions (not REST API)                     │
+│     ├─ OpenAI Embeddings (text-embedding-3-small)     │
+│     └─ Vector Search                                   │
+│                                                         │
+│  CLI: clawhub (TypeScript/Bun)                         │
+│     │                                                   │
+│     ├─ search <query>     - Vector search              │
+│     ├─ install <slug>     - Install skill              │
+│     ├─ update [slug]      - Update skills              │
+│     ├─ list               - List installed             │
+│     ├─ publish <path>     - Publish skill              │
+│     └─ sync               - Batch publish              │
+│                                                         │
+│  Skills Archive: github.com/openclaw/skills            │
+│     │                                                   │
+│     └─ skills/                                         │
+│         ├─ author1/skill-name/SKILL.md                 │
+│         ├─ author2/another-skill/SKILL.md              │
+│         └─ ... (747 authors, unknown # of skills)      │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### What We Initially Assumed
+
+```python
+# Assumed REST API (NOT REAL)
+BASE_URL = "https://api.clawhub.ai/v1"
+
+GET  /skills/search?q=weather
+GET  /skills/{slug}
+GET  /skills/{slug}/versions
+GET  /skills/{slug}/download/{version}
+```
+
+#### What Actually Exists
+
+**Convex Backend**:
+- No traditional REST endpoints
+- Uses Convex HTTP actions (different architecture)
+- Schema defined in `packages/schema/` (clawhub-schema)
+- Routes in `convex/` directory
+
+**CLI Tool**:
+```bash
+# Requires Node.js/Bun environment
+./clawhub search weather
+./clawhub install openclaw/weather
+./clawhub update --all
+```
+
+**Skills Repository**:
+- All skills archived at `github.com/openclaw/skills`
+- Organized by author: `skills/{author}/{skill-name}/SKILL.md`
+- 747 author directories (community contributions)
+
+### Implementation Options
+
+#### Option A: Wrap clawhub CLI (Recommended if needing ClawHub features)
+
+**Pros**:
+- ✅ Uses official tool
+- ✅ Handles authentication, vector search, versioning
+- ✅ Automatic updates from clawhub.com
+
+**Cons**:
+- ❌ Requires Node.js/Bun runtime
+- ❌ Subprocess overhead
+- ❌ Cross-platform complexity
+
+**Implementation**:
+```python
+import subprocess
+import shutil
+
+class ClawHubCLIWrapper:
+    def __init__(self):
+        self.cli_path = shutil.which("clawhub")
+        if not self.cli_path:
+            raise RuntimeError("clawhub CLI not installed")
+
+    async def search(self, query: str) -> list[dict]:
+        result = subprocess.run(
+            ["clawhub", "search", query, "--json"],
+            capture_output=True,
+            text=True
+        )
+        return json.loads(result.stdout)
+
+    async def install(self, slug: str):
+        subprocess.run(
+            ["clawhub", "install", slug, "--dir", ".skill-bundles"],
+            check=True
+        )
+```
+
+#### Option B: GitHub Direct Download (Simplest)
+
+**Pros**:
+- ✅ No external dependencies
+- ✅ Pure Python implementation
+- ✅ Works offline (after initial clone)
+- ✅ Direct access to all 747 authors
+
+**Cons**:
+- ❌ No vector search
+- ❌ No automatic updates
+- ❌ Manual version management
+- ❌ Need to know exact author/skill name
+
+**Implementation**:
+```python
+import httpx
+import tarfile
+
+class GitHubSkillsDownloader:
+    REPO = "openclaw/skills"
+    BASE_URL = f"https://api.github.com/repos/{REPO}"
+
+    async def search(self, query: str) -> list[str]:
+        # Simple GitHub code search
+        url = "https://api.github.com/search/code"
+        params = {
+            "q": f"repo:{self.REPO} path:skills filename:SKILL.md {query}",
+            "per_page": 20
+        }
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, params=params)
+            items = resp.json()["items"]
+            return [item["path"] for item in items]
+
+    async def download(self, author: str, skill: str) -> bytes:
+        # Download specific skill directory as tarball
+        url = f"https://github.com/{self.REPO}/archive/refs/heads/main.tar.gz"
+        # Extract only skills/{author}/{skill}/
+        ...
+```
+
+#### Option C: Wait for Official Python SDK
+
+**Pros**:
+- ✅ Official support
+- ✅ Proper typing and async support
+- ✅ Stable API
+
+**Cons**:
+- ❌ Doesn't exist yet
+- ❌ Unknown timeline
+
+### Current Status
+
+**Phase 1.1**: ✅ Complete
+- ClawHub API client implementation (assumes REST API)
+- Skills CLI commands (search, install, update, list, remove)
+- SkillRegistry extensions (install_from_clawhub, check_updates)
+- Unit tests (4/4 passing)
+
+**Phase 1.2**: ⏸️ Paused
+- Installation of 12 high-priority OpenClaw skills
+- Waiting for decision on implementation approach
+
+### Recommendations
+
+1. **Short-term**: Keep current 13 bundled skills
+   - Covers core functionality (sessions, memory, web, messaging, etc.)
+   - No external dependencies
+   - Fully tested and working
+
+2. **Mid-term**: Implement Option B (GitHub direct download)
+   - Simple, pure Python
+   - Good for specific, known skills
+   - Low maintenance overhead
+
+3. **Long-term**: Monitor for official Python SDK
+   - Watch `openclaw/clawhub` for Python client
+   - Or implement Option A if ClawHub integration becomes critical
+
+### Alternative: Focus on Other Priorities
+
+Given that:
+- LurkBot's 13 bundled skills cover core functionality
+- ClawHub integration requires significant adaptation
+- Other high-priority items exist (国内生态, 企业安全)
+
+It may be strategic to:
+1. ✅ Keep ClawHub API client code (for future use)
+2. ✅ Document the architecture findings (this section)
+3. 🎯 Pivot to Phase 2 (国内生态适配) or Phase 4 (企业安全)
+4. 🔄 Revisit ClawHub when official Python SDK or stable API exists
+
+### Skills Currently Available (Bundled)
+
+LurkBot's 13 bundled skills provide comprehensive functionality:
+
+| Skill | Category | Tools Wrapped |
+|-------|----------|---------------|
+| `sessions` | Core | 6 session management tools |
+| `memory` | Core | 2 memory/vector search tools |
+| `web` | Core | 2 web search/fetch tools |
+| `messaging` | Core | 1 message tool |
+| `cron` | Automation | 1 cron scheduling tool |
+| `gateway` | Automation | 1 gateway control tool |
+| `hooks` | Automation | 1 hooks management tool |
+| `media` | Media | 2 image/media tools |
+| `tts` | Media | 1 text-to-speech tool |
+| `nodes` | System | 1 nodes tool |
+| `github` | Productivity | GitHub integration |
+| `weather` | Productivity | Weather lookup |
+| `web-search` | Productivity | Web search |
+
+**Total**: 22 tools across 13 skills
+
+### Skills Potentially Available (ClawHub)
+
+According to OpenClaw documentation and ClawHub website:
+- **Community skills**: 747 authors (unknown total count)
+- **Popular categories**:
+  - AI/ML integrations (Gemini, Whisper)
+  - Communication (Discord, Slack, Email)
+  - Productivity (Notion, Obsidian, Trello)
+  - Development (GitHub, Docker, K8s)
+  - Automation (cron, workflows)
+
+---
+
+**Document Updated**: 2026-01-31
+**Status**: Phase 1.1 Complete, Phase 1.2 Paused

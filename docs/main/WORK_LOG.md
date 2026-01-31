@@ -1,5 +1,173 @@
 # LurkBot 工作日志
 
+## 2026-01-31 - Phase 1.2 ClawHub 架构调研 🔍
+
+### 会话概述
+
+启动 Phase 1.2（OpenClaw Skills 安装），发现 ClawHub 使用 Convex backend（非 REST API），需要重大架构调整。完成了深度调研并更新文档，暂停实施等待决策。
+
+### 主要工作
+
+#### 1. ClawHub 架构调研 ✅
+
+**发现**:
+- ❌ ClawHub 不是 REST API，而是 **Convex backend** (无服务器架构)
+- ✅ 官方访问方式: `clawhub` CLI 工具 (TypeScript/Bun)
+- ✅ Skills 归档: `github.com/openclaw/skills` (747 个作者)
+- ✅ 网站: `clawhub.com` (React SPA + Vector Search)
+
+**对比**:
+
+| 项目 | 假设 | 实际 |
+|------|------|------|
+| API 类型 | REST HTTP API | Convex HTTP Actions |
+| 端点 | `api.clawhub.ai/v1/skills` | 无传统 REST 端点 |
+| 访问方式 | Python httpx 直接调用 | TypeScript CLI 或 GitHub |
+| 搜索 | 关键词 | Vector (OpenAI embeddings) |
+
+#### 2. 实施方案评估 ✅
+
+**方案 A: 包装 clawhub CLI**
+- 优点: 官方工具、Vector 搜索、完整功能
+- 缺点: 需要 Node.js/Bun、subprocess 开销
+- 工作量: 3-5 天
+
+**方案 B: GitHub 直接下载** ⭐ 推荐
+- 优点: 纯 Python、无依赖、简单
+- 缺点: 无 Vector 搜索、手动版本管理
+- 工作量: 2-3 天
+
+**方案 C: 等待官方 Python SDK**
+- 优点: 官方支持
+- 缺点: 不存在、时间未知
+- 工作量: 0 天（无限期）
+
+#### 3. 文档更新 ✅
+
+**创建的文档**:
+| 文档 | 行数 | 说明 |
+|------|------|------|
+| `docs/main/PHASE_1_2_RESEARCH.md` | ~600 | Phase 1.2 调研总结 |
+
+**更新的文档**:
+| 文档 | 修改内容 |
+|------|----------|
+| `docs/main/CLAWHUB_INTEGRATION.md` | 添加架构发现、实施方案、注意事项 |
+
+#### 4. 当前状态评估 ✅
+
+**LurkBot Skills 现状**:
+- ✅ **Bundled Skills**: 13 个（完全工作）
+- ✅ **工具总数**: 22 个（覆盖核心功能）
+- ❌ **ClawHub Skills**: 0 个（暂停）
+
+**功能覆盖**:
+
+| 类别 | Skills | 工具数 |
+|------|--------|--------|
+| 核心 | sessions, memory, web, messaging | 11 |
+| 自动化 | cron, gateway, hooks | 3 |
+| 媒体 | media, tts | 3 |
+| 生产力 | github, weather, web-search | 3 |
+| 系统 | nodes | 1 |
+
+### 决策建议
+
+#### 短期: 保持现状 ✅
+- 当前 13 个 bundled skills 覆盖核心功能
+- Phase 1.1 代码完整（可未来适配）
+- 无需外部依赖
+
+#### 中期: 优先其他项目 🎯
+
+**优先级 P0**:
+- **Phase 2**: 国内生态适配（企业微信、钉钉、飞书）
+- **Phase 4**: 企业安全增强（加密、审计、RBAC）
+
+**优先级 P1**:
+- **Phase 3**: 自主能力增强（主动任务识别、技能学习）
+
+**优先级 P2**:
+- **Phase 1.2**: ClawHub 集成（等待条件成熟）
+
+#### 长期: 条件触发 🔄
+
+**重启 Phase 1.2 的触发条件**:
+1. 官方发布 Python SDK
+2. ClawHub 提供稳定 HTTP REST API
+3. ClawHub 功能变为业务关键
+4. 社区需求显著增加
+
+### 修改的文件
+
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `docs/main/PHASE_1_2_RESEARCH.md` | 创建 | 调研总结文档 (~600 行) |
+| `docs/main/CLAWHUB_INTEGRATION.md` | 更新 | 添加架构发现和实施方案 |
+| `docs/main/WORK_LOG.md` | 更新 | 添加本次会话记录 |
+
+### 测试结果
+
+```bash
+# Phase 1.1 代码测试通过
+$ pytest tests/test_skills_clawhub.py -xvs
+====== 4 passed, 1 warning in 0.15s ======
+
+# 当前 Skills 加载正常
+$ lurkbot skills list
+Installed Skills (13) ✅
+```
+
+### 技术洞察
+
+#### ClawHub 真实架构
+
+```
+Frontend (React SPA)
+    └─ clawhub.com/skills
+
+Backend (Convex)
+    ├─ Database + File Storage
+    ├─ HTTP Actions (非 REST)
+    ├─ OpenAI Embeddings (Vector 搜索)
+    └─ Convex Auth (GitHub OAuth)
+
+CLI (TypeScript/Bun)
+    └─ clawhub search/install/update/list
+
+Archive (GitHub)
+    └─ github.com/openclaw/skills
+        └─ skills/{author}/{skill}/SKILL.md
+```
+
+#### Phase 1.1 vs 1.2 对比
+
+| 阶段 | 目标 | 结果 | 状态 |
+|------|------|------|------|
+| Phase 1.1 | ClawHub 客户端实现 | API 客户端、CLI 命令、测试 | ✅ 完成 |
+| Phase 1.2 | 安装 12 个 OpenClaw Skills | 架构调研完成，实施暂停 | ⏸️ 暂停 |
+
+### 下一步工作
+
+**待决策**:
+- [ ] 选择下一阶段: Phase 2 (国内生态) / Phase 4 (企业安全) / 继续 Phase 1.2
+- [ ] 如继续 Phase 1.2: 选择实施方案 A/B/C
+- [ ] 更新 `docs/dev/NEXT_SESSION_GUIDE.md` 为下一阶段
+
+**暂停的任务**:
+- [ ] 实现 GitHub fallback 下载方法
+- [ ] 安装 12 个高优先级 Skills
+- [ ] ClawHub API 客户端适配
+
+### 参考链接
+
+- [ClawHub Website](https://clawhub.com)
+- [ClawHub Repository](https://github.com/openclaw/clawhub)
+- [Skills Archive](https://github.com/openclaw/skills)
+- [OpenClaw Documentation](https://docs.openclaw.ai/tools/skills)
+
+---
+
 ## 2026-01-31 - LurkBot vs Moltbot/OpenClaw 对比分析文档 📊
 
 ### 会话概述

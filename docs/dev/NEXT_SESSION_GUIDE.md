@@ -1,339 +1,410 @@
-# Next Session Guide - Phase 1.2
+# Next Session Guide - Post Phase 1.2
 
 **Last Updated**: 2026-01-31
-**Current Phase**: Phase 1.1 Complete ✅
-**Next Phase**: Phase 1.2 - OpenClaw Skills Installation
+**Current Status**: Phase 1.2 Research Complete, Paused Pending Decision
+**Next Decision**: Choose Phase 2 (国内生态) OR Phase 4 (企业安全) OR Continue Phase 1.2
 
 ---
 
-## Phase 1.1 Completion Summary
+## Phase 1.2 Summary
 
-### What Was Done ✅
+### What Was Discovered ✅
 
-1. **ClawHub API Client** - Full async implementation with httpx
-2. **SkillRegistry Extensions** - install_from_clawhub(), check_updates()
-3. **Skills CLI Commands** - 6 subcommands (search, info, install, list, update, remove)
-4. **Data Model Updates** - Extended SkillFrontmatter with name, version, tools
-5. **Tests** - 4 passing unit tests
-6. **Documentation** - Complete user guide and API reference
+**ClawHub Architecture Reality**:
+- ❌ Not a REST API (as initially assumed)
+- ✅ Convex backend + TypeScript CLI tool
+- ✅ Skills archived at `github.com/openclaw/skills` (747 authors)
+- ✅ Vector search using OpenAI embeddings
 
-### Files Created/Modified
+**Current LurkBot Status**:
+- ✅ **13 bundled skills** fully working
+- ✅ **22 tools** covering core functionality
+- ✅ **Phase 1.1 code** complete and tested (ready for adaptation)
+- ❌ **0 ClawHub skills** installed (paused)
 
-**New Files (5)**:
-- `src/lurkbot/skills/clawhub.py` (311 lines)
-- `src/lurkbot/cli/skills.py` (321 lines)
-- `tests/test_skills_clawhub.py` (56 lines)
-- `docs/main/CLAWHUB_INTEGRATION.md` (417 lines)
-- `docs/main/PHASE_1_1_SUMMARY.md` (summary doc)
-
-**Modified Files (5)**:
-- `src/lurkbot/skills/registry.py` (+114 lines)
-- `src/lurkbot/skills/frontmatter.py` (+3 fields)
-- `src/lurkbot/skills/workspace.py` (path fix)
-- `src/lurkbot/skills/__init__.py` (+6 exports)
-- `src/lurkbot/cli/main.py` (+2 lines)
-
-### Current Status
-
-```bash
-# Working commands
-lurkbot skills list        # Shows 13 bundled skills
-lurkbot skills search      # Search ClawHub (API not tested yet)
-lurkbot skills install     # Install from ClawHub (API not tested yet)
-
-# Test status
-pytest tests/test_skills_clawhub.py  # 4/4 passing
-```
+**See**: `docs/main/PHASE_1_2_RESEARCH.md` for complete findings
 
 ---
 
-## Phase 1.2 Plan - Install OpenClaw Skills
+## Decision Point: Next Phase
 
-### Objective
+### Option A: Phase 2 - 国内生态适配 🇨🇳 (Recommended for China Market)
 
-Install 12 high-priority skills from OpenClaw ecosystem to LurkBot.
+**Why**: Critical for deployment in China
 
-### High-Priority Skills (12 Total)
+**Deliverables**:
+1. **IM Channel Adapters** (3 platforms):
+   - 企业微信 (WeWork) - `src/lurkbot/channels/wework/`
+   - 钉钉 (DingTalk) - `src/lurkbot/channels/dingtalk/`
+   - 飞书 (Feishu) - `src/lurkbot/channels/feishu/`
 
-#### Essential Skills (4)
-1. **openclaw/mcporter** - MCP tools framework
-2. **openclaw/summarize** - Content summarization
-3. **openclaw/github** - GitHub integration
-4. **openclaw/notion** - Cloud knowledge base
+2. **Domestic LLM Support**:
+   - DeepSeek, Qwen, Kimi, GLM integration
+   - Update `src/lurkbot/config/models.py`
 
-#### Communication Skills (4)
-5. **openclaw/himalaya** - Email client
-6. **openclaw/openai-whisper** - Offline speech recognition
-7. **openclaw/discord** - Discord integration
-8. **openclaw/slack** - Slack integration
+**Effort**: 2-3 weeks
+**Value**: High (enables China market entry)
+**Risk**: Medium (requires understanding China IM APIs)
 
-#### Productivity Skills (4)
-9. **openclaw/obsidian** - Local Markdown notes
-10. **openclaw/weather** - Weather lookup
-11. **openclaw/goplaces** - Place search
-12. **openclaw/clawdhub** - Skill management hub
+**Next Steps**:
+1. Research WeWork/DingTalk/Feishu APIs
+2. Install SDK dependencies: `wechatpy`, `dingtalk-sdk`, `lark-oapi`
+3. Implement BaseChannel adapter for each platform
+4. Test with real IM accounts
+5. Document configuration and deployment
 
-### Installation Commands
-
-```bash
-# Essential (install first)
-lurkbot skills install openclaw/mcporter
-lurkbot skills install openclaw/summarize
-lurkbot skills install openclaw/github
-lurkbot skills install openclaw/notion
-
-# Communication
-lurkbot skills install openclaw/himalaya
-lurkbot skills install openclaw/openai-whisper
-lurkbot skills install openclaw/discord
-lurkbot skills install openclaw/slack
-
-# Productivity
-lurkbot skills install openclaw/obsidian
-lurkbot skills install openclaw/weather
-lurkbot skills install openclaw/goplaces
-lurkbot skills install openclaw/clawdhub
-```
-
-### Expected Results
-
-- Skills installed to `.skill-bundles/<skill-name>/`
-- Total skills: 13 (bundled) + 12 (installed) = 25 skills
-- Each skill includes SKILL.md with metadata and usage examples
+**Resources**:
+- [企业微信 API文档](https://developer.work.weixin.qq.com/)
+- [钉钉开放平台](https://open.dingtalk.com/)
+- [飞书开放平台](https://open.feishu.cn/)
 
 ---
 
-## Known Issues and Limitations
+### Option B: Phase 4 - 企业安全增强 🔒 (Recommended for Enterprise)
 
-### ⚠️ Critical: ClawHub API May Not Exist
+**Why**: Critical for enterprise deployment
 
-**Problem**: The ClawHub API implementation is based on assumed endpoints:
-```
-https://api.clawhub.ai/v1/skills/search
-https://api.clawhub.ai/v1/skills/{slug}
-https://api.clawhub.ai/v1/skills/{slug}/versions
-```
+**Deliverables**:
+1. **Session Encryption**:
+   - AES-256 encryption for session data
+   - Key management (environment variable or secrets manager)
+   - File: `src/lurkbot/security/encryption.py`
 
-**Impact**: Installation commands will fail if API doesn't exist or uses different schema.
+2. **Structured Audit Logs**:
+   - JSONL format with action/user/tool/result
+   - Daily rotation, searchable
+   - File: `src/lurkbot/security/audit.py`
 
-**Solutions**:
-1. **Check ClawHub API docs** - Find actual API specification
-2. **Use OpenClaw CLI** - Fall back to `claw install` command wrapper
-3. **Manual installation** - Download skills from GitHub and extract to `.skill-bundles/`
+3. **RBAC Permissions**:
+   - Role definitions (admin, user, readonly)
+   - Permission checks on tools and operations
+   - File: `src/lurkbot/security/rbac.py`
 
-### Manual Installation Fallback
+4. **High Availability** (optional):
+   - Redis session sharing
+   - Health check endpoints
+   - Docker Compose configuration
 
-If ClawHub API is not available:
+**Effort**: 3-4 weeks
+**Value**: High (enables enterprise sales)
+**Risk**: Low (standard security patterns)
 
-```bash
-# Example: Install weather skill manually
-cd .skill-bundles
-git clone https://github.com/openclaw/skills openclaw-skills
-cp -r openclaw-skills/weather ./weather
-lurkbot skills list  # Verify installation
-```
+**Next Steps**:
+1. Implement EncryptionManager with cryptography library
+2. Create AuditLogger with structured JSONL output
+3. Design RBAC model and permissions
+4. Add /health endpoint to Gateway
+5. Document security features and deployment
 
-### Other Limitations
-
-1. **Integration tests missing** - Only unit tests implemented
-2. **Update installation incomplete** - `update` command checks but doesn't install
-3. **Dependency validation incomplete** - System dependencies not verified
-4. **No progress indicators** - Long downloads have no progress feedback
-
----
-
-## Architecture Notes
-
-### Skill Loading Priority
-
-```
-Priority 1: .skills/         (workspace, highest)
-Priority 2: .skill-bundles/  (managed, ClawHub)
-Priority 3: skills/          (bundled, built-in)
-Priority 4: extra dirs       (user-defined, lowest)
-```
-
-### Tool vs Skill Distinction
-
-**System-Level Tools (6)** - Keep as pure Tools:
-- exec, process, read, write, edit, apply_patch
-- High performance + 9-layer security filtering
-
-**Business-Level Tools (16)** - Wrapped by Skills:
-- sessions (6 tools), memory (2), web (2), messaging (1), etc.
-- Skill provides documentation, configuration, usage examples
-
-**Community Skills (52+)** - Standalone implementations:
-- From ClawHub/OpenClaw ecosystem
-- May use external tools, APIs, or wrap LurkBot tools
-
-### Installation Flow
-
-```
-Search → Info → Dependencies → Download → Verify → Extract → Reload
-  ↓       ↓         ↓            ↓         ↓         ↓        ↓
- Find   Metadata  Recursive   SHA256   tar.gz   .skill-  Registry
- skill   + vers   install     check    unzip    bundles/  reload
-```
+**Dependencies**:
+- `cryptography>=43.0.0` - Encryption
+- `redis>=5.0.0` - Session sharing (optional)
+- `sqlalchemy>=2.0.0` - Audit log storage (optional)
 
 ---
 
-## Quick Start for Next Session
+### Option C: Continue Phase 1.2 - ClawHub Integration ⏸️ (Lower Priority)
 
-### 1. Verify Current Status
+**Why**: Current skills are sufficient, integration requires adaptation
 
-```bash
-# Check installation
-lurkbot skills list
+**Implementation Options**:
 
-# Should show 13 bundled skills:
-# cron, gateway, github, hooks, media, memory,
-# messaging, nodes, sessions, tts, weather, web, web-search
-
-# Run tests
-pytest tests/test_skills_clawhub.py -xvs
-# Should show: 4 passed, 1 warning
+#### C1: GitHub Direct Download (Simplest) - 2-3 days
+```python
+class GitHubSkillsDownloader:
+    # Download skills directly from github.com/openclaw/skills
+    # No vector search, manual version management
 ```
 
-### 2. Test ClawHub API (if available)
+**Pros**: Pure Python, no dependencies
+**Cons**: Basic functionality only
 
-```bash
-# Try searching
-lurkbot skills search weather
-
-# Try getting info
-lurkbot skills info openclaw/weather
-
-# If these fail, ClawHub API may not exist or use different endpoints
+#### C2: Wrap clawhub CLI (Full Features) - 3-5 days
+```python
+class ClawHubCLIWrapper:
+    # Subprocess wrapper for clawhub CLI tool
+    # Requires Node.js/Bun
 ```
 
-### 3. Proceed with Installation
+**Pros**: Official tool, all features
+**Cons**: External dependency
 
-**Option A: ClawHub API Works**
-- Use `lurkbot skills install` commands listed above
-- Verify each installation with `lurkbot skills list`
+#### C3: Wait for Official Python SDK - indefinite
+**Pros**: Official support
+**Cons**: Doesn't exist yet
 
-**Option B: ClawHub API Not Available**
-- Implement fallback to OpenClaw CLI (`claw install`)
-- Or manually download skills from GitHub
-- Or adjust ClawHubClient to match real API
+**Recommendation**: Only pursue if ClawHub integration becomes business-critical
 
-### 4. Verify Installations
+---
+
+## Recommended Priority Order
+
+Based on strategic value and effort:
+
+### 🥇 First Priority (Choose One)
+
+**If targeting China market**: Phase 2 (国内生态)
+**If targeting enterprises**: Phase 4 (企业安全)
+
+### 🥈 Second Priority
+
+After completing first priority, do the other
+
+### 🥉 Third Priority
+
+Phase 3 (自主能力增强) - Proactive task identification, skill learning
+
+### 🏅 Fourth Priority
+
+Phase 1.2 (ClawHub 集成) - When official Python SDK exists or integration becomes critical
+
+---
+
+## Quick Start for Phase 2 (国内生态)
+
+### 1. Research IM APIs
 
 ```bash
-# After each install
-lurkbot skills list --source managed
+# Read API documentation
+# WeWork: https://developer.work.weixin.qq.com/
+# DingTalk: https://open.dingtalk.com/
+# Feishu: https://open.feishu.cn/
+```
 
-# Check skill details
-lurkbot skills info <slug>
+### 2. Install Dependencies
+
+```bash
+# Add to pyproject.toml
+uv add wechatpy dingtalk-sdk lark-oapi
+```
+
+### 3. Implement WeWork Adapter (Example)
+
+```python
+# src/lurkbot/channels/wework/__init__.py
+from lurkbot.channels.base import BaseChannel
+
+class WeWorkChannel(BaseChannel):
+    async def start(self):
+        # Start webhook server
+        ...
+
+    async def send(self, message: ChannelMessage):
+        # Send via WeWork API
+        ...
+```
+
+### 4. Test with Real Account
+
+```bash
+# Configure credentials
+export LURKBOT_WEWORK__CORP_ID=wx123456
+export LURKBOT_WEWORK__SECRET=secret123
+
+# Start Gateway with WeWork channel
+lurkbot gateway --channel wework
 ```
 
 ---
 
-## Development Tasks for Phase 1.2
+## Quick Start for Phase 4 (企业安全)
 
-### If ClawHub API Works
+### 1. Install Dependencies
 
-- [ ] Install 4 essential skills
-- [ ] Install 4 communication skills
-- [ ] Install 4 productivity skills
-- [ ] Verify all skills load correctly
-- [ ] Test skill invocation (if applicable)
-- [ ] Update documentation with installation results
+```bash
+# Add to pyproject.toml
+uv add cryptography redis sqlalchemy psycopg2-binary
+```
 
-### If ClawHub API Doesn't Work
+### 2. Implement Session Encryption
 
-- [ ] Research actual ClawHub API endpoints
-- [ ] Option 1: Adapt ClawHubClient to real API
-- [ ] Option 2: Implement OpenClaw CLI wrapper
-- [ ] Option 3: Manual installation procedure
-- [ ] Update CLAWHUB_INTEGRATION.md with findings
-- [ ] Create fallback installation guide
+```python
+# src/lurkbot/security/encryption.py
+from cryptography.fernet import Fernet
 
-### Additional Tasks
+class EncryptionManager:
+    def __init__(self, master_key: str):
+        self.fernet = self._init_fernet(master_key)
 
-- [ ] Add integration tests with real API calls
-- [ ] Implement progress indicators for downloads
-- [ ] Add dependency validation (check bins/env)
-- [ ] Complete `update` command installation logic
-- [ ] Add skill removal verification
+    def encrypt(self, data: str) -> str:
+        return self.fernet.encrypt(data.encode()).decode()
+
+    def decrypt(self, encrypted: str) -> str:
+        return self.fernet.decrypt(encrypted.encode()).decode()
+```
+
+### 3. Implement Audit Logging
+
+```python
+# src/lurkbot/security/audit.py
+class AuditLogger:
+    def log(self, entry: AuditLog):
+        # Write to JSONL file
+        log_file = self.log_dir / f"audit-{entry.timestamp.date()}.jsonl"
+        with log_file.open("a") as f:
+            f.write(entry.model_dump_json() + "\n")
+```
+
+### 4. Test Security Features
+
+```bash
+# Enable encryption
+export LURKBOT_ENCRYPTION_KEY=your-secret-key
+
+# Check audit logs
+tail -f ~/.lurkbot/logs/audit-2026-01-31.jsonl
+```
+
+---
+
+## Files to Review Before Starting
+
+### For Phase 2 (国内生态)
+
+- `docs/design/OPENCLAW_ALIGNMENT_PLAN.md` - Section §4 (国内生态适配)
+- `src/lurkbot/channels/base.py` - Channel adapter interface
+- `src/lurkbot/channels/telegram/` - Reference implementation
+
+### For Phase 4 (企业安全)
+
+- `docs/design/OPENCLAW_ALIGNMENT_PLAN.md` - Section §5 (企业级增强)
+- `src/lurkbot/sessions/store.py` - Session storage (to be encrypted)
+- `src/lurkbot/logging/` - Logging infrastructure
+
+### For Phase 1.2 (ClawHub 继续)
+
+- `docs/main/PHASE_1_2_RESEARCH.md` - Research findings
+- `docs/main/CLAWHUB_INTEGRATION.md` - Integration guide
+- `src/lurkbot/skills/clawhub.py` - API client (needs adaptation)
 
 ---
 
 ## Testing Checklist
 
-Before ending Phase 1.2:
+Before starting new phase, ensure Phase 1.1 is stable:
 
 ```bash
-# 1. Skills loaded
-lurkbot skills list | grep -c "managed"  # Should be > 0
+# 1. Skills loading
+lurkbot skills list
+# Should show: Installed Skills (13)
 
-# 2. Skill count
-lurkbot skills list | grep "Installed Skills" | grep -o "[0-9]\+"  # Should be 25+
+# 2. Unit tests passing
+pytest tests/test_skills_clawhub.py -xvs
+# Should show: 4 passed
 
-# 3. Tests passing
-pytest tests/test_skills* -xvs  # All pass
-
-# 4. CLI working
-lurkbot skills --help  # Shows all commands
-
-# 5. Files exist
-ls .skill-bundles/  # Shows installed skills
+# 3. Gateway working
+lurkbot gateway --help
+# Should show: Gateway CLI commands
 ```
 
 ---
 
-## References
+## Documentation Standards
 
-### Documentation
-- `docs/main/CLAWHUB_INTEGRATION.md` - User guide
-- `docs/main/PHASE_1_1_SUMMARY.md` - Phase 1.1 summary
-- `docs/design/COMPARISON_ANALYSIS.md` - LurkBot vs Moltbot/OpenClaw
+### When Implementing New Features
 
-### Implementation
-- `src/lurkbot/skills/clawhub.py` - ClawHub API client
-- `src/lurkbot/cli/skills.py` - CLI commands
-- `src/lurkbot/skills/registry.py` - Installation logic
+1. **Code First**:
+   - Write implementation
+   - Add unit tests
+   - Add integration tests (if applicable)
 
-### External Resources
-- [OpenClaw Repository](https://github.com/openclaw/openclaw)
-- [ClawHub Website](https://clawhub.ai) - If exists
-- [OpenClaw Skills](https://github.com/openclaw/skills)
+2. **Documentation**:
+   - Update user guide: `docs/user-guide/`
+   - Update API reference: `docs/api/`
+   - Add examples: `docs/examples/`
 
----
+3. **Work Log**:
+   - Add entry to `docs/main/WORK_LOG.md`
+   - Create phase summary: `docs/main/PHASE_X_Y_SUMMARY.md`
+   - Update this guide: `docs/dev/NEXT_SESSION_GUIDE.md`
 
-## Questions to Answer in Next Session
+### Chinese vs English
 
-1. **Does ClawHub API exist?**
-   - If yes: What are the real endpoints?
-   - If no: What's the alternative installation method?
-
-2. **Which installation method to use?**
-   - ClawHub API (if available)
-   - OpenClaw CLI wrapper
-   - Manual GitHub download
-
-3. **How many skills to install?**
-   - All 12 recommended?
-   - Subset based on priority?
-   - Wait for API confirmation?
-
-4. **Should we implement Agent auto-install?** (Phase 1.3)
-   - Extract skill requirements from prompts
-   - Auto-install or request approval
+- **Code/Comments**: English
+- **Documentation** (`docs/`): Chinese (中文)
+- **User-facing**: Chinese (中文)
+- **README.md**: English (for GitHub)
 
 ---
 
-## Success Criteria for Phase 1.2
+## Current Project Status
 
-- [ ] At least 5 OpenClaw skills successfully installed
-- [ ] Skills appear in `lurkbot skills list --source managed`
-- [ ] Each skill has valid SKILL.md in `.skill-bundles/`
-- [ ] No critical errors during installation
-- [ ] Documentation updated with installation results
+### Completion Overview
+
+```
+Phase 1 (Core Infrastructure)
+├── Phase 1.0: Gateway + Agent            ✅ 100%
+└── Phase 1.1: ClawHub Client             ✅ 100%
+    └── Phase 1.2: Skills Installation    ⏸️ Paused (Research Complete)
+
+Phase 2 (国内生态)                          ⏳ 0% (Not Started)
+Phase 3 (自主能力)                          ⏳ 0% (Not Started)
+Phase 4 (企业安全)                          ⏳ 0% (Not Started)
+Phase 5 (生态完善)                          ⏳ 0% (Not Started)
+
+Overall Progress: 97%+ (Core Complete)
+```
+
+### Skills Status
+
+| Source | Count | Status |
+|--------|-------|--------|
+| Bundled | 13 | ✅ Working |
+| Managed (ClawHub) | 0 | ⏸️ Paused |
+| Workspace | 0 | N/A |
+| **Total** | **13** | **Fully Functional** |
+
+### Test Status
+
+| Test Suite | Status |
+|------------|--------|
+| Unit Tests | ✅ All Passing |
+| Integration Tests | ✅ All Passing (219 tests) |
+| E2E Tests | ✅ All Passing |
+| ClawHub Tests | ✅ Unit Tests Passing (API not tested) |
 
 ---
 
-**Status**: Ready to start Phase 1.2
-**Estimated Time**: 1-2 hours (depending on API availability)
-**Priority**: High (expands LurkBot skill ecosystem)
+## External Resources
+
+### API Documentation
+
+- [企业微信开发文档](https://developer.work.weixin.qq.com/)
+- [钉钉开放平台](https://open.dingtalk.com/)
+- [飞书开放平台](https://open.feishu.cn/)
+- [DeepSeek API](https://platform.deepseek.com/)
+- [Qwen API](https://help.aliyun.com/zh/dashscope/)
+
+### ClawHub Resources
+
+- [ClawHub Website](https://clawhub.com)
+- [ClawHub Repository](https://github.com/openclaw/clawhub)
+- [Skills Archive](https://github.com/openclaw/skills)
+- [OpenClaw Docs](https://docs.openclaw.ai/)
+
+### LurkBot Resources
+
+- [Architecture Design](../design/ARCHITECTURE_DESIGN.md)
+- [Comparison Analysis](../design/COMPARISON_ANALYSIS.md)
+- [Work Log](./WORK_LOG.md)
+
+---
+
+## Decision Matrix
+
+| Factor | Phase 2 (国内生态) | Phase 4 (企业安全) | Phase 1.2 (ClawHub) |
+|--------|-------------------|-------------------|-------------------|
+| **Business Value** | High (China market) | High (Enterprise) | Medium (Nice-to-have) |
+| **Effort** | 2-3 weeks | 3-4 weeks | 2-5 days |
+| **Risk** | Medium | Low | Low |
+| **Dependencies** | IM SDKs | Crypto libs | Node.js or none |
+| **User Impact** | High (enables new users) | High (security) | Low (current skills sufficient) |
+| **Urgency** | High (market window) | High (enterprise sales) | Low (can defer) |
+| **Recommendation** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
+
+---
+
+**Status**: Ready for Phase 2 or Phase 4
+**Updated**: 2026-01-31
+**Next Review**: After completing chosen phase
+
