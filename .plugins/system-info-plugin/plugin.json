@@ -1,0 +1,26 @@
+{
+  "name": "system-info-plugin",
+  "version": "1.0.0",
+  "author": {
+    "name": "LurkBot Team",
+    "email": "team@lurkbot.io"
+  },
+  "description": "提供系统信息查询功能，包括 CPU、内存、磁盘使用情况等",
+  "type": "tool",
+  "language": "python",
+  "entry": "system_info.py",
+  "main_class": "SystemInfoPlugin",
+  "enabled": true,
+  "permissions": {
+    "filesystem": true,
+    "network": false,
+    "exec": false,
+    "channels": []
+  },
+  "dependencies": {
+    "python": ["psutil>=5.9.0"],
+    "system": [],
+    "env": []
+  },
+  "tags": ["system", "monitoring", "utility", "example"]
+}
