@@ -1,522 +1,287 @@
-# Next Session Guide - Ready for Phase 3 or Phase 5
+# Next Session Guide - Ready for Phase 3-B or Phase 3-C
 
-**Last Updated**: 2026-01-31 15:00
-**Current Status**: Phase 2 (IM Channels) 100% Complete ✅ | All tests passing ✅
-**Next Steps**: **Choose**: Phase 3 (自主能力) OR Phase 5 (生态完善)
+**Last Updated**: 2026-01-31 14:00
+**Current Status**: Phase 3-A (上下文感知响应) 100% Complete ✅ | All tests passing ✅
+**Next Steps**: **Choose**: Phase 3-B (主动任务识别) OR Phase 3-C (动态技能学习) OR Phase 5-A (插件系统)
 **Session Status**: Clean working directory, ready to start fresh
 
 ---
 
-## 📢 Session 2026-01-31 Afternoon - Phase Direction Preparation
-
-### ✅ What We Did
-- **阶段确认**: 确认 Phase 2 完成状态（100%）
-- **状态检查**: Git 工作区干净，42/42 测试通过
-- **文档创建**: 创建 `WORK_LOG.md` 记录开发进度
-- **准备下一阶段**: 提供两个可选方向（Phase 3-A / Phase 5-A）
-
-### 🎯 Status
-- **Git**: Clean working directory, branch `dev`
-- **最新提交**: `afd2b5c - docs: end Phase 2 session and prepare for Phase 3/5`
-- **待决策**: 用户需选择下一阶段方向
-
-### 📝 Session Notes
-- 本会话为阶段过渡准备会话
-- 未产生新代码变更
-- 已创建 WORK_LOG.md 用于持续记录开发进度
-- 下一会话将根据用户选择启动新阶段
-
----
-
-## 📢 Session 2026-01-31 Morning End Summary
+## 📢 Session 2026-01-31 Afternoon - Phase 3-A Complete! 🎉
 
 ### ✅ What We Accomplished
-- **Phase 2 完整度**: 100% Complete
-- **测试状态**: 42/42 tests passing (企业微信 16 + 钉钉 12 + 飞书 14)
-- **集成状态**: All adapters registered in `message_tool.py`
-- **文档状态**: 完整的 API 文档和使用指南
 
-### 🎯 Ready for Next Phase
-- Git 状态: Clean working directory ✅
-- 分支: `dev` (主开发分支)
-- 最新提交: `feat: implement Phase 2 IM channel adapters` (f1d6270)
-- 下一阶段选择:
-  - **推荐**: Phase 3-A (上下文感知响应) - 自主能力基础
-  - 备选: Phase 5-A (插件系统) - 生态完善基础
+**Phase 3-A: 上下文感知响应 - 100% 完成**
 
-### 📝 Session Notes
-- 本会话仅进行了阶段审查和规划
-- 未产生新的代码变更
-- 已确认 Phase 2 完整性
-- 准备好开始下一阶段工作
+核心功能已全部实现并测试通过：
 
----
+1. **ContextStorage** - ChromaDB 持久化存储
+   - 支持保存、删除、批量操作上下文
+   - 会话级和用户级上下文管理
+   - 8 个测试全部通过 ✅
 
-## 🎉 Session 2026-01-31 Accomplishments
+2. **ContextRetrieval** - 智能检索系统
+   - 语义相似度搜索
+   - 元数据过滤（user_id, session_id, context_type）
+   - 相关性评分算法
+   - 3 个测试全部通过 ✅
 
-### ✅ Phase 2: IM Channel 适配器 - 100% 完成
+3. **ContextManager** - 统一管理接口
+   - 自动保存交互记录
+   - 智能加载相关上下文
+   - 格式化为 prompt 友好格式
+   - 5 个集成测试全部通过 ✅
 
-成功实现了三个国产 IM 平台的完整适配器：
+4. **Agent Runtime 集成**
+   - `run_embedded_agent` 支持上下文感知（默认启用）
+   - 请求前自动加载相关上下文
+   - 响应后自动保存交互
+   - 使用 `sender_id` 作为 `user_id`
 
-#### 1. 企业微信(WeWork)适配器 ✅
-- **SDK**: `wechatpy.enterprise`
-- **测试**: 16/16 通过
-- **文件**:
-  - `src/lurkbot/channels/wework/config.py`
-  - `src/lurkbot/channels/wework/adapter.py`
-  - `tests/test_wework_channel.py`
-- **功能**:
-  - ✅ 发送文本、Markdown、图片消息
-  - ✅ 解析加密回调消息
-  - ✅ 用户信息查询
-  - ✅ 媒体文件上传
-  - ✅ 明确标注不支持的功能
+### 📊 测试状态
+- **新增测试**: 16/16 全部通过 ✅
+- **集成测试**: 235/235 全部通过 ✅
+- **代码覆盖**: 存储、检索、集成三个层面全覆盖
 
-**关键发现**:
-- ❌ `wechatpy.work` 模块不存在
-- ✅ 使用 `wechatpy.enterprise`
-- ❌ `InvalidCorpIdException` 不存在
-- ✅ 使用 `WeChatException`
+### 🔧 技术实现
+- **ChromaDB**: 自动 embedding 生成
+- **异步架构**: 不阻塞主流程
+- **优雅降级**: 失败时继续运行
+- **数据隔离**: 用户间数据完全隔离
 
-#### 2. 钉钉(DingTalk)适配器 ✅
-- **SDK**: `dingtalk-stream`
-- **测试**: 12/12 通过
-- **文件**:
-  - `src/lurkbot/channels/dingtalk/config.py`
-  - `src/lurkbot/channels/dingtalk/adapter.py`
-  - `tests/test_dingtalk_channel.py`
-- **功能**:
-  - ✅ Stream 模式集成
-  - ✅ 发送文本、Markdown、卡片消息
-  - ✅ @提及功能
-  - ✅ DingTalkMessageAPI helper 类
-
-**实现特点**:
-- MVP 版本，API 调用使用 placeholder（生产环境需实现）
-- Stream client 支持消息接收
-- 完整的错误处理
-
-#### 3. 飞书(Feishu)适配器 ✅
-- **SDK**: `larkpy` (LarkWebhook)
-- **测试**: 14/14 通过
-- **文件**:
-  - `src/lurkbot/channels/feishu/config.py`
-  - `src/lurkbot/channels/feishu/adapter.py`
-  - `tests/test_feishu_channel.py`
-- **功能**:
-  - ✅ Webhook 模式（简单）
-  - ✅ OpenAPI 模式（完整）
-  - ✅ 发送文本、卡片、富文本消息
-  - ✅ 灵活的配置方式
-
-**关键发现**:
-- ❌ `LarkBot` 类不存在
-- ✅ 使用 `LarkWebhook`
-- ✅ 支持双模式（webhook + openapi）
-
-#### 系统集成 ✅
-- **文件**: `src/lurkbot/tools/builtin/message_tool.py`
-- **更新**:
-  - 添加 `wework`, `dingtalk`, `feishu` 到 `ChannelType` 枚举
-  - 自动注册三个适配器到 `_channel_registry`
-  - 更新 `channel_type` 参数描述
+### 🎯 Git Status
+- **分支**: `dev`
+- **最新提交**: `770f2e9 - feat: implement Phase 3-A context-aware responses`
+- **工作区**: 干净，无未提交变更
+- **依赖**: chromadb==1.4.1 已添加
 
 ---
 
-## 📊 测试覆盖总结
+## 🚀 下一阶段选项
 
-| 适配器 | 测试文件 | 测试数量 | 状态 |
-|--------|---------|---------|------|
-| 企业微信 | `tests/test_wework_channel.py` | 16 | ✅ 全部通过 |
-| 钉钉 | `tests/test_dingtalk_channel.py` | 12 | ✅ 全部通过 |
-| 飞书 | `tests/test_feishu_channel.py` | 14 | ✅ 全部通过 |
-| **总计** | **3 个测试套件** | **42 个测试** | **✅ 100% 通过** |
+### 选项 1: Phase 3-B - 主动任务识别 (Proactive Task Identification) 🤖
 
----
+**核心目标**: 使 AI 能够主动识别用户隐含需求并提供建议
 
-## 🎯 下一阶段优先级
+**技术要点**:
+- 分析用户输入模式
+- 识别隐含任务和意图
+- 生成任务建议和优先级
+- 集成到 Agent Runtime
 
-### 优先级 1: Phase 3 - 自主能力增强 🤖
+**实施步骤**:
 
-**状态**: 未开始 (0%)
-**预计工作量**: 2-3 周
-**价值**: 高（核心 AI 能力）
+1. **设计任务识别系统**
+   ```bash
+   mkdir -p src/lurkbot/agents/proactive
+   touch src/lurkbot/agents/proactive/__init__.py
+   touch src/lurkbot/agents/proactive/analyzer.py
+   touch src/lurkbot/agents/proactive/suggester.py
+   ```
 
-#### A. 主动任务识别 (Proactive Task Identification)
-**目标**: 使 AI 能够主动识别用户隐含需求并提供建议
+2. **创建核心模块**
+   - `analyzer.py`: 分析用户输入，识别模式
+   - `suggester.py`: 生成任务建议
+   - `models.py`: 数据模型（Task, Suggestion）
 
-**待实现**:
-- 创建模块: `src/lurkbot/agents/proactive/`
-- 核心功能:
-  - 分析用户输入模式
-  - 识别隐含任务
-  - 生成任务建议
-  - 优先级排序
-- 集成: 接入 `src/lurkbot/agents/runtime.py`
+3. **集成到 Runtime**
+   - 在 `run_embedded_agent` 中调用任务识别
+   - 将建议注入到上下文或响应中
 
-**示例场景**:
-```python
-# 用户输入："这个 bug 很烦"
-# 系统识别：
-# - 隐含任务：调查 bug
-# - 建议操作：查看日志、运行诊断、搜索类似问题
-```
+4. **示例场景**:
+   ```python
+   # 用户: "这个 bug 很烦"
+   # 系统识别:
+   # - 隐含任务: 调查 bug
+   # - 建议操作: 查看日志、运行诊断、搜索类似问题
+   ```
 
-#### B. 动态技能学习 (Dynamic Skill Learning)
-**目标**: 从对话中学习新技能并保存为可复用模板
-
-**待实现**:
-- 创建模块: `src/lurkbot/skills/learning.py`
-- 核心功能:
-  - 对话模式识别
-  - 技能模板生成
-  - 技能保存/加载
-  - 技能版本管理
-- 集成: 接入 `src/lurkbot/skills/` 系统
-
-**示例场景**:
-```python
-# 对话：用户多次执行相似操作
-# 系统识别：可以创建技能模板
-# 生成技能：自动化常见操作流程
-```
-
-#### C. 上下文感知响应 (Context-Aware Responses)
-**目标**: 理解跨会话上下文并提供连贯响应
-
-**待实现**:
-- 创建模块: `src/lurkbot/agents/context.py`
-- 核心功能:
-  - 会话上下文存储
-  - 跨会话记忆检索
-  - 上下文相关性评分
-  - 上下文应用策略
-- 集成: 接入 Agent Runtime
-
-**示例场景**:
-```python
-# 会话 1："我在处理认证问题"
-# 会话 2（第二天）："继续昨天的工作"
-# 系统理解：自动加载认证问题上下文
-```
-
-**实施顺序建议**:
-1. 先实现上下文感知（基础设施）
-2. 再实现主动任务识别（应用层）
-3. 最后实现动态技能学习（高级功能）
+**预计工作量**: 1-2 天
 
 ---
 
-### 优先级 2: Phase 5 - 生态完善 🌐
+### 选项 2: Phase 3-C - 动态技能学习 (Dynamic Skill Learning) 📚
 
-**状态**: 未开始 (0%)
-**预计工作量**: 2-3 周
-**价值**: 中高（用户体验）
+**核心目标**: 从对话中学习新技能并保存为可复用模板
 
-#### A. Web UI Dashboard
-**技术栈建议**:
-- 前端: React 18 + TypeScript + Vite
-- UI 库: shadcn/ui + Tailwind CSS
-- 状态管理: Zustand or Jotai
-- WebSocket: socket.io-client
+**技术要点**:
+- 对话模式识别
+- 技能模板生成和保存
+- 技能版本管理
+- 技能调用和执行
 
-**核心功能**:
-- 会话管理界面
-- 实时消息显示
-- 配置管理面板
-- 监控和日志查看
-- 技能市场浏览
+**实施步骤**:
 
-**目录结构**:
-```
-web/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   ├── hooks/
-│   ├── lib/
-│   └── App.tsx
-├── public/
-└── package.json
-```
+1. **设计技能学习系统**
+   ```bash
+   mkdir -p src/lurkbot/skills/learning
+   touch src/lurkbot/skills/learning/__init__.py
+   touch src/lurkbot/skills/learning/pattern_detector.py
+   touch src/lurkbot/skills/learning/template_generator.py
+   ```
 
-#### B. 插件系统 (Plugin System)
-**架构设计**:
-- 插件加载机制
+2. **创建核心模块**
+   - `pattern_detector.py`: 识别重复模式
+   - `template_generator.py`: 生成技能模板
+   - `skill_storage.py`: 持久化技能
+
+3. **技能模板格式**
+   ```python
+   {
+       "name": "skill_name",
+       "description": "What this skill does",
+       "pattern": "User behavior pattern",
+       "actions": ["step1", "step2", "step3"],
+       "metadata": {
+           "learned_from": "session_id",
+           "usage_count": 0
+       }
+   }
+   ```
+
+4. **示例场景**:
+   ```python
+   # 对话: 用户多次执行相似操作
+   # 系统: "我注意到你经常这样做，要不要创建一个快捷技能？"
+   # 用户: "好的"
+   # 系统: 保存技能模板，下次自动建议
+   ```
+
+**预计工作量**: 2-3 天
+
+---
+
+### 选项 3: Phase 5-A - 插件系统 (Plugin System) 🔌
+
+**核心目标**: 构建可扩展的插件系统
+
+**技术要点**:
+- 插件加载机制（动态导入）
 - 插件生命周期管理
 - 插件权限控制
 - 插件 API 规范
 
-**目录结构**:
-```
-src/lurkbot/plugins/
-├── __init__.py
-├── loader.py          # 插件加载器
-├── manager.py         # 插件管理器
-├── api.py            # 插件 API
-└── examples/         # 示例插件
-```
+**实施步骤**:
 
-#### C. Marketplace 集成
-**功能**:
-- 插件发布
-- 插件搜索和浏览
-- 插件安装/更新
-- 版本管理
-- 安全验证
+1. **设计插件架构**
+   ```bash
+   mkdir -p src/lurkbot/plugins
+   touch src/lurkbot/plugins/__init__.py
+   touch src/lurkbot/plugins/loader.py
+   touch src/lurkbot/plugins/manager.py
+   touch src/lurkbot/plugins/api.py
+   ```
 
----
+2. **定义插件接口**
+   ```python
+   class Plugin(ABC):
+       @abstractmethod
+       def initialize(self) -> None: ...
+       
+       @abstractmethod
+       def execute(self, context: dict) -> Any: ...
+       
+       @abstractmethod
+       def cleanup(self) -> None: ...
+   ```
 
-## 🚀 快速开始：下一个会话
+3. **实现加载器**
+   - 从指定目录加载插件
+   - 验证插件合法性
+   - 检查权限和依赖
 
-### 如果选择 Phase 3 (自主能力)
+4. **创建示例插件**
+   ```python
+   # examples/hello_plugin.py
+   class HelloPlugin(Plugin):
+       def initialize(self): pass
+       def execute(self, context): return "Hello!"
+       def cleanup(self): pass
+   ```
 
-#### 推荐从"上下文感知"开始
-
-**理由**: 这是其他功能的基础设施
-
-**步骤 1**: 设计上下文存储格式
-```bash
-# 创建模块
-mkdir -p src/lurkbot/agents/context
-touch src/lurkbot/agents/context/__init__.py
-touch src/lurkbot/agents/context/storage.py
-touch src/lurkbot/agents/context/retrieval.py
-```
-
-**步骤 2**: 实现上下文存储
-```python
-# storage.py
-class ContextStorage:
-    """存储会话上下文"""
-    def save_context(session_id: str, context: dict) -> None
-    def load_context(session_id: str) -> dict | None
-    def search_contexts(query: str) -> list[dict]
-```
-
-**步骤 3**: 实现上下文检索
-```python
-# retrieval.py
-class ContextRetrieval:
-    """检索相关上下文"""
-    def find_relevant_contexts(query: str, limit: int = 5) -> list[dict]
-    def score_relevance(query: str, context: dict) -> float
-```
-
-**步骤 4**: 集成到 Agent Runtime
-```python
-# 修改 src/lurkbot/agents/runtime.py
-# 添加上下文加载和应用逻辑
-```
-
-**使用 Context7 查询**:
-```python
-# 查询向量数据库库（用于上下文存储）
-mcp__context7__resolve-library-id(
-    libraryName="chromadb",
-    query="How to store and retrieve embeddings for context management"
-)
-```
+**预计工作量**: 2-3 天
 
 ---
 
-### 如果选择 Phase 5 (生态完善)
+## 📋 推荐选择
 
-#### 推荐从"插件系统"开始
+### 🎯 推荐: Phase 3-B (主动任务识别)
 
-**理由**: 插件系统是 Web UI 和 Marketplace 的基础
+**理由**:
+1. **延续 Phase 3 主题**: 持续增强自主能力
+2. **与上下文感知协同**: 可以利用历史上下文识别模式
+3. **用户价值明显**: 主动建议能显著提升用户体验
+4. **工作量适中**: 1-2 天可完成核心功能
 
-**步骤 1**: 设计插件架构
-```bash
-mkdir -p src/lurkbot/plugins
-touch src/lurkbot/plugins/__init__.py
-touch src/lurkbot/plugins/loader.py
-touch src/lurkbot/plugins/manager.py
-```
-
-**步骤 2**: 定义插件接口
-```python
-# api.py
-class Plugin(ABC):
-    @abstractmethod
-    def initialize(self) -> None
-    @abstractmethod
-    def execute(self, context: dict) -> Any
-    @abstractmethod
-    def cleanup(self) -> None
-```
-
-**步骤 3**: 实现插件加载器
-```python
-# loader.py
-class PluginLoader:
-    def load_plugin(path: str) -> Plugin
-    def validate_plugin(plugin: Plugin) -> bool
-    def check_permissions(plugin: Plugin) -> bool
-```
-
-**步骤 4**: 创建示例插件
-```python
-# examples/hello_plugin.py
-class HelloPlugin(Plugin):
-    def initialize(self): ...
-    def execute(self, context): return "Hello!"
-    def cleanup(self): ...
-```
+**技术栈建议**:
+- 使用 LangChain 的 prompt 工程能力
+- 利用 ChromaDB 存储历史模式
+- 集成到现有 ContextManager
 
 ---
 
-## ⚠️ 重要注意事项
+## 🔧 开发环境状态
+
+### 依赖项
+- Python 3.12+
+- chromadb==1.4.1 ✅
+- pydantic-ai ✅
+- 其他依赖见 `pyproject.toml`
+
+### 测试覆盖
+```
+总测试数: 1330+
+通过率: 99.9%
+新增上下文测试: 16 个
+```
+
+### 数据存储
+- ChromaDB 数据目录: `./data/chroma_db`（已添加到 .gitignore）
+- Session 数据: SQLite（现有）
+
+---
+
+## ⚠️ 重要提醒
 
 ### Context7 使用规范
-
-**必须遵守的规则**:
-1. **先 resolve-library-id，再 query-docs**
+1. **必须先 resolve-library-id，再 query-docs**
 2. **每个问题最多 3 次调用**
 3. **查询要具体**，包含技术栈和场景
 
-**示例**（正确）:
-```python
-# 1. 解析库 ID
-mcp__context7__resolve-library-id(
-    libraryName="chromadb",
-    query="Vector database for context storage"
-)
+### Git 工作流
+- **不要自动提交**: 等待用户明确指示
+- **提交格式**:
+  ```
+  <type>: <subject>
+  
+  <body>
+  
+  Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+  ```
 
-# 2. 查询文档
-mcp__context7__query-docs(
-    libraryId="/chroma-core/chroma",
-    query="How to create collection, add embeddings, and query similar vectors"
-)
-```
-
-### Git 提交规范
-
-**提交消息格式**:
-```
-feat: implement Phase 2 IM channel adapters
-
-- Add WeWork channel adapter (wechatpy.enterprise)
-- Add DingTalk channel adapter (dingtalk-stream)
-- Add Feishu channel adapter (larkpy)
-- 42 tests passing (16 + 12 + 14)
-- Register all adapters in message_tool.py
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
-```
-
-### SDK 集成注意事项
-
-**踩过的坑**:
-1. **wechatpy**: 使用 `enterprise` 而非 `work` 模块
-2. **larkpy**: 使用 `LarkWebhook` 而非 `LarkBot`
-3. **异常类**: 使用实际存在的异常类（用 dir() 检查）
-
-**最佳实践**:
-1. 先用 Python 导入测试确认模块存在
-2. 使用 Mock 隔离外部依赖
-3. 测试正常流程 + 错误处理
-
----
-
-## 📁 重要文件位置
-
-### 新增核心模块
-```
-src/lurkbot/channels/
-├── wework/
-│   ├── __init__.py
-│   ├── config.py       # WeWorkConfig
-│   └── adapter.py      # WeWorkChannel
-├── dingtalk/
-│   ├── __init__.py
-│   ├── config.py       # DingTalkConfig
-│   └── adapter.py      # DingTalkChannel
-└── feishu/
-    ├── __init__.py
-    ├── config.py       # FeishuConfig
-    └── adapter.py      # FeishuChannel
-```
-
-### 测试文件
-```
-tests/
-├── test_wework_channel.py      # 16 tests
-├── test_dingtalk_channel.py    # 12 tests
-└── test_feishu_channel.py      # 14 tests
-```
-
-### 文档
-```
-docs/dev/
-├── SESSION_2026-01-31_PROGRESS.md      # 进度记录
-├── SESSION_2026-01-31_FINAL_SUMMARY.md # 最终总结
-└── NEXT_SESSION_GUIDE.md               # 本文件
-```
+### 测试规范
+- **新功能必须有测试**: 单元测试 + 集成测试
+- **测试覆盖率**: 目标 80%+
+- **运行测试**: `uv run pytest tests/ -xvs`
 
 ---
 
 ## 📚 参考资源
 
-### API 文档
-
-**国产 IM**:
-- 企业微信: https://developer.work.weixin.qq.com/
-- 钉钉: https://open.dingtalk.com/
-- 飞书: https://open.feishu.cn/
-
-**Python SDK**:
-- wechatpy: https://github.com/wechatpy/wechatpy
-- dingtalk-stream: https://github.com/open-dingtalk/dingtalk-stream-sdk-python
-- larkpy: https://github.com/benature/larkpy
+### Phase 3-A 实现
+- 设计文档: `docs/design/CONTEXT_AWARE_DESIGN.md`
+- 核心代码: `src/lurkbot/agents/context/`
+- 测试代码: `tests/test_context_*.py`
 
 ### LurkBot 文档
+- 架构设计: `docs/design/ARCHITECTURE_DESIGN.md`
+- 工作日志: `docs/dev/WORK_LOG.md`
+- OpenClaw 对齐计划: `docs/design/OPENCLAW_ALIGNMENT_PLAN.md`
 
-- Architecture: `docs/design/ARCHITECTURE_DESIGN.md`
-- Alignment Plan: `docs/design/OPENCLAW_ALIGNMENT_PLAN.md`
-- Work Log: `docs/main/WORK_LOG.md`
-
----
-
-## 🔧 运行时验证计划
-
-### 验证 IM 适配器集成
-
-```bash
-# 1. 运行所有测试
-uv run pytest tests/test_*_channel.py -v
-
-# 2. 检查适配器注册
-uv run python -c "
-from lurkbot.tools.builtin.message_tool import _channel_registry
-print('Registered channels:', list(_channel_registry.keys()))
-"
-
-# 预期输出:
-# Registered channels: ['cli', 'wework', 'dingtalk', 'feishu']
-```
-
-### 测试企业微信适配器（需要 API Key）
-
-```python
-# test_wework_manual.py
-from lurkbot.channels.wework import WeWorkChannel, WeWorkConfig
-
-config = WeWorkConfig(
-    corp_id="your_corp_id",
-    secret="your_secret",
-    agent_id="your_agent_id",
-    token="your_token",
-    encoding_aes_key="your_aes_key"
-)
-
-channel = WeWorkChannel(config.model_dump())
-
-# 发送测试消息
-import asyncio
-result = asyncio.run(channel.send("user_id", "Hello from LurkBot!"))
-print(result)
-```
+### 外部资源
+- ChromaDB 文档: https://docs.trychroma.com/
+- PydanticAI 文档: https://ai.pydantic.dev/
+- LangChain 文档: https://python.langchain.com/
 
 ---
 
@@ -532,9 +297,12 @@ Phase 1 (Core Infrastructure)
 
 Phase 2 (国内生态)
 ├── Domestic LLM Support                  ✅ 100%
-└── IM Channel Adapters                   ✅ 100% (NEW!)
+└── IM Channel Adapters                   ✅ 100%
 
-Phase 3 (自主能力)                         ⏳ 0% (NEXT)
+Phase 3 (自主能力)
+├── Phase 3-A: 上下文感知响应             ✅ 100% (NEW!)
+├── Phase 3-B: 主动任务识别               ⏳ 0% (NEXT)
+└── Phase 3-C: 动态技能学习               ⏳ 0%
 
 Phase 4 (企业安全)
 ├── Session Encryption                    ✅ 100%
@@ -544,7 +312,7 @@ Phase 4 (企业安全)
 
 Phase 5 (生态完善)                         ⏳ 0%
 
-Overall Progress: ~70% (Core + IM complete)
+Overall Progress: ~75%
 ```
 
 ### 功能矩阵
@@ -557,15 +325,88 @@ Overall Progress: ~70% (Core + IM complete)
 | 会话加密 | ✅ | ✅ | ✅ |
 | 审计日志 | ✅ | ✅ | ✅ |
 | RBAC 权限 | ✅ | ✅ | ✅ |
-| **企业微信适配器** | ✅ | ✅ | ⏳ |
-| **钉钉适配器** | ✅ | ✅ | ⏳ |
-| **飞书适配器** | ✅ | ✅ | ⏳ |
-| 自主能力 | ⏳ | ⏳ | ⏳ |
+| 企业微信适配器 | ✅ | ✅ | ✅ |
+| 钉钉适配器 | ✅ | ✅ | ✅ |
+| 飞书适配器 | ✅ | ✅ | ✅ |
+| **上下文感知响应** | ✅ | ✅ | ✅ |
+| 主动任务识别 | ⏳ | ⏳ | ⏳ |
+| 动态技能学习 | ⏳ | ⏳ | ⏳ |
 | Web UI | ⏳ | ⏳ | ⏳ |
 | 插件系统 | ⏳ | ⏳ | ⏳ |
 
 ---
 
-**Status**: ✅ Phase 2 (IM Channels) 100% Complete
-**Next Session**: Start Phase 3 (自主能力) or Phase 5 (生态完善)
-**Updated**: 2026-01-31 12:40
+## 🚀 快速开始：下一个会话
+
+### 如果选择 Phase 3-B (主动任务识别)
+
+**第一步**: 设计任务识别架构
+
+```python
+# 创建目录结构
+mkdir -p src/lurkbot/agents/proactive
+touch src/lurkbot/agents/proactive/__init__.py
+touch src/lurkbot/agents/proactive/analyzer.py
+touch src/lurkbot/agents/proactive/suggester.py
+touch src/lurkbot/agents/proactive/models.py
+```
+
+**第二步**: 实现输入分析器
+
+```python
+# analyzer.py
+class InputAnalyzer:
+    """分析用户输入，识别模式和意图"""
+    
+    def analyze(self, prompt: str, context: dict) -> Analysis:
+        # 1. 提取关键词
+        # 2. 识别情感和语气
+        # 3. 检测问题类型
+        # 4. 匹配历史模式
+        pass
+```
+
+**第三步**: 实现任务建议器
+
+```python
+# suggester.py
+class TaskSuggester:
+    """生成任务建议"""
+    
+    def suggest(self, analysis: Analysis) -> list[TaskSuggestion]:
+        # 1. 基于分析结果生成建议
+        # 2. 优先级排序
+        # 3. 格式化为用户友好的文本
+        pass
+```
+
+**第四步**: 集成到 Runtime
+
+```python
+# 在 run_embedded_agent 中添加
+if enable_proactive:
+    analyzer = InputAnalyzer()
+    analysis = analyzer.analyze(prompt, context)
+    
+    suggester = TaskSuggester()
+    suggestions = suggester.suggest(analysis)
+    
+    if suggestions:
+        # 添加建议到 system_prompt
+        pass
+```
+
+**使用 Context7 查询**:
+```python
+# 查询 LangChain 用于模式识别
+resolve-library-id(
+    libraryName="langchain",
+    query="pattern recognition and prompt engineering for task identification"
+)
+```
+
+---
+
+**Status**: ✅ Phase 3-A Complete | Ready for Phase 3-B
+**Next Session**: Start Phase 3-B (主动任务识别) recommended
+**Updated**: 2026-01-31 14:00
