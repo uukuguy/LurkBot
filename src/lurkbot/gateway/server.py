@@ -26,25 +26,55 @@ from lurkbot.gateway.protocol.frames import (
 )
 from lurkbot.gateway.events import get_event_broadcaster
 from lurkbot.gateway.methods import get_method_registry
+from lurkbot.gateway.batching import MessageBatcher
 
 
 class GatewayConnection:
     """单个 WebSocket 连接"""
 
-    def __init__(self, websocket: WebSocket, conn_id: str):
+    def __init__(
+        self,
+        websocket: WebSocket,
+        conn_id: str,
+        enable_batching: bool = True,
+        batch_size: int = 100,
+        batch_delay: float = 0.01,
+    ):
         self.websocket = websocket
         self.conn_id = conn_id
         self.client_info = None
         self.authenticated = False
 
+        # 批处理配置
+        if enable_batching:
+            self.batcher = MessageBatcher(
+                send_func=self._send_text,
+                batch_size=batch_size,
+                batch_delay=batch_delay,
+            )
+        else:
+            self.batcher = None
+
+    async def _send_text(self, text: str) -> None:
+        """发送文本消息（内部方法）"""
+        await self.websocket.send_text(text)
+
     async def send_json(self, data: dict) -> None:
-        """发送 JSON 消息"""
-        await self.websocket.send_text(json.dumps(data))
+        """发送 JSON 消息（支持批处理）"""
+        if self.batcher:
+            await self.batcher.add(data)
+        else:
+            await self.websocket.send_text(json.dumps(data))
 
     async def receive_json(self) -> dict:
         """接收 JSON 消息"""
         text = await self.websocket.receive_text()
         return json.loads(text)
+
+    async def close(self) -> None:
+        """关闭连接，刷新剩余消息"""
+        if self.batcher:
+            await self.batcher.close()
 
 
 class GatewayServer:
@@ -88,6 +118,8 @@ class GatewayServer:
         except Exception as e:
             logger.error(f"Gateway connection error: {e}")
         finally:
+            # 关闭连接，刷新剩余消息
+            await connection.close()
             self._connections.discard(connection)
             if subscriber:
                 self._event_broadcaster.unsubscribe(subscriber)
