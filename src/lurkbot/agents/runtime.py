@@ -45,6 +45,7 @@ class AgentDependencies(BaseModel):
 
     context: AgentContext
     message_history: list[dict[str, Any]] = []
+    relevant_contexts: list[dict[str, Any]] = []  # Retrieved historical contexts
 
 
 # Model ID mapping from provider:model format for native PydanticAI providers
@@ -189,11 +190,12 @@ async def run_embedded_agent(
     system_prompt: str,
     images: list[str] | None = None,
     message_history: list[dict[str, Any]] | None = None,
+    enable_context_aware: bool = True,  # Enable context-aware by default
 ) -> AgentRunResult:
-    """Run an embedded agent session.
+    """Run an embedded agent session with optional context-aware support.
 
     This is the main entry point for running an agent, equivalent to
-    MoltBot's runEmbeddedPiAgent function.
+    MoltBot's runEmbeddedPiAgent function. Now with context-aware capabilities.
 
     Args:
         context: The agent execution context
@@ -201,6 +203,7 @@ async def run_embedded_agent(
         system_prompt: The generated system prompt
         images: Optional list of image URLs or base64 data
         message_history: Optional previous message history
+        enable_context_aware: Enable context-aware retrieval (default: True)
 
     Returns:
         AgentRunResult containing the execution results
@@ -210,23 +213,51 @@ async def run_embedded_agent(
     try:
         logger.info(f"Running agent with provider={context.provider} model={context.model_id}")
 
-        # Create the agent (now supports both native and OpenAI-compatible providers)
+        # Step 1: Load relevant contexts (if enabled)
+        relevant_contexts = []
+        if enable_context_aware:
+            try:
+                from .context.manager import get_context_manager
+
+                # Use sender_id as user_id, fallback to session_id if not available
+                user_id = context.sender_id or context.session_id
+
+                context_manager = get_context_manager()
+                retrieved = await context_manager.load_context_for_prompt(
+                    prompt=prompt,
+                    user_id=user_id,
+                    session_id=context.session_id,
+                    include_session_history=True,
+                )
+
+                # Format contexts and append to system prompt
+                if retrieved:
+                    context_text = context_manager.format_contexts_for_prompt(retrieved)
+                    system_prompt = f"{system_prompt}\n\n## Relevant Context\n{context_text}"
+                    logger.info(f"Loaded {len(retrieved)} contexts for context-aware mode")
+
+                relevant_contexts = [rc.context.model_dump() for rc in retrieved]
+            except Exception as e:
+                logger.warning(f"Context-aware loading failed, continuing without: {e}")
+
+        # Step 2: Create the agent (now supports both native and OpenAI-compatible providers)
         agent = create_agent(
             provider=context.provider,
             model_id=context.model_id,
             system_prompt=system_prompt,
         )
 
-        # Prepare dependencies
+        # Step 3: Prepare dependencies
         deps = AgentDependencies(
             context=context,
             message_history=message_history or [],
+            relevant_contexts=relevant_contexts,
         )
 
-        # Run the agent
+        # Step 4: Run the agent
         run_result = await agent.run(prompt, deps=deps)
 
-        # Check for deferred tool requests (human-in-the-loop)
+        # Step 5: Check for deferred tool requests (human-in-the-loop)
         if isinstance(run_result.output, DeferredToolRequests):
             result.deferred_requests = run_result.output
             logger.info(f"Agent run has {len(run_result.output.approvals)} pending approvals")
@@ -235,6 +266,26 @@ async def run_embedded_agent(
 
         # Capture message history
         result.messages_snapshot = [msg.model_dump() for msg in run_result.all_messages()]
+
+        # Step 6: Save interaction (if context-aware enabled and not deferred)
+        if enable_context_aware and not isinstance(run_result.output, DeferredToolRequests):
+            try:
+                from .context.manager import get_context_manager
+
+                # Use sender_id as user_id, fallback to session_id if not available
+                user_id = context.sender_id or context.session_id
+
+                context_manager = get_context_manager()
+                await context_manager.save_interaction(
+                    session_id=context.session_id,
+                    user_id=user_id,
+                    user_message=prompt,
+                    assistant_message=run_result.output,
+                    tool_calls=None,  # TODO: Extract tool call info from messages
+                )
+                logger.debug("Saved interaction to context storage")
+            except Exception as e:
+                logger.warning(f"Failed to save interaction: {e}")
 
     except TimeoutError:
         result.timed_out = True
