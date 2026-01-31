@@ -692,25 +692,190 @@ value = await comm.shared_state.get("plugin-a", "key1")
 - `src/lurkbot/plugins/communication.py`
 - `tests/test_plugin_communication.py`
 
-## 11. 未来优化方向
+## 11. Phase 6: 插件生态完善（已实现）
 
-### 11.1 短期优化（Phase 6）
+### 11.1 插件编排系统（已实现）
 
-1. **插件编排**：支持插件依赖和执行顺序
-2. **插件版本管理**：支持多版本共存和回滚
-3. **插件性能分析**：提供详细的性能分析工具
-4. **插件权限细化**：更细粒度的权限控制
+**功能描述**：支持插件依赖管理、执行顺序控制和条件执行。
 
-### 11.2 长期优化（Phase 7+）
+**核心组件**：
+- `PluginOrchestrator`：插件编排器，管理插件依赖关系和执行顺序
+- `ExecutionCondition`：执行条件模型，支持多种条件类型
+- `ExecutionPlan`：执行计划，包含执行阶段和循环检测结果
+
+**关键特性**：
+- 依赖图构建和可视化
+- 拓扑排序执行（支持并行执行）
+- 循环依赖检测（DFS 算法）
+- 条件执行（ALWAYS/ON_SUCCESS/ON_FAILURE/CUSTOM）
+- 优先级排序
+
+**使用示例**：
+```python
+from lurkbot.plugins.orchestration import get_orchestrator, ExecutionCondition, ExecutionConditionType
+
+orchestrator = get_orchestrator()
+
+# 注册插件节点
+orchestrator.register_plugin("plugin-a")
+orchestrator.register_plugin("plugin-b", dependencies=["plugin-a"])
+orchestrator.register_plugin("plugin-c", dependencies=["plugin-a", "plugin-b"])
+
+# 创建执行计划
+plan = orchestrator.create_execution_plan()
+
+# 检查循环依赖
+if plan.has_cycles:
+    print(f"检测到循环依赖: {plan.cycle_info}")
+else:
+    print(f"执行阶段: {plan.stages}")
+```
+
+**相关文件**：
+- `src/lurkbot/plugins/orchestration.py`
+- `tests/test_plugin_orchestration.py`
+
+### 11.2 插件权限细化（已实现）
+
+**功能描述**：提供细粒度的插件权限控制和审计功能。
+
+**核心组件**：
+- `PermissionManager`：权限管理器
+- `Permission`：权限定义模型
+- `PermissionSet`：权限集合
+- `AuditLog`：审计日志
+
+**关键特性**：
+- 15+ 种细粒度权限类型（文件系统、网络、系统、数据、频道、插件）
+- 4 个权限级别（NONE/READ/WRITE/ADMIN）
+- 通配符资源匹配
+- 完整的权限审计日志
+- 异步权限检查
+
+**使用示例**：
+```python
+from lurkbot.plugins.permissions import get_permission_manager, Permission, PermissionType
+
+manager = get_permission_manager()
+
+# 授予权限
+perm = Permission(type=PermissionType.FILESYSTEM_READ, resource="/data/*")
+await manager.grant_permission("my-plugin", perm)
+
+# 检查权限
+has_perm = await manager.check_permission("my-plugin", perm)
+
+# 获取审计日志
+logs = await manager.get_audit_logs("my-plugin")
+```
+
+**相关文件**：
+- `src/lurkbot/plugins/permissions.py`
+- `tests/test_plugin_permissions.py`
+
+### 11.3 插件版本管理（已实现）
+
+**功能描述**：支持插件多版本共存、版本切换和回滚机制。
+
+**核心组件**：
+- `VersionManager`：版本管理器
+- `SemanticVersion`：语义化版本解析器
+- `PluginVersion`：插件版本信息
+- `VersionHistory`：版本历史记录
+
+**关键特性**：
+- 语义化版本解析和比较（major.minor.patch-prerelease+build）
+- 多版本共存
+- 版本切换和回滚
+- 版本历史记录
+- 升级/降级自动检测
+
+**使用示例**：
+```python
+from lurkbot.plugins.versioning import get_version_manager
+
+manager = get_version_manager()
+
+# 注册版本
+manager.register_version("my-plugin", "1.0.0")
+manager.register_version("my-plugin", "2.0.0")
+
+# 设置活跃版本
+manager.set_active_version("my-plugin", "1.0.0")
+
+# 升级到最新版本
+manager.upgrade_to_latest("my-plugin")
+
+# 回滚到上一个版本
+manager.rollback("my-plugin")
+```
+
+**相关文件**：
+- `src/lurkbot/plugins/versioning.py`
+- `tests/test_plugin_versioning.py`
+
+### 11.4 插件性能分析（已实现）
+
+**功能描述**：提供详细的插件性能分析和监控工具。
+
+**核心组件**：
+- `PerformanceProfiler`：性能分析器
+- `ExecutionProfile`：执行性能分析
+- `PerformanceReport`：性能报告
+- `PerformanceMetric`：性能指标
+
+**关键特性**：
+- 执行时间统计
+- CPU 和内存监控（psutil）
+- 性能报告生成
+- 瓶颈识别（90% 百分位）
+- 插件性能比较
+
+**使用示例**：
+```python
+from lurkbot.plugins.profiling import get_profiler
+
+profiler = get_profiler()
+
+# 分析函数执行
+async def my_plugin_func():
+    # 插件逻辑
+    pass
+
+result, profile = await profiler.profile_execution("my-plugin", my_plugin_func)
+
+# 生成性能报告
+report = profiler.generate_report("my-plugin")
+print(f"平均执行时间: {report.avg_execution_time}s")
+print(f"平均 CPU 使用: {report.avg_cpu_percent}%")
+
+# 识别瓶颈
+bottlenecks = profiler.identify_bottlenecks("my-plugin")
+```
+
+**相关文件**：
+- `src/lurkbot/plugins/profiling.py`
+- `tests/test_plugin_profiling.py`
+
+## 12. 未来优化方向
+
+### 12.1 短期优化（Phase 7）
+
+1. **插件管理器集成**：将 Phase 6 功能集成到 PluginManager
+2. **插件 CLI 工具**：提供命令行工具管理插件
+3. **插件文档生成**：自动生成插件文档
+4. **系统优化和重构**：性能优化和代码质量提升
+
+### 12.2 长期优化（Phase 8+）
 
 1. **分布式插件执行**：支持远程插件服务
 2. **插件 WebAssembly 支持**：支持 WASM 插件
 3. **插件 AI 辅助开发**：AI 辅助插件开发和调试
 4. **插件生态系统**：建立完整的插件生态
 
-## 12. 参考资料
+## 13. 参考资料
 
-### 12.1 相关文件
+### 13.1 相关文件
 
 **核心模块**：
 - `src/lurkbot/plugins/manager.py` - 插件管理器
@@ -727,17 +892,23 @@ value = await comm.shared_state.get("plugin-a", "key1")
 - `src/lurkbot/plugins/container_sandbox.py` - 容器沙箱
 - `src/lurkbot/plugins/communication.py` - 插件间通信
 
+**Phase 6 新增模块**：
+- `src/lurkbot/plugins/orchestration.py` - 插件编排
+- `src/lurkbot/plugins/permissions.py` - 插件权限细化
+- `src/lurkbot/plugins/versioning.py` - 插件版本管理
+- `src/lurkbot/plugins/profiling.py` - 插件性能分析
+
 **测试文件**：
-- `tests/test_plugin_*.py` - 所有插件系统测试
+- `tests/test_plugin_*.py` - 所有插件系统测试（160+ tests）
 
-### 12.2 设计模式
+### 13.2 设计模式
 
-- **单例模式**：PluginManager、PluginLoader、PluginRegistry、HotReloadManager、PluginMarketplace、PluginCommunication 使用全局单例
+- **单例模式**：PluginManager、PluginLoader、PluginRegistry、HotReloadManager、PluginMarketplace、PluginCommunication、PluginOrchestrator、PermissionManager、VersionManager、PerformanceProfiler 使用全局单例
 - **工厂模式**：PluginLoader 负责创建插件实例
 - **观察者模式**：事件系统实现插件生命周期监控；MessageBus 实现发布-订阅模式
 - **策略模式**：PluginSandbox 和 ContainerSandbox 根据配置应用不同的安全策略
 
-### 12.3 技术参考
+### 13.3 技术参考
 
 - [Pydantic Documentation](https://docs.pydantic.dev/)
 - [asyncio Documentation](https://docs.python.org/3/library/asyncio.html)
@@ -745,4 +916,5 @@ value = await comm.shared_state.get("plugin-a", "key1")
 - [Watchdog Documentation](https://python-watchdog.readthedocs.io/)
 - [Docker SDK for Python](https://docker-py.readthedocs.io/)
 - [httpx Documentation](https://www.python-httpx.org/)
+- [psutil Documentation](https://psutil.readthedocs.io/)
 - [Resource Limits (Linux)](https://man7.org/linux/man-pages/man2/setrlimit.2.html)
