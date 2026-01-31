@@ -94,3 +94,4 @@ github.com/
 *.sqlite
 *.db
 sessions/
+data/chroma_db/
