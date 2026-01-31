@@ -98,6 +98,9 @@ dev-dependencies = [
     "mypy>=1.13.0",
     "ruff>=0.8.0",
     "pre-commit>=4.0.0",
+    "pytest-benchmark>=5.2.3",
+    "locust>=2.43.1",
+    "prometheus-client>=0.24.1",
 ]
 
 [tool.pytest.ini_options]
