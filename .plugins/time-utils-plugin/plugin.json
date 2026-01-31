@@ -1,0 +1,26 @@
+{
+  "name": "time-utils-plugin",
+  "version": "1.0.0",
+  "author": {
+    "name": "LurkBot Team",
+    "email": "team@lurkbot.io"
+  },
+  "description": "提供时间相关的工具函数，包括多时区时间查询、时间格式转换等",
+  "type": "tool",
+  "language": "python",
+  "entry": "time_utils.py",
+  "main_class": "TimeUtilsPlugin",
+  "enabled": true,
+  "permissions": {
+    "filesystem": false,
+    "network": false,
+    "exec": false,
+    "channels": []
+  },
+  "dependencies": {
+    "python": [],
+    "system": [],
+    "env": []
+  },
+  "tags": ["time", "utility", "timezone", "example"]
+}

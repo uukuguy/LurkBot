@@ -1,0 +1,26 @@
+{
+  "name": "weather-plugin",
+  "version": "1.0.0",
+  "author": {
+    "name": "LurkBot Team",
+    "email": "team@lurkbot.io"
+  },
+  "description": "查询天气信息的插件，使用 wttr.in API 获取实时天气数据",
+  "type": "tool",
+  "language": "python",
+  "entry": "weather.py",
+  "main_class": "WeatherPlugin",
+  "enabled": true,
+  "permissions": {
+    "filesystem": false,
+    "network": true,
+    "exec": false,
+    "channels": []
+  },
+  "dependencies": {
+    "python": ["httpx>=0.24.0"],
+    "system": [],
+    "env": []
+  },
+  "tags": ["weather", "utility", "api", "example"]
+}
