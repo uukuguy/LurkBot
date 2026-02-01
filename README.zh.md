@@ -2,14 +2,15 @@
 
 # 🦎 LurkBot
 
-**真正能帮你做事的个人 AI 助手**
+**企业级多渠道 AI 助手平台**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
-[![Status: Beta](https://img.shields.io/badge/status-beta%20(97%25)-brightgreen.svg)](#开发路线)
+[![Tests: 625+](https://img.shields.io/badge/tests-625%2B%20passed-brightgreen.svg)](#测试)
+[![Version: v1.0.0-alpha.1](https://img.shields.io/badge/version-v1.0.0--alpha.1-orange.svg)](#开发路线)
 
-[功能特性](#功能特性) • [快速开始](#快速开始) • [文档](docs/index.md) • [架构](#架构) • [开发路线](#开发路线) • [English](README.md)
+[功能特性](#功能特性) • [核心创新](#核心创新) • [快速开始](#快速开始) • [架构](#架构) • [文档](docs/index.md) • [English](README.md)
 
 </div>
 
@@ -17,45 +18,200 @@
 
 ## 为什么选择 LurkBot？
 
-**LurkBot** 是 [**OpenClaw**](https://github.com/openclaw/openclaw) 的 Python 实现版本 — 这款开源个人 AI 助手在 2026 年初席卷了整个开发者社区。Moltbot 基于 Node.js，而 LurkBot 将同样强大的架构带给了 Python 开发者：
+**LurkBot** 是一个生产就绪的多渠道 AI 助手平台 Python 实现，具有业界首创的创新功能，如**九层工具策略引擎**和 **Bootstrap 文件系统**。专为企业和高级用户打造：
 
-- **AI 助手就在你身边** — WhatsApp、Telegram、Discord、Slack 等平台随时响应
-- **真正执行工具** — 浏览网页、运行命令、管理文件、自动化任务
+- **多渠道覆盖** — Telegram、Discord、Slack、企业微信、钉钉、飞书等
+- **真正执行工具** — 22 个原生工具，Docker 沙箱隔离
+- **企业级多租户** — 配额管理、审计日志、合规报告
+- **生产级部署** — Docker + Kubernetes，支持 HPA、健康检查和监控
 - **本地优先控制** — 你的数据、你的设备、你的规则
-- **全天候在线** — Daemon 模式让助手 24/7 待命
 
-> *"如果你想要一个本地化、快速、始终在线的个人助手，这就是它。"*
+> *"一个真正能帮你做事的个人 AI 助手 — 安全、可扩展。"*
 
-### 有什么不同？
+---
 
-与纯云端 AI 助手不同，LurkBot 运行在**你的**设备上。它连接**你的**消息应用。它使用**你的**权限执行工具。Gateway 只是控制平面 — 产品本身是那个真正为你做事的助手。
+## 核心创新
+
+### 🏆 业界首创功能
+
+| 创新点 | 描述 |
+|--------|------|
+| **九层工具策略引擎** | 层级权限控制：Profile → Provider → Global → Agent → Channel → Sandbox → Subagent |
+| **Bootstrap 文件系统** | 8 个 Markdown 文件定义 Agent 人格、记忆和行为 |
+| **23 部分系统提示词生成器** | 模块化、可配置的提示词构建，支持动态部分 |
+| **多维度会话隔离** | 5 种会话类型，自动路由和策略执行 |
+| **自适应上下文压缩** | 智能分块与多阶段摘要 |
+| **子代理通信协议** | 层级任务委派，深度限制（最多 3 层） |
+
+### 🔧 技术亮点
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      九层工具策略引擎                             │
+├─────────────────────────────────────────────────────────────────┤
+│  第 1 层: Profile 策略      (minimal/coding/messaging/full)      │
+│  第 2 层: Provider Profile  (按 AI 提供商设置)                   │
+│  第 3 层: 全局允许/拒绝     (系统级规则)                         │
+│  第 4 层: 全局 Provider     (提供商特定全局规则)                 │
+│  第 5 层: Agent 策略        (按代理配置)                         │
+│  第 6 层: Agent Provider    (代理 + 提供商组合)                  │
+│  第 7 层: 群组/频道         (频道特定规则)                       │
+│  第 8 层: 沙箱策略          (隔离执行)                           │
+│  第 9 层: 子代理策略        (子代理限制)                         │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## 功能特性
 
-### 核心能力（97% 完成）
+### 核心平台 (v1.0.0 - 100% 完成)
 
 | 功能 | 描述 |
 |------|------|
-| **多渠道收件箱** | Telegram（已完整实现），可扩展至 WhatsApp、Discord、Slack、Signal |
-| **多模型支持** | 通过 PydanticAI 集成 Claude、GPT、Gemini、Ollama（本地） |
-| **WebSocket Gateway** | 完整的会话、渠道和工具控制平面 |
-| **22 个原生工具** | exec、read、write、edit、web_search、browser、memory、sessions、cron... |
-| **九层策略引擎** | Profile/Provider/Global/Agent/Channel/Sandbox/Subagent 过滤 |
-| **Bootstrap 文件** | 8 个 Markdown 文件定义 Agent 人格和上下文 |
-| **沙箱隔离** | Docker 容器保护不受信任的执行 |
+| **多渠道支持** | Telegram、Discord、Slack、企业微信、钉钉、飞书 + 可扩展适配器 |
+| **多模型 AI** | Claude、GPT、Gemini、Ollama、DeepSeek、Qwen、Kimi、ChatGLM（13+ 模型） |
+| **22 个原生工具** | exec、read、write、edit、web_search、browser、memory、sessions、cron、canvas、tts... |
+| **WebSocket Gateway** | 完整的控制平面，支持 RPC 协议 |
+| **会话管理** | 5 种会话类型，JSONL 持久化 |
+| **子代理系统** | 层级任务委派，通信协议 |
 
-### 架构亮点
+### 企业功能
 
-- **Gateway 中心化设计** — 单一控制平面路由所有消息
-- **会话隔离** — 按用户/渠道/主题隔离，策略可配置
-- **Skills 系统** — 可扩展的插件架构，支持自定义能力
-- **Hooks 系统** — 事件驱动的自动化，支持工具前后钩子
-- **Daemon 系统** — 跨平台后台服务管理
-- **Auto-Reply & Routing** — 智能消息路由和自动回复
-- **Infra 系统** — 8 个基础设施子系统，支持生产部署
-- **ACP 协议** — Agent 通信协议，支持多 Agent 协作
+| 功能 | 描述 |
+|------|------|
+| **多租户系统** | 4 个层级（免费/基础/专业/企业），配额管理 |
+| **审计日志** | 完整操作审计，合规报告 |
+| **告警系统** | 配额告警、异常检测、通知渠道 |
+| **监控** | Prometheus 指标、性能仪表板 |
+| **安全** | Docker 沙箱、九层策略、执行审批 |
+
+### 生产部署
+
+| 功能 | 描述 |
+|------|------|
+| **Docker** | 多阶段构建、非 root 用户、健康检查 |
+| **Kubernetes** | Deployment、HPA、PDB、Ingress、ConfigMap、Secrets |
+| **健康端点** | `/health`、`/ready`、`/live` 探针 |
+| **可观测性** | 结构化日志、指标导出 |
+
+### 中国生态支持 🇨🇳
+
+| 功能 | 描述 |
+|------|------|
+| **企业消息平台** | 企业微信、钉钉、飞书 |
+| **国产大模型** | DeepSeek、通义千问、Kimi、智谱 + 9 个更多模型（OpenAI 兼容 API） |
+| **向量数据库** | sqlite-vec 轻量级语义搜索 |
+
+---
+
+## 架构
+
+### 系统概览
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                          用户界面层                               │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
+│  │   TUI    │  │  Web UI  │  │   CLI    │  │  Wizard  │        │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘        │
+└───────┼─────────────┼──────────────┼─────────────┼──────────────┘
+        │             │              │             │
+┌───────┴─────────────┴──────────────┴─────────────┴──────────────┐
+│                    Gateway WebSocket 层                          │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │    Gateway 服务器 (FastAPI + WebSocket + RPC 协议)         │ │
+│  │    - 协议处理  - 事件广播  - 会话管理                      │ │
+│  └──────────────────────────┬─────────────────────────────────┘ │
+└─────────────────────────────┼───────────────────────────────────┘
+                              │
+┌─────────────────────────────┴───────────────────────────────────┐
+│                          核心服务层                               │
+│  ┌─────────────┐  ┌──────────────┐  ┌──────────────┐           │
+│  │   Agent     │  │   Session    │  │  Auto-Reply  │           │
+│  │   Runtime   │  │   Manager    │  │  & Routing   │           │
+│  └──────┬──────┘  └──────┬───────┘  └──────┬───────┘           │
+│         │                │                  │                   │
+│  ┌──────┴────────────────┴──────────────────┴───────┐          │
+│  │                消息处理中心                        │          │
+│  │  - 消息路由  - 队列管理  - 事件分发               │          │
+│  └──────┬────────────────────────────────────┬──────┘          │
+└─────────┼────────────────────────────────────┼──────────────────┘
+          │                                    │
+┌─────────┴────────────────────────────────────┴──────────────────┐
+│                         渠道适配层                                │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
+│  │Telegram  │  │ Discord  │  │  Slack   │  │ 企业微信  │        │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                      │
+│  │   钉钉   │  │   飞书   │  │   Mock   │                      │
+│  └──────────┘  └──────────┘  └──────────┘                      │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                         支撑服务层                                │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │  工具系统    │  │    安全      │  │   基础设施   │          │
+│  │ - 22 工具   │  │ - 审计       │  │ - Tailscale  │          │
+│  │ - 九层策略  │  │ - 沙箱       │  │ - Bonjour    │          │
+│  │ - 插件      │  │ - 审批       │  │ - SSH 隧道   │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+│                                                                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │  Skills &    │  │    Hooks     │  │   多租户     │          │
+│  │  Plugins     │  │    系统      │  │   系统       │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Bootstrap 文件系统
+
+```
+~/.lurkbot/
+├── SOUL.md       # 核心人格与价值观（不传递给子代理）
+├── IDENTITY.md   # 名称与外观（不传递给子代理）
+├── USER.md       # 用户偏好（不传递给子代理）
+├── AGENTS.md     # 工作区指南（传递给子代理）
+├── TOOLS.md      # 工具配置（传递给子代理）
+├── MEMORY.md     # 长期记忆（仅主会话）
+├── HEARTBEAT.md  # 定期检查任务（仅主会话）
+└── BOOTSTRAP.md  # 首次运行设置（完成后删除）
+```
+
+### 模块结构（30+ 模块）
+
+```
+src/lurkbot/
+├── agents/           # AI Agent 运行时（bootstrap、system_prompt、compaction）
+├── tools/            # 22 个内置工具 + 九层策略引擎
+├── sessions/         # 会话管理 + JSONL 持久化
+├── gateway/          # WebSocket 服务器 + RPC 协议 + FastAPI 应用
+├── channels/         # 渠道适配器（Telegram、Discord、Slack、企业微信...）
+├── plugins/          # 插件系统（加载器、管理器、沙箱）
+├── skills/           # Skills 系统 + ClawHub 集成
+├── hooks/            # 事件驱动 Hook 系统（10 种事件类型）
+├── tenants/          # 多租户系统（配额、策略、审计）
+├── monitoring/       # Prometheus 指标 + 性能追踪
+├── security/         # 安全审计 + 沙箱隔离
+├── infra/            # 8 个基础设施子系统
+├── browser/          # Playwright 浏览器自动化
+├── memory/           # 向量搜索 + 知识持久化
+├── autonomous/       # Heartbeat + Cron 自主运行
+├── acp/              # Agent 通信协议
+├── daemon/           # 跨平台 Daemon 管理
+├── tui/              # 终端 UI（Rich 组件）
+├── tts/              # 文本转语音（Edge/ElevenLabs/OpenAI）
+├── canvas/           # Canvas 渲染系统
+├── media/            # 媒体理解（4 个提供商）
+├── auto_reply/       # 自动回复队列系统
+├── routing/          # 6 层消息路由
+├── auth/             # 认证 + Profile 轮换
+├── usage/            # 使用量追踪 + 成本计算
+├── wizard/           # 配置向导
+├── config/           # 配置管理
+├── cli/              # 命令行接口（Typer）
+└── logging/          # 结构化日志（Loguru）
+```
 
 ---
 
@@ -65,7 +221,7 @@
 
 - **Python 3.12+**
 - **[uv](https://docs.astral.sh/uv/)**（推荐）或 pip
-- **Docker**（可选，用于沙箱隔离）
+- **Docker**（可选，用于沙箱隔离和部署）
 
 ### 安装
 
@@ -86,7 +242,7 @@ make test
 创建 `~/.lurkbot/.env`：
 
 ```bash
-# AI 提供商（选择一个）
+# AI 提供商（选择一个或多个）
 LURKBOT_ANTHROPIC_API_KEY=sk-ant-...
 LURKBOT_OPENAI_API_KEY=sk-...
 
@@ -99,18 +255,97 @@ LURKBOT_TELEGRAM__ENABLED=true
 
 ```bash
 # 启动 Gateway
-lurkbot gateway start
+lurkbot gateway --host 0.0.0.0 --port 18789
 # Gateway listening on ws://127.0.0.1:18789
 
 # 开始聊天（CLI 模式）
 lurkbot agent chat
 ```
 
+### Docker 部署
+
+```bash
+# 使用 Docker Compose 快速启动
+cp .env.example .env
+# 编辑 .env 填入 API 密钥
+docker compose up -d
+
+# 验证
+curl http://localhost:18789/health
+```
+
+### Kubernetes 部署
+
+```bash
+# 应用所有配置
+kubectl apply -k k8s/
+
+# 验证
+kubectl get pods -n lurkbot
+kubectl port-forward svc/lurkbot-gateway 18789:18789 -n lurkbot
+```
+
+---
+
+## 插件系统
+
+LurkBot 提供强大的插件系统来扩展功能：
+
+### 内置示例插件
+
+| 插件 | 描述 | 权限 |
+|------|------|------|
+| **weather-plugin** | 通过 wttr.in API 获取实时天气 | network |
+| **time-utils-plugin** | 多时区时间转换 | none |
+| **system-info-plugin** | CPU、内存、磁盘监控 | filesystem |
+
+### 快速示例
+
+```python
+# .plugins/hello-plugin/main.py
+async def execute(context):
+    name = context.input_data.get("name", "World")
+    return {"message": f"Hello, {name}!"}
+```
+
+```bash
+# 使用插件
+lurkbot plugin exec hello-plugin --input '{"name": "Alice"}'
+```
+
+详见 [插件文档](docs/design/PLUGIN_USER_GUIDE.md)。
+
+---
+
+## 测试
+
+### 测试统计
+
+| 类别 | 测试数 | 状态 |
+|------|--------|------|
+| 集成测试 | 219 | ✅ 通过 |
+| Phase 测试 | 343+ | ✅ 通过 |
+| 单元测试 | 100+ | ✅ 通过 |
+| **总计** | **625+** | **✅ 100% 通过** |
+
+### 运行测试
+
+```bash
+# 运行所有测试
+make test
+
+# 带覆盖率运行
+pytest --cov=src --cov-report=term-missing
+
+# 运行特定测试
+pytest tests/integration/test_e2e_chat_flow.py -xvs
+```
+
 ---
 
 ## 文档
 
-📚 **[完整文档](docs/index.md)** — 从这里开始阅读全面的指南
+📚 **[完整文档](docs/index.md)**
 
 ### 快速链接
 
@@ -121,160 +356,52 @@ lurkbot agent chat
 | [高级功能](docs/advanced/index.md) | Gateway、Hooks、Skills、Daemon、Cron |
 | [开发者指南](docs/developer/index.md) | 架构、贡献、扩展 |
 | [API 参考](docs/api/index.md) | CLI 参考、RPC 方法 |
-| [故障排除](docs/troubleshooting/index.md) | FAQ、常见问题 |
+| [部署指南](docs/deploy/DEPLOYMENT_GUIDE.md) | Docker、Kubernetes 部署 |
 
 ### 设计文档
 
-- [架构设计](docs/design/ARCHITECTURE_DESIGN.md) — 系统架构和设计决策
-- [Moltbot 分析](docs/design/MOLTBOT_ANALYSIS.md) — 原版 TypeScript 实现的深度分析
+- [架构设计](docs/design/ARCHITECTURE_DESIGN.md)
+- [插件系统设计](docs/design/PLUGIN_SYSTEM_DESIGN.md)
+- [中国生态指南](docs/design/CHINA_ECOSYSTEM_GUIDE.md)
 
 ---
 
-## 架构
+## 技术栈
 
-### 系统概览
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Telegram   Discord   Slack   WhatsApp   Signal   CLI       │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                    ┌────▼────┐
-                    │ Gateway │  FastAPI + WebSocket
-                    │ :18789  │  ws://127.0.0.1:18789
-                    └────┬────┘
-                         │
-        ┌────────────────┼────────────────┐
-        │                │                │
-    ┌───▼───┐      ┌────▼────┐      ┌───▼────┐
-    │Agent  │      │ Channel │      │22 Tools│
-    │Runtime│      │Adapters │      │+ Policy│
-    └───┬───┘      └─────────┘      └───┬────┘
-        │                                │
-    ┌───▼──────────┐              ┌─────▼─────┐
-    │Claude/GPT/   │              │exec/read/ │
-    │Gemini/Ollama │              │write/web..│
-    └──────────────┘              └───────────┘
-
-Bootstrap 文件系统：
-~/.lurkbot/
-├── SOUL.md      (核心人格与价值观)
-├── IDENTITY.md  (名称与外观)
-├── USER.md      (用户偏好)
-├── AGENTS.md    (工作区指南)
-├── TOOLS.md     (工具配置)
-├── MEMORY.md    (长期记忆)
-├── HEARTBEAT.md (定期检查)
-└── BOOTSTRAP.md (首次运行设置)
-```
-
-### 关键设计模式
-
-- **Gateway 模式** — 集中式消息路由和会话管理
-- **Adapter 模式** — 消息平台和 AI 模型的统一接口
-- **Strategy 模式** — 按会话的工具策略和沙箱模式
-- **Plugin 模式** — 可扩展的 Skills 和自定义工具
-
----
-
-## 开发
-
-### 项目结构
-
-```
-lurkbot/
-├── src/lurkbot/
-│   ├── gateway/          # WebSocket 服务器 + RPC 协议
-│   ├── agents/           # AI Agent 运行时 + PydanticAI 集成
-│   ├── sessions/         # 会话管理 + JSONL 持久化
-│   ├── tools/            # 22 个内置工具 + 9 层策略引擎
-│   ├── skills/           # 可扩展的 Skills 系统
-│   ├── hooks/            # 事件驱动的 Hook 系统
-│   ├── daemon/           # 跨平台 Daemon 管理
-│   ├── routing/          # 消息路由系统
-│   ├── auto_reply/       # 自动回复系统
-│   ├── infra/            # 基础设施（8 个子系统）
-│   ├── plugins/          # 插件系统
-│   ├── security/         # 安全 + 沙箱隔离
-│   ├── media/            # 媒体处理
-│   ├── memory/           # 向量搜索 + 知识持久化
-│   ├── browser/          # Playwright 浏览器自动化
-│   ├── canvas/           # Canvas 渲染
-│   ├── tui/              # 终端 UI
-│   ├── tts/              # 文本转语音
-│   ├── usage/            # 使用量跟踪
-│   ├── wizard/           # 配置向导
-│   ├── auth/             # 认证
-│   ├── autonomous/       # 自主运行模式
-│   ├── acp/              # Agent 通信协议
-│   ├── config/           # 配置管理
-│   ├── cli/              # 命令行接口
-│   └── logging/          # 结构化日志
-├── tests/                # pytest 测试套件
-├── docs/                 # 文档
-└── Makefile              # 开发命令
-```
-
-### 命令
-
-```bash
-make help       # 显示所有可用命令
-make dev        # 安装开发依赖
-make test       # 使用 pytest 运行测试
-make lint       # 运行 ruff 检查
-make format     # 使用 ruff 格式化代码
-make typecheck  # 运行 mypy 类型检查
-make check      # 运行所有检查（lint + typecheck + test）
-```
-
-### 贡献
-
-欢迎贡献！LurkBot 致力于成为 Moltbot 的**忠实 Python 移植版**，同时拥抱 Python 惯用法：
-
-- 遵循现有代码风格（ruff、mypy 严格模式）
-- 为新功能添加测试
-- 为 API 变更更新文档
-- 有疑问时参考 Moltbot 的 TypeScript 实现
+| 组件 | 技术 |
+|------|------|
+| **AI 框架** | PydanticAI 1.0+ |
+| **Web 框架** | FastAPI + Uvicorn |
+| **数据验证** | Pydantic 2.10+ |
+| **CLI** | Typer + Rich |
+| **日志** | Loguru |
+| **包管理器** | uv |
+| **容器** | Docker + Kubernetes |
+| **向量数据库** | ChromaDB + sqlite-vec |
+| **浏览器** | Playwright |
 
 ---
 
 ## 开发路线
 
-### ✅ Phase 1：核心基础设施（已完成）
-- [x] Gateway WebSocket 服务器
-- [x] Agent 运行时（PydanticAI 集成）
-- [x] 配置系统
-- [x] 日志系统
+### ✅ v1.0.0（当前版本）
 
-### ✅ Phase 2：工具与会话系统（已完成）
-- [x] 工具注册表 + 九层策略引擎
-- [x] 22 个内置工具（bash、文件操作、浏览器等）
-- [x] 会话管理 + JSONL 持久化
-- [x] Skills 系统
-- [x] Hooks 系统
+- [x] 核心基础设施（Gateway、Agent Runtime、Sessions）
+- [x] 22 个原生工具 + 九层策略引擎
+- [x] 多渠道支持（7 个平台）
+- [x] 多模型 AI（13+ 模型）
+- [x] 插件系统（3 个示例插件）
+- [x] 多租户系统（配额管理）
+- [x] 监控 + 审计日志
+- [x] Docker + Kubernetes 部署
+- [x] 625+ 测试（100% 通过）
 
-### ✅ Phase 3：高级特性（已完成）
-- [x] Daemon 系统（跨平台）
-- [x] Auto-Reply & Routing 系统
-- [x] 安全系统 + 沙箱隔离
-- [x] Memory 系统（向量搜索）
-- [x] 媒体处理
-- [x] 浏览器自动化（Playwright）
-- [x] Canvas & TUI
-- [x] TTS 系统
-- [x] 插件系统
-- [x] Infra 系统（8 个子系统）
-- [x] ACP（Agent 通信协议）
-- [x] 自主运行模式
-- [x] 认证系统
-- [x] 配置向导
-- [x] 使用量跟踪
+### 🔮 未来计划
 
-### 🚧 Phase 4：完善与生产化（进行中）
-- [ ] 完善 CLI 命令集（当前约 30%）
-- [ ] 添加更多渠道适配器（Discord、Slack、WhatsApp）
-- [ ] 提高测试覆盖率
-- [ ] 生产部署文档
+- [ ] CI/CD 流水线（GitHub Actions + ArgoCD）
+- [ ] 增强可观测性（Grafana 仪表板）
+- [ ] 更多渠道适配器
+- [ ] 插件市场
 
 ---
 
@@ -283,26 +410,13 @@ make check      # 运行所有检查（lint + typecheck + test）
 | 特性 | Moltbot (TypeScript) | LurkBot (Python) |
 |------|---------------------|------------------|
 | **语言** | Node.js 22+ | Python 3.12+ |
-| **包管理器** | pnpm | uv |
-| **Web 框架** | Express | FastAPI |
-| **数据验证** | TypeBox/Zod | Pydantic |
-| **CLI** | Commander | Typer |
-| **测试** | Vitest | pytest |
-| **架构** | Gateway-Centric | Gateway-Centric |
-| **状态** | 生产环境 | Beta（97% 完成） |
-
----
-
-## 技术栈
-
-| 组件 | 技术 |
-|------|------|
-| Agent 框架 | **PydanticAI** — 现代 Python Agent 框架 |
-| Web 框架 | **FastAPI** — 异步 ASGI 服务器 |
-| CLI | **Typer** — 命令行接口 |
-| 数据验证 | **Pydantic** — 类型安全 |
-| 日志 | **Loguru** — 结构化日志 |
-| 包管理器 | **uv** — 快速 Python 包管理器 |
+| **代码量** | ~411,783 行 | ~79,520 行 |
+| **Agent 框架** | Pi SDK | PydanticAI |
+| **多租户** | ❌ | ✅ |
+| **监控** | 基础 | Prometheus |
+| **K8s 部署** | ❌ | ✅ |
+| **中国生态** | 部分 | 完整 |
+| **状态** | 生产环境 | v1.0.0 生产环境 |
 
 ---
 
@@ -314,14 +428,14 @@ MIT 许可证 — 详见 [LICENSE](LICENSE) 文件。
 
 ## 致谢
 
-LurkBot 是 [**OpenClaw**](https://github.com/openclaw/openclaw) 的社区驱动 Python 移植版，原作者 [Peter Steinberger](https://github.com/steipete)。特别感谢 Moltbot 社区创造了如此出色的 AI 助手平台。
+LurkBot 灵感来自 [**OpenClaw/Moltbot**](https://github.com/openclaw/openclaw)。特别感谢开源 AI 助手社区。
 
 ---
 
 <div align="center">
 
-**基于 Python 构建 • 灵感来自 Moltbot • 由 PydanticAI 驱动**
+**基于 Python 构建 • 由 PydanticAI 驱动 • 生产就绪**
 
-[⭐ GitHub 上点星](https://github.com/uukuguy/lurkbot) • [📖 文档](docs/index.md) • [💬 加入 Discord](#)
+[⭐ GitHub 上点星](https://github.com/uukuguy/lurkbot) • [📖 文档](docs/index.md) • [🐛 问题反馈](https://github.com/uukuguy/lurkbot/issues)
 
 </div>

@@ -1,6 +1,6 @@
 [project]
 name = "lurkbot"
-version = "0.1.0"
+version = "1.0.0a1"
 description = "Python port of viral AI assistant Moltbot — Multi-channel, multi-model, actually does things. FastAPI + Claude/GPT + Telegram/Discord/Slack."
 readme = "README.md"
 license = { text = "MIT" }
