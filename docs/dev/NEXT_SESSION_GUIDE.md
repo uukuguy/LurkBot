@@ -2,139 +2,122 @@
 
 ## 当前状态
 
-**Phase 6: 多租户系统集成** - ✅ 已完成 (100%)
+**Phase 7: 监控和分析 - Task 1 租户使用统计仪表板** - ✅ 已完成 (100%)
 
 **开始时间**: 2026-02-01
 **完成时间**: 2026-02-01
-**当前进度**: 6/6 任务完成
+**当前进度**: 4/4 任务完成
 
-### 已完成的任务 (6/6)
+### 已完成的任务 (4/4)
 
-- [x] Task 1: 创建集成基础设施 (errors.py, guards.py, middleware.py) - 100% ✅
-- [x] Task 2: Agent Runtime 集成 - 100% ✅
-- [x] Task 3: Gateway Server 集成 - 100% ✅
-- [x] Task 4: 更新模块导出 - 100% ✅
-- [x] Task 5: 编写集成测试 - 100% ✅
-- [x] Task 6: 更新设计文档 - 100% ✅
+- [x] Task 1: 创建租户统计数据服务 (stats.py) - 100% ✅
+- [x] Task 2: 创建仪表板 API 端点 (api.py) - 100% ✅
+- [x] Task 3: 编写统计服务测试 - 100% ✅
+- [x] Task 4: 更新设计文档 - 100% ✅
 
-## Phase 6 完成总结 🎉
+## Phase 7 Task 1 完成总结 🎉
 
 ### 核心成果
 
-**新增文件**: 7 个
-**修改文件**: 5 个
-**新增代码**: ~1,500 行
-**测试代码**: ~800 行
+**新增文件**: 4 个
+**新增代码**: ~1,200 行
+**测试代码**: ~600 行
 **设计文档**: 1 个
 
 ### 实现的功能
 
-#### 1. 错误体系 (`errors.py`)
+#### 1. 统计数据服务 (`stats.py`)
 
-- TenantErrorCode 枚举（11 种错误码）
-- TenantError 基类
-- QuotaExceededError - 配额超限
-- RateLimitedError - 速率限制
-- ConcurrentLimitError - 并发限制
-- PolicyDeniedError - 策略拒绝
-- TenantNotFoundError - 租户不存在
-- TenantInactiveError - 租户不可用
+**数据模型**:
+- `StatsPeriod` - 统计周期枚举 (hourly/daily/weekly/monthly)
+- `TrendDirection` - 趋势方向枚举 (up/down/stable)
+- `QuotaUsageStats` - 配额使用统计
+- `TenantOverview` - 租户概览
+- `UsageTrend` - 使用量趋势
+- `TenantDashboard` - 租户仪表板
+- `SystemOverview` - 系统概览
 
-#### 2. 守卫类 (`guards.py`)
+**核心服务 (TenantStatsService)**:
+- `get_tenant_overview()` - 获取租户概览
+- `get_tenant_dashboard()` - 获取租户仪表板数据
+- `get_usage_trend()` - 获取使用量趋势
+- `get_quota_consumption_trends()` - 获取配额消耗趋势
+- `get_system_overview()` - 获取系统概览（管理员）
+- `aggregate_usage()` - 聚合使用数据
 
-**QuotaGuard**:
-- `check_and_record()` - 检查配额并记录使用量
-- `check_rate_limit()` - 检查 API 速率限制
-- `acquire_concurrent_slot()` / `release_concurrent_slot()` - 并发控制
-- `concurrent_slot_context()` - 并发槽位上下文管理器
-- `rate_limit_context()` - 速率限制上下文管理器
-- `record_token_usage()` - 记录 Token 使用量
+**算法实现**:
+- 活跃度评分算法（加权计算）
+- 趋势计算算法（前后半部分比较）
+- 告警生成逻辑
 
-**PolicyGuard**:
-- `check_permission()` - 检查权限
-- `require_permission()` - 要求权限（失败抛异常）
-- `evaluate()` - 评估策略并返回详细结果
+#### 2. API 端点 (`api.py`)
 
-#### 3. 中间件 (`middleware.py`)
+| 端点 | 方法 | 描述 |
+|------|------|------|
+| `/api/v1/tenants/{tenant_id}/stats` | GET | 获取租户统计概览 |
+| `/api/v1/tenants/{tenant_id}/dashboard` | GET | 获取租户仪表板数据 |
+| `/api/v1/tenants/{tenant_id}/usage/realtime` | GET | 获取实时使用量 |
+| `/api/v1/tenants/{tenant_id}/usage/history` | GET | 获取历史使用量 |
+| `/api/v1/tenants/{tenant_id}/quota/trends` | GET | 获取配额消耗趋势 |
+| `/api/v1/tenants/overview` | GET | 获取系统概览（管理员） |
 
-**TenantMiddleware**:
-- 从 Header/Query 提取 tenant_id
-- 验证租户状态
-- 设置租户上下文
-- 支持排除路径配置
+#### 3. 测试覆盖
 
-#### 4. Agent Runtime 集成
-
-- AgentContext 添加 `tenant_id` 字段
-- ChatRequest 添加 `tenant_id` 字段
-- run_embedded_agent() 添加：
-  - Step 0: 租户验证和配额检查
-  - Step 7: Token 使用量记录
-  - Finally: 释放并发槽位
-
-#### 5. Gateway Server 集成
-
-- GatewayConnection 添加 `tenant_id` 字段
-- _handshake() 添加租户验证
-- _handle_request() 添加策略评估
+- 单元测试: 25 个测试用例 ✅
+- 集成测试: 14 个测试用例 ✅
+- 总计: 39 个测试，100% 通过
 
 ### 新增文件清单
 
 | 文件 | 描述 |
 |------|------|
-| `src/lurkbot/tenants/errors.py` | 租户错误定义 |
-| `src/lurkbot/tenants/guards.py` | 守卫类（QuotaGuard, PolicyGuard） |
-| `src/lurkbot/tenants/middleware.py` | FastAPI 中间件 |
-| `tests/integration/test_tenant_integration.py` | 租户集成测试 |
-| `tests/integration/test_quota_guards.py` | 配额守卫测试 |
-| `tests/integration/test_policy_guards.py` | 策略守卫测试 |
-| `docs/design/INTEGRATION_DESIGN.md` | 集成设计文档 |
+| `src/lurkbot/tenants/stats.py` | 统计数据服务 |
+| `src/lurkbot/tenants/api.py` | API 端点 |
+| `tests/tenants/test_stats.py` | 统计服务测试 |
+| `tests/integration/test_stats_api.py` | API 集成测试 |
+| `docs/design/MONITORING_DESIGN.md` | 监控系统设计文档 |
 
 ### 修改文件清单
 
 | 文件 | 修改内容 |
 |------|----------|
-| `src/lurkbot/agents/types.py` | 添加 `tenant_id` 字段 |
-| `src/lurkbot/agents/api.py` | 添加 `tenant_id` 字段 |
-| `src/lurkbot/agents/runtime.py` | 添加租户验证、配额检查、Token 记录 |
-| `src/lurkbot/gateway/server.py` | 添加租户验证和策略评估 |
 | `src/lurkbot/tenants/__init__.py` | 导出新模块 |
 
 ## 下一阶段建议
 
-### 选项 1: Phase 7 - 监控和分析（推荐）
+### 选项 1: Phase 7 Task 2 - 告警系统（推荐）
 
-**租户使用统计仪表板**:
-- 实时使用量展示
-- 配额消耗趋势图
-- 租户活跃度分析
+**配额告警**:
+- 配额即将超限告警（80% 阈值）
+- 配额超限告警
+- 告警通知渠道（邮件、钉钉、飞书）
 
-**告警系统**:
-- 配额即将超限告警
+**异常检测**:
 - 异常使用模式检测
+- 突发流量告警
+- 错误率告警
+
+**状态变更通知**:
 - 租户状态变更通知
+- 套餐变更通知
+- 配额调整通知
 
-**审计日志增强**:
-- 详细操作日志
-- 策略评估追踪
-- 合规报告生成
+### 选项 2: Phase 7 Task 3 - 审计日志增强
 
-### 选项 2: Phase 8 - 高级功能
+**详细操作日志**:
+- 所有 API 调用记录
+- 配置变更记录
+- 权限变更记录
 
-**动态配额调整**:
-- 基于使用模式自动调整
-- 临时配额提升
-- 配额预警和建议
+**策略评估追踪**:
+- 策略评估结果记录
+- 拒绝原因追踪
+- 策略命中统计
 
-**租户间资源共享**:
-- 共享资源池
-- 跨租户协作
-- 资源借用机制
-
-**容量规划工具**:
-- 使用量预测
-- 资源规划建议
-- 成本优化分析
+**合规报告**:
+- 使用量报告生成
+- 安全审计报告
+- 合规检查报告
 
 ### 选项 3: 生产就绪
 
@@ -151,27 +134,31 @@
 ## 快速启动命令
 
 ```bash
-# 1. 验证 Phase 6 导入
+# 1. 验证 Phase 7 Task 1 导入
 python -c "
 from lurkbot.tenants import (
-    QuotaGuard, PolicyGuard, TenantMiddleware,
-    QuotaExceededError, PolicyDeniedError
+    TenantStatsService,
+    TenantOverview,
+    TenantDashboard,
+    SystemOverview,
+    create_tenant_stats_router,
 )
 print('Import OK')
 "
 
-# 2. 运行集成测试
-python -m pytest tests/integration/test_tenant_integration.py -xvs
-python -m pytest tests/integration/test_quota_guards.py -xvs
-python -m pytest tests/integration/test_policy_guards.py -xvs
+# 2. 运行统计服务测试
+python -m pytest tests/tenants/test_stats.py -xvs
 
-# 3. 运行所有租户相关测试
-python -m pytest tests/tenants/ tests/integration/ -v
+# 3. 运行 API 集成测试
+python -m pytest tests/integration/test_stats_api.py -xvs
 
-# 4. 查看设计文档
-cat docs/design/INTEGRATION_DESIGN.md
+# 4. 运行所有租户相关测试
+python -m pytest tests/tenants/ tests/integration/test_tenant*.py tests/integration/test_stats*.py -v
 
-# 5. 查看最近提交
+# 5. 查看设计文档
+cat docs/design/MONITORING_DESIGN.md
+
+# 6. 查看最近提交
 git log --oneline -10
 ```
 
@@ -191,7 +178,8 @@ git log --oneline -10
 - ✅ Phase 3 (新): 企业安全增强 (100%)
 - ✅ Phase 4 (新): 性能优化和监控 (100%)
 - ✅ Phase 5 (新): 高级功能 - 多租户和策略引擎 (100%)
-- ✅ **Phase 6 (新): 多租户系统集成 (100%)**
+- ✅ Phase 6 (新): 多租户系统集成 (100%)
+- ✅ **Phase 7 (新) Task 1: 租户使用统计仪表板 (100%)**
 
 ### 累计测试统计
 
@@ -200,37 +188,35 @@ git log --oneline -10
 | Phase 4 (性能优化) | 221 tests | 100% |
 | Phase 5 (高级功能) | 221 tests | 100% |
 | Phase 6 (系统集成) | ~50 tests | 100% |
-| **总计** | **490+ tests** | **100%** |
+| Phase 7 Task 1 (监控) | 39 tests | 100% |
+| **总计** | **530+ tests** | **100%** |
 
 ## 重要提醒
 
-### 向后兼容性
+### 使用统计服务
 
-- ✅ 所有 `tenant_id` 字段都是可选的
-- ✅ 不提供 tenant_id 时系统正常运行
-- ✅ 无策略引擎时默认允许所有操作
-
-### 全局配置
-
-在应用启动时需要配置全局守卫：
+在应用启动时需要配置统计服务：
 
 ```python
 from lurkbot.tenants import (
-    TenantManager,
     MemoryTenantStorage,
-    configure_guards,
+    QuotaManager,
+    configure_stats_service,
+    create_tenant_stats_router,
 )
-from lurkbot.security.policy_engine import PolicyEngine
+from fastapi import FastAPI
 
-# 创建管理器
-tenant_manager = TenantManager(storage=MemoryTenantStorage())
-policy_engine = PolicyEngine()
+# 创建依赖
+storage = MemoryTenantStorage()
+quota_manager = QuotaManager()
 
-# 配置全局守卫
-configure_guards(
-    tenant_manager=tenant_manager,
-    policy_engine=policy_engine,
-)
+# 配置统计服务
+configure_stats_service(storage, quota_manager)
+
+# 创建 FastAPI 应用
+app = FastAPI()
+router = create_tenant_stats_router()
+app.include_router(router)
 ```
 
 ### 调用外部 SDK 时
@@ -241,30 +227,24 @@ configure_guards(
 
 ## 参考资料
 
-### Phase 6 文档
+### Phase 7 Task 1 文档
 
 **设计文档**:
-- `docs/design/INTEGRATION_DESIGN.md` - 集成设计详细文档
+- `docs/design/MONITORING_DESIGN.md` - 监控系统设计文档
 
 ### 核心代码
 
-**集成基础设施**:
-- `src/lurkbot/tenants/errors.py` - 错误定义
-- `src/lurkbot/tenants/guards.py` - 守卫类
-- `src/lurkbot/tenants/middleware.py` - 中间件
-
-**集成点**:
-- `src/lurkbot/agents/runtime.py` - Agent Runtime 集成
-- `src/lurkbot/gateway/server.py` - Gateway Server 集成
+**统计服务**:
+- `src/lurkbot/tenants/stats.py` - 统计数据服务
+- `src/lurkbot/tenants/api.py` - API 端点
 
 **测试文件**:
-- `tests/integration/test_tenant_integration.py` - 集成测试
-- `tests/integration/test_quota_guards.py` - 配额守卫测试
-- `tests/integration/test_policy_guards.py` - 策略守卫测试
+- `tests/tenants/test_stats.py` - 统计服务测试
+- `tests/integration/test_stats_api.py` - API 集成测试
 
 ---
 
 **最后更新**: 2026-02-01
-**下次会话**: 根据项目优先级选择 Phase 7 (监控和分析) 或其他方向
+**下次会话**: 根据项目优先级选择 Phase 7 Task 2 (告警系统) 或其他方向
 
 **祝下次会话顺利！** 🎉
