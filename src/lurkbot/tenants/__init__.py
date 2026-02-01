@@ -12,6 +12,7 @@
 - 中间件
 - 统计服务
 - 告警系统
+- 审计日志
 """
 
 from .errors import (
@@ -110,6 +111,34 @@ from .alerts import (
     create_default_rules,
     get_alert_engine,
 )
+from .audit import (
+    AuditEvent,
+    AuditEventType,
+    AuditLogger,
+    AuditQuery,
+    AuditResult,
+    AuditSeverity,
+    AuditStats,
+    AuditStorage,
+    ComplianceCheck,
+    ComplianceCheckResult,
+    ComplianceReport,
+    MemoryAuditStorage,
+    PolicyEvaluation,
+    PolicyEvaluationQuery,
+    PolicyEvaluationResult,
+    PolicyEvaluationStats,
+    PolicyTracker,
+    ReportFormat,
+    ReportGenerator,
+    ReportStatus,
+    ReportType,
+    ResourceType,
+    configure_audit_api,
+    configure_audit_logger,
+    create_audit_router,
+    get_audit_logger,
+)
 
 __all__ = [
     # Models
@@ -200,4 +229,31 @@ __all__ = [
     "create_alert_router",
     "create_default_rules",
     "get_alert_engine",
+    # Audit
+    "AuditEvent",
+    "AuditEventType",
+    "AuditLogger",
+    "AuditQuery",
+    "AuditResult",
+    "AuditSeverity",
+    "AuditStats",
+    "AuditStorage",
+    "ComplianceCheck",
+    "ComplianceCheckResult",
+    "ComplianceReport",
+    "MemoryAuditStorage",
+    "PolicyEvaluation",
+    "PolicyEvaluationQuery",
+    "PolicyEvaluationResult",
+    "PolicyEvaluationStats",
+    "PolicyTracker",
+    "ReportFormat",
+    "ReportGenerator",
+    "ReportStatus",
+    "ReportType",
+    "ResourceType",
+    "configure_audit_api",
+    "configure_audit_logger",
+    "create_audit_router",
+    "get_audit_logger",
 ]
