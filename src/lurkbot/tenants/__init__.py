@@ -7,8 +7,28 @@
 - 租户配置
 - 租户隔离
 - 租户管理器
+- 错误类型
+- 守卫类
+- 中间件
 """
 
+from .errors import (
+    ConcurrentLimitError,
+    PolicyDeniedError,
+    QuotaExceededError,
+    RateLimitedError,
+    TenantError,
+    TenantErrorCode,
+    TenantInactiveError,
+    TenantNotFoundError,
+)
+from .guards import (
+    PolicyGuard,
+    QuotaGuard,
+    configure_guards,
+    get_policy_guard,
+    get_quota_guard,
+)
 from .isolation import (
     TenantContext,
     TenantContextManager,
@@ -20,6 +40,11 @@ from .isolation import (
     set_current_tenant,
 )
 from .manager import TenantManager
+from .middleware import (
+    TenantMiddleware,
+    get_tenant_from_request,
+    require_tenant,
+)
 from .models import (
     QUOTA_BASIC,
     QUOTA_ENTERPRISE,
@@ -85,4 +110,23 @@ __all__ = [
     "inject_tenant_id",
     # Manager
     "TenantManager",
+    # Errors
+    "TenantError",
+    "TenantErrorCode",
+    "QuotaExceededError",
+    "RateLimitedError",
+    "ConcurrentLimitError",
+    "PolicyDeniedError",
+    "TenantNotFoundError",
+    "TenantInactiveError",
+    # Guards
+    "QuotaGuard",
+    "PolicyGuard",
+    "get_quota_guard",
+    "get_policy_guard",
+    "configure_guards",
+    # Middleware
+    "TenantMiddleware",
+    "get_tenant_from_request",
+    "require_tenant",
 ]

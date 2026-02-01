@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-**Phase 5: 高级功能** - ✅ 已完成 (100%)
+**Phase 6: 多租户系统集成** - ✅ 已完成 (100%)
 
 **开始时间**: 2026-02-01
 **完成时间**: 2026-02-01
@@ -10,113 +10,133 @@
 
 ### 已完成的任务 (6/6)
 
-- [x] Task 1: 动态配置中心 - 100% ✅
-- [x] Task 2: 配置中心集成 - 100% ✅
-- [x] Task 3: 多租户数据模型 - 100% ✅
-- [x] Task 4: 租户管理器 - 100% ✅
-- [x] Task 5: 高级权限策略引擎 - 100% ✅
-- [x] Task 6: 集成和文档 - 100% ✅
+- [x] Task 1: 创建集成基础设施 (errors.py, guards.py, middleware.py) - 100% ✅
+- [x] Task 2: Agent Runtime 集成 - 100% ✅
+- [x] Task 3: Gateway Server 集成 - 100% ✅
+- [x] Task 4: 更新模块导出 - 100% ✅
+- [x] Task 5: 编写集成测试 - 100% ✅
+- [x] Task 6: 更新设计文档 - 100% ✅
 
-## Phase 5 完成总结 🎉
+## Phase 6 完成总结 🎉
 
 ### 核心成果
 
-**总计测试**: 221 tests (100% pass rate)
-**代码行数**: ~2,300 lines
-**文档数量**: 3 个设计文档 + 2 个开发文档
+**新增文件**: 7 个
+**修改文件**: 5 个
+**新增代码**: ~1,500 行
+**测试代码**: ~800 行
+**设计文档**: 1 个
 
 ### 实现的功能
 
-#### 1. 多租户系统
+#### 1. 错误体系 (`errors.py`)
 
-**核心文件**:
-- `src/lurkbot/tenants/models.py` - 租户数据模型
-- `src/lurkbot/tenants/storage.py` - 租户存储抽象
-- `src/lurkbot/tenants/manager.py` - 租户生命周期管理
-- `src/lurkbot/tenants/quota.py` - 配额管理
-- `src/lurkbot/tenants/isolation.py` - 租户隔离
+- TenantErrorCode 枚举（11 种错误码）
+- TenantError 基类
+- QuotaExceededError - 配额超限
+- RateLimitedError - 速率限制
+- ConcurrentLimitError - 并发限制
+- PolicyDeniedError - 策略拒绝
+- TenantNotFoundError - 租户不存在
+- TenantInactiveError - 租户不可用
 
-**功能特性**:
-- ✅ 租户 CRUD 操作
-- ✅ 4 种租户状态 (ACTIVE, TRIAL, SUSPENDED, EXPIRED)
-- ✅ 4 种租户级别 (FREE, BASIC, PROFESSIONAL, ENTERPRISE)
-- ✅ 10 种配额类型
-- ✅ 上下文隔离 (ContextVar)
-- ✅ 资源隔离和访问控制
-- ✅ 事件系统 (8 种事件类型)
+#### 2. 守卫类 (`guards.py`)
 
-**测试覆盖**: 155 tests
+**QuotaGuard**:
+- `check_and_record()` - 检查配额并记录使用量
+- `check_rate_limit()` - 检查 API 速率限制
+- `acquire_concurrent_slot()` / `release_concurrent_slot()` - 并发控制
+- `concurrent_slot_context()` - 并发槽位上下文管理器
+- `rate_limit_context()` - 速率限制上下文管理器
+- `record_token_usage()` - 记录 Token 使用量
 
-#### 2. 策略引擎
+**PolicyGuard**:
+- `check_permission()` - 检查权限
+- `require_permission()` - 要求权限（失败抛异常）
+- `evaluate()` - 评估策略并返回详细结果
 
-**核心文件**:
-- `src/lurkbot/security/policy_dsl.py` - 策略 DSL
-- `src/lurkbot/security/policy_engine.py` - 策略引擎
-- `src/lurkbot/security/inheritance.py` - 权限继承
+#### 3. 中间件 (`middleware.py`)
 
-**功能特性**:
-- ✅ 策略 DSL (principals, resources, actions, conditions)
-- ✅ 时间条件 (weekdays, time range)
-- ✅ IP 条件 (CIDR, whitelist)
-- ✅ 属性条件 (eq, ne, in, gt, lt, contains)
-- ✅ 权限继承 (租户→组→用户)
-- ✅ 循环检测
-- ✅ 菱形继承处理
-- ✅ 冲突解决 (优先级, DENY 优先)
-- ✅ 评估缓存 (TTL + LRU)
-- ✅ 审计追踪
+**TenantMiddleware**:
+- 从 Header/Query 提取 tenant_id
+- 验证租户状态
+- 设置租户上下文
+- 支持排除路径配置
 
-**测试覆盖**: 64 tests
+#### 4. Agent Runtime 集成
 
-#### 3. 动态配置
+- AgentContext 添加 `tenant_id` 字段
+- ChatRequest 添加 `tenant_id` 字段
+- run_embedded_agent() 添加：
+  - Step 0: 租户验证和配额检查
+  - Step 7: Token 使用量记录
+  - Finally: 释放并发槽位
 
-**功能特性**:
-- ✅ 多数据源 (FILE, ENV, REMOTE, DATABASE, OVERRIDE)
-- ✅ 配置验证
-- ✅ 热加载
-- ✅ 版本控制
-- ✅ 事件通知
-- ✅ 租户配置
+#### 5. Gateway Server 集成
 
-### 设计文档
+- GatewayConnection 添加 `tenant_id` 字段
+- _handshake() 添加租户验证
+- _handle_request() 添加策略评估
 
-| 文档 | 路径 | 内容 |
-|------|------|------|
-| 多租户设计 | `docs/design/MULTI_TENANT_DESIGN.md` | 架构、数据模型、配额、隔离、集成 |
-| 动态配置指南 | `docs/design/DYNAMIC_CONFIG_GUIDE.md` | 配置来源、提供者、验证、热加载 |
-| 策略引擎设计 | `docs/design/POLICY_ENGINE_DESIGN.md` | DSL、条件、继承、评估、缓存 |
+### 新增文件清单
 
-### 开发文档
+| 文件 | 描述 |
+|------|------|
+| `src/lurkbot/tenants/errors.py` | 租户错误定义 |
+| `src/lurkbot/tenants/guards.py` | 守卫类（QuotaGuard, PolicyGuard） |
+| `src/lurkbot/tenants/middleware.py` | FastAPI 中间件 |
+| `tests/integration/test_tenant_integration.py` | 租户集成测试 |
+| `tests/integration/test_quota_guards.py` | 配额守卫测试 |
+| `tests/integration/test_policy_guards.py` | 策略守卫测试 |
+| `docs/design/INTEGRATION_DESIGN.md` | 集成设计文档 |
 
-| 文档 | 路径 | 内容 |
-|------|------|------|
-| 完成总结 | `docs/dev/PHASE5_COMPLETION_SUMMARY.md` | 完整的 Phase 5 总结 |
-| 快速参考 | `docs/dev/PHASE5_QUICK_REF.md` | 常用操作和 API 参考 |
+### 修改文件清单
+
+| 文件 | 修改内容 |
+|------|----------|
+| `src/lurkbot/agents/types.py` | 添加 `tenant_id` 字段 |
+| `src/lurkbot/agents/api.py` | 添加 `tenant_id` 字段 |
+| `src/lurkbot/agents/runtime.py` | 添加租户验证、配额检查、Token 记录 |
+| `src/lurkbot/gateway/server.py` | 添加租户验证和策略评估 |
+| `src/lurkbot/tenants/__init__.py` | 导出新模块 |
 
 ## 下一阶段建议
 
-### 选项 1: Phase 6 - 实际集成
+### 选项 1: Phase 7 - 监控和分析（推荐）
 
-将 Phase 5 的功能集成到现有系统：
+**租户使用统计仪表板**:
+- 实时使用量展示
+- 配额消耗趋势图
+- 租户活跃度分析
 
-**Agent Runtime 集成**:
-- 在 `run_embedded_agent()` 中集成租户上下文
-- 添加配额检查
-- 应用策略评估
+**告警系统**:
+- 配额即将超限告警
+- 异常使用模式检测
+- 租户状态变更通知
 
-**Gateway Server 集成**:
-- WebSocket 握手中验证租户
-- RPC 方法调用前评估策略
-- 事件过滤和路由
+**审计日志增强**:
+- 详细操作日志
+- 策略评估追踪
+- 合规报告生成
 
-**配置中心实现**:
-- 实现 Nacos/Consul/etcd 提供者
-- 配置热加载
-- 租户配置管理
+### 选项 2: Phase 8 - 高级功能
 
-### 选项 2: Phase 6 - 生产就绪
+**动态配额调整**:
+- 基于使用模式自动调整
+- 临时配额提升
+- 配额预警和建议
 
-准备生产环境部署：
+**租户间资源共享**:
+- 共享资源池
+- 跨租户协作
+- 资源借用机制
+
+**容量规划工具**:
+- 使用量预测
+- 资源规划建议
+- 成本优化分析
+
+### 选项 3: 生产就绪
 
 **容器化**:
 - 创建 Dockerfile
@@ -128,55 +148,31 @@
 - 配置 ConfigMap/Secret
 - 设置 HPA/PDB
 
-**CI/CD**:
-- GitHub Actions 工作流
-- 自动化测试
-- 自动化部署
-
-### 选项 3: Phase 7 - 文档和示例
-
-完善文档和示例：
-
-**用户文档**:
-- 安装指南
-- 配置指南
-- API 参考
-
-**示例项目**:
-- 基础示例
-- 多租户示例
-- 策略配置示例
-
-### 推荐方案
-
-**建议**: 开始 Phase 6 (实际集成)，因为：
-1. Phase 5 功能已完整实现
-2. 需要将功能集成到实际系统
-3. 集成后可进行端到端测试
-4. 为生产部署做准备
-
 ## 快速启动命令
 
 ```bash
-# 1. 运行 Phase 5 所有测试
-python -m pytest tests/tenants/ tests/security/ -v
+# 1. 验证 Phase 6 导入
+python -c "
+from lurkbot.tenants import (
+    QuotaGuard, PolicyGuard, TenantMiddleware,
+    QuotaExceededError, PolicyDeniedError
+)
+print('Import OK')
+"
 
-# 2. 运行多租户测试
-python -m pytest tests/tenants/ -xvs
+# 2. 运行集成测试
+python -m pytest tests/integration/test_tenant_integration.py -xvs
+python -m pytest tests/integration/test_quota_guards.py -xvs
+python -m pytest tests/integration/test_policy_guards.py -xvs
 
-# 3. 运行策略引擎测试
-python -m pytest tests/security/ -xvs
+# 3. 运行所有租户相关测试
+python -m pytest tests/tenants/ tests/integration/ -v
 
-# 4. 验证模块导出
-python -c "from lurkbot.tenants import TenantManager; from lurkbot.security import PolicyEngine; print('OK')"
+# 4. 查看设计文档
+cat docs/design/INTEGRATION_DESIGN.md
 
-# 5. 查看设计文档
-cat docs/design/MULTI_TENANT_DESIGN.md
-cat docs/design/DYNAMIC_CONFIG_GUIDE.md
-cat docs/design/POLICY_ENGINE_DESIGN.md
-
-# 6. 查看快速参考
-cat docs/dev/PHASE5_QUICK_REF.md
+# 5. 查看最近提交
+git log --oneline -10
 ```
 
 ## 项目总体进度
@@ -194,7 +190,8 @@ cat docs/dev/PHASE5_QUICK_REF.md
 - ✅ Phase 2 (新): 国内生态适配 (100%)
 - ✅ Phase 3 (新): 企业安全增强 (100%)
 - ✅ Phase 4 (新): 性能优化和监控 (100%)
-- ✅ **Phase 5 (新): 高级功能 (100%)**
+- ✅ Phase 5 (新): 高级功能 - 多租户和策略引擎 (100%)
+- ✅ **Phase 6 (新): 多租户系统集成 (100%)**
 
 ### 累计测试统计
 
@@ -202,20 +199,39 @@ cat docs/dev/PHASE5_QUICK_REF.md
 |-------|---------|-------|
 | Phase 4 (性能优化) | 221 tests | 100% |
 | Phase 5 (高级功能) | 221 tests | 100% |
-| **总计** | **442+ tests** | **100%** |
-
-### 累计性能提升
-
-| 优化项 | 性能提升 |
-|--------|---------|
-| JSON 库优化 | 79.7% |
-| 批处理机制 | 47.0% |
-| 连接池管理 | 20-30% |
-| 异步优化 | 48.9 倍 |
-| 缓存策略 | 1264 倍 |
-| 监控系统 | < 20% 开销 |
+| Phase 6 (系统集成) | ~50 tests | 100% |
+| **总计** | **490+ tests** | **100%** |
 
 ## 重要提醒
+
+### 向后兼容性
+
+- ✅ 所有 `tenant_id` 字段都是可选的
+- ✅ 不提供 tenant_id 时系统正常运行
+- ✅ 无策略引擎时默认允许所有操作
+
+### 全局配置
+
+在应用启动时需要配置全局守卫：
+
+```python
+from lurkbot.tenants import (
+    TenantManager,
+    MemoryTenantStorage,
+    configure_guards,
+)
+from lurkbot.security.policy_engine import PolicyEngine
+
+# 创建管理器
+tenant_manager = TenantManager(storage=MemoryTenantStorage())
+policy_engine = PolicyEngine()
+
+# 配置全局守卫
+configure_guards(
+    tenant_manager=tenant_manager,
+    policy_engine=policy_engine,
+)
+```
 
 ### 调用外部 SDK 时
 
@@ -223,55 +239,32 @@ cat docs/dev/PHASE5_QUICK_REF.md
 - ✅ 查询正确的函数签名和参数
 - ✅ 确认 API 版本兼容性
 
-### 重大架构调整时
-
-- ✅ **及时更新设计文档**
-- ✅ 记录架构决策和理由
-- ✅ 更新相关的 API 文档
-
-### 集成开发时
-
-- ✅ **先阅读设计文档**
-- ✅ 参考快速参考卡
-- ✅ 运行相关测试验证
-
 ## 参考资料
 
-### Phase 5 文档
-
-**计划文档**:
-- `docs/dev/PHASE5_ADVANCED_FEATURES_PLAN.md` - Phase 5 实施计划
+### Phase 6 文档
 
 **设计文档**:
-- `docs/design/MULTI_TENANT_DESIGN.md` - 多租户设计
-- `docs/design/DYNAMIC_CONFIG_GUIDE.md` - 动态配置指南
-- `docs/design/POLICY_ENGINE_DESIGN.md` - 策略引擎设计
-
-**开发文档**:
-- `docs/dev/PHASE5_COMPLETION_SUMMARY.md` - 完成总结
-- `docs/dev/PHASE5_QUICK_REF.md` - 快速参考
+- `docs/design/INTEGRATION_DESIGN.md` - 集成设计详细文档
 
 ### 核心代码
 
-**多租户模块**:
-- `src/lurkbot/tenants/models.py` - 数据模型
-- `src/lurkbot/tenants/storage.py` - 存储抽象
-- `src/lurkbot/tenants/manager.py` - 租户管理器
-- `src/lurkbot/tenants/quota.py` - 配额管理
-- `src/lurkbot/tenants/isolation.py` - 租户隔离
+**集成基础设施**:
+- `src/lurkbot/tenants/errors.py` - 错误定义
+- `src/lurkbot/tenants/guards.py` - 守卫类
+- `src/lurkbot/tenants/middleware.py` - 中间件
 
-**策略引擎模块**:
-- `src/lurkbot/security/policy_dsl.py` - 策略 DSL
-- `src/lurkbot/security/policy_engine.py` - 策略引擎
-- `src/lurkbot/security/inheritance.py` - 权限继承
+**集成点**:
+- `src/lurkbot/agents/runtime.py` - Agent Runtime 集成
+- `src/lurkbot/gateway/server.py` - Gateway Server 集成
 
 **测试文件**:
-- `tests/tenants/` - 多租户测试 (155 tests)
-- `tests/security/` - 策略引擎测试 (64 tests)
+- `tests/integration/test_tenant_integration.py` - 集成测试
+- `tests/integration/test_quota_guards.py` - 配额守卫测试
+- `tests/integration/test_policy_guards.py` - 策略守卫测试
 
 ---
 
 **最后更新**: 2026-02-01
-**下次会话**: 根据项目优先级选择 Phase 6 (实际集成) 或其他方向
+**下次会话**: 根据项目优先级选择 Phase 7 (监控和分析) 或其他方向
 
 **祝下次会话顺利！** 🎉

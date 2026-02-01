@@ -70,6 +70,9 @@ class ChatRequest(BaseModel):
     # Workspace
     workspace_dir: str = Field(".", description="Workspace directory path")
 
+    # Tenant context (for multi-tenant support)
+    tenant_id: str | None = Field(None, description="Tenant identifier for multi-tenant mode")
+
 
 class ChatResponse(BaseModel):
     """Response model for non-streaming chat endpoint."""
@@ -119,6 +122,7 @@ def create_chat_api(
             model_id=request.model,
             think_level=ThinkLevel(request.think_level),
             extra_system_prompt=request.extra_system_prompt,
+            tenant_id=request.tenant_id,
         )
 
         # Determine system prompt
@@ -176,6 +180,7 @@ def create_chat_api(
             model_id=request.model,
             think_level=ThinkLevel(request.think_level),
             extra_system_prompt=request.extra_system_prompt,
+            tenant_id=request.tenant_id,
         )
 
         system_prompt = request.system_prompt or default_system_prompt
