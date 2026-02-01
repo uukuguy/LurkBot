@@ -44,6 +44,26 @@ from .warnings import (
     get_severity_count,
     warning_to_console,
 )
+from .policy_dsl import (
+    AttributeCondition,
+    EvaluationContext,
+    IPCondition,
+    Policy,
+    PolicyConditions,
+    PolicyDecision,
+    PolicyEffect,
+    TimeCondition,
+)
+from .policy_engine import (
+    PolicyCache,
+    PolicyEngine,
+    PolicyStore,
+)
+from .inheritance import (
+    InheritanceManager,
+    InheritanceNode,
+    ResolvedPermissions,
+)
 
 __all__ = [
     # audit (security audit)
@@ -85,4 +105,21 @@ __all__ = [
     "warning_to_console",
     "format_findings_table",
     "get_severity_count",
+    # policy_dsl
+    "Policy",
+    "PolicyEffect",
+    "PolicyConditions",
+    "TimeCondition",
+    "IPCondition",
+    "AttributeCondition",
+    "EvaluationContext",
+    "PolicyDecision",
+    # policy_engine
+    "PolicyEngine",
+    "PolicyStore",
+    "PolicyCache",
+    # inheritance
+    "InheritanceManager",
+    "InheritanceNode",
+    "ResolvedPermissions",
 ]
