@@ -1,0 +1,42 @@
+# =============================================================================
+# LurkBot Kustomization
+# Use with: kubectl apply -k k8s/
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: lurkbot
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - deployment.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - ingress.yaml
+
+# Common labels for all resources
+commonLabels:
+  app.kubernetes.io/name: lurkbot
+  app.kubernetes.io/version: "0.1.0"
+  app.kubernetes.io/managed-by: kustomize
+
+# Image customization
+images:
+  - name: lurkbot
+    newName: lurkbot
+    newTag: latest
+
+# Config generation (optional)
+# configMapGenerator:
+#   - name: lurkbot-config
+#     behavior: merge
+#     literals:
+#       - LURKBOT_LOG_LEVEL=DEBUG
+
+# Secret generation (optional - use external secrets in production)
+# secretGenerator:
+#   - name: lurkbot-secrets
+#     behavior: merge
+#     files:
+#       - secrets/api-keys.env

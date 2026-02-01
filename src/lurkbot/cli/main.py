@@ -34,11 +34,14 @@ def version() -> None:
 @app.command()
 def gateway(
     host: str = typer.Option("0.0.0.0", help="Host to bind to"),
-    port: int = typer.Option(8000, help="Port to bind to"),
+    port: int = typer.Option(18789, help="Port to bind to"),
+    reload: bool = typer.Option(False, "--reload", help="Enable hot reload (development)"),
 ) -> None:
     """Start the gateway server."""
+    from lurkbot.gateway import start_gateway_server
+
     typer.echo(f"Starting gateway server on {host}:{port}...")
-    # TODO: Implement gateway server
+    start_gateway_server(host=host, port=port, reload=reload)
 
 
 @app.command()

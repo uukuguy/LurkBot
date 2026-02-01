@@ -1,0 +1,10 @@
+# =============================================================================
+# LurkBot Kubernetes Namespace
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lurkbot
+  labels:
+    app.kubernetes.io/name: lurkbot
+    app.kubernetes.io/component: namespace
