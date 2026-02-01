@@ -1,0 +1,177 @@
+# =============================================================================
+# LurkBot Docker Compose Configuration
+# =============================================================================
+#
+# Usage:
+#   docker compose up -d                    # Start gateway service
+#   docker compose --profile cli run cli    # Run CLI commands
+#   docker compose logs -f                  # View logs
+#   docker compose down                     # Stop services
+#
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Gateway Service - WebSocket server for AI agent communication
+  # ---------------------------------------------------------------------------
+  gateway:
+    image: ${LURKBOT_IMAGE:-lurkbot:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: lurkbot-gateway
+    environment:
+      # Home directory
+      HOME: /home/lurkbot
+      TERM: xterm-256color
+      # Gateway configuration
+      LURKBOT_GATEWAY_HOST: "0.0.0.0"
+      LURKBOT_GATEWAY_PORT: ${LURKBOT_GATEWAY_PORT:-18789}
+      # AI Provider API Keys (from .env)
+      LURKBOT_ANTHROPIC_API_KEY: ${LURKBOT_ANTHROPIC_API_KEY:-}
+      LURKBOT_OPENAI_API_KEY: ${LURKBOT_OPENAI_API_KEY:-}
+      # Chinese AI Providers
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      QWEN_API_KEY: ${QWEN_API_KEY:-}
+      KIMI_API_KEY: ${KIMI_API_KEY:-}
+      ZHIPU_API_KEY: ${ZHIPU_API_KEY:-}
+      # Messaging Channels
+      LURKBOT_TELEGRAM_BOT_TOKEN: ${LURKBOT_TELEGRAM_BOT_TOKEN:-}
+      LURKBOT_DISCORD_BOT_TOKEN: ${LURKBOT_DISCORD_BOT_TOKEN:-}
+      LURKBOT_SLACK_BOT_TOKEN: ${LURKBOT_SLACK_BOT_TOKEN:-}
+      # Chinese Messaging Channels
+      LURKBOT_WECHAT_APP_ID: ${LURKBOT_WECHAT_APP_ID:-}
+      LURKBOT_WECHAT_APP_SECRET: ${LURKBOT_WECHAT_APP_SECRET:-}
+      LURKBOT_DINGTALK_APP_KEY: ${LURKBOT_DINGTALK_APP_KEY:-}
+      LURKBOT_DINGTALK_APP_SECRET: ${LURKBOT_DINGTALK_APP_SECRET:-}
+      LURKBOT_FEISHU_APP_ID: ${LURKBOT_FEISHU_APP_ID:-}
+      LURKBOT_FEISHU_APP_SECRET: ${LURKBOT_FEISHU_APP_SECRET:-}
+      # Multi-tenant configuration
+      LURKBOT_TENANT_ID: ${LURKBOT_TENANT_ID:-default}
+    volumes:
+      # Configuration directory
+      - ${LURKBOT_CONFIG_DIR:-~/.lurkbot}:/home/lurkbot/.lurkbot
+      # Workspace for file operations
+      - ${LURKBOT_WORKSPACE_DIR:-./workspace}:/home/lurkbot/workspace
+    ports:
+      - "${LURKBOT_GATEWAY_PORT:-18789}:18789"
+    init: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:18789/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - lurkbot-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ---------------------------------------------------------------------------
+  # CLI Service - Interactive command-line interface
+  # ---------------------------------------------------------------------------
+  cli:
+    image: ${LURKBOT_IMAGE:-lurkbot:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: lurkbot-cli
+    profiles:
+      - cli
+    environment:
+      HOME: /home/lurkbot
+      TERM: xterm-256color
+      BROWSER: echo
+      # AI Provider API Keys
+      LURKBOT_ANTHROPIC_API_KEY: ${LURKBOT_ANTHROPIC_API_KEY:-}
+      LURKBOT_OPENAI_API_KEY: ${LURKBOT_OPENAI_API_KEY:-}
+      # Chinese AI Providers
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      QWEN_API_KEY: ${QWEN_API_KEY:-}
+    volumes:
+      - ${LURKBOT_CONFIG_DIR:-~/.lurkbot}:/home/lurkbot/.lurkbot
+      - ${LURKBOT_WORKSPACE_DIR:-./workspace}:/home/lurkbot/workspace
+    stdin_open: true
+    tty: true
+    init: true
+    networks:
+      - lurkbot-network
+    entrypoint: ["lurkbot"]
+
+  # ---------------------------------------------------------------------------
+  # Browser Service - With Playwright for browser automation
+  # ---------------------------------------------------------------------------
+  browser:
+    image: ${LURKBOT_IMAGE:-lurkbot:browser}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: browser
+    container_name: lurkbot-browser
+    profiles:
+      - browser
+    environment:
+      HOME: /home/lurkbot
+      TERM: xterm-256color
+      LURKBOT_GATEWAY_HOST: "0.0.0.0"
+      LURKBOT_GATEWAY_PORT: ${LURKBOT_GATEWAY_PORT:-18789}
+      LURKBOT_ANTHROPIC_API_KEY: ${LURKBOT_ANTHROPIC_API_KEY:-}
+      LURKBOT_OPENAI_API_KEY: ${LURKBOT_OPENAI_API_KEY:-}
+    volumes:
+      - ${LURKBOT_CONFIG_DIR:-~/.lurkbot}:/home/lurkbot/.lurkbot
+      - ${LURKBOT_WORKSPACE_DIR:-./workspace}:/home/lurkbot/workspace
+    ports:
+      - "${LURKBOT_GATEWAY_PORT:-18789}:18789"
+    init: true
+    restart: unless-stopped
+    networks:
+      - lurkbot-network
+    shm_size: 2gb  # Required for Playwright
+
+  # ---------------------------------------------------------------------------
+  # Development Service - With hot reload
+  # ---------------------------------------------------------------------------
+  dev:
+    image: ${LURKBOT_IMAGE:-lurkbot:dev}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: lurkbot-dev
+    profiles:
+      - dev
+    environment:
+      HOME: /home/lurkbot
+      TERM: xterm-256color
+      LURKBOT_GATEWAY_HOST: "0.0.0.0"
+      LURKBOT_GATEWAY_PORT: ${LURKBOT_GATEWAY_PORT:-18789}
+      LURKBOT_ANTHROPIC_API_KEY: ${LURKBOT_ANTHROPIC_API_KEY:-}
+      LURKBOT_OPENAI_API_KEY: ${LURKBOT_OPENAI_API_KEY:-}
+    volumes:
+      - ${LURKBOT_CONFIG_DIR:-~/.lurkbot}:/home/lurkbot/.lurkbot
+      - ${LURKBOT_WORKSPACE_DIR:-./workspace}:/home/lurkbot/workspace
+      # Mount source for hot reload
+      - ./src:/app/src:ro
+    ports:
+      - "${LURKBOT_GATEWAY_PORT:-18789}:18789"
+    init: true
+    networks:
+      - lurkbot-network
+
+networks:
+  lurkbot-network:
+    driver: bridge
+    name: lurkbot-network
+
+# Optional: Named volumes for persistent data
+volumes:
+  lurkbot-config:
+    name: lurkbot-config
+  lurkbot-workspace:
+    name: lurkbot-workspace

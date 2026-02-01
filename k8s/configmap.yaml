@@ -1,0 +1,32 @@
+# =============================================================================
+# LurkBot ConfigMap
+# Non-sensitive configuration values
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lurkbot-config
+  namespace: lurkbot
+  labels:
+    app.kubernetes.io/name: lurkbot
+    app.kubernetes.io/component: config
+data:
+  # Gateway Configuration
+  LURKBOT_GATEWAY_HOST: "0.0.0.0"
+  LURKBOT_GATEWAY_PORT: "18789"
+
+  # Logging Configuration
+  LURKBOT_LOG_LEVEL: "INFO"
+  LURKBOT_LOG_FORMAT: "json"
+
+  # Performance Configuration
+  LURKBOT_MAX_CONCURRENT_REQUESTS: "100"
+  LURKBOT_REQUEST_TIMEOUT: "300"
+  LURKBOT_CACHE_TTL: "3600"
+
+  # Multi-tenant Configuration
+  LURKBOT_TENANT_ISOLATION: "strict"
+
+  # Security Configuration
+  LURKBOT_SANDBOX_ENABLED: "true"
+  LURKBOT_ALLOWED_DOMAINS: "*"

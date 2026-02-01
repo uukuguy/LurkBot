@@ -1,0 +1,18 @@
+# =============================================================================
+# LurkBot Pod Disruption Budget
+# Ensures high availability during cluster maintenance
+# =============================================================================
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: lurkbot-gateway-pdb
+  namespace: lurkbot
+  labels:
+    app.kubernetes.io/name: lurkbot
+    app.kubernetes.io/component: gateway
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: lurkbot
+      app.kubernetes.io/component: gateway
