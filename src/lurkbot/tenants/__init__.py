@@ -11,6 +11,7 @@
 - 守卫类
 - 中间件
 - 统计服务
+- 告警系统
 """
 
 from .errors import (
@@ -89,6 +90,26 @@ from .stats import (
 from .api import (
     create_tenant_stats_router,
 )
+from .alerts import (
+    Alert,
+    AlertCondition,
+    AlertEngine,
+    AlertNotification,
+    AlertRule,
+    AlertSeverity,
+    AlertStats,
+    AlertStatus,
+    AlertStorage,
+    AlertType,
+    MemoryAlertStorage,
+    NotificationService,
+    RuleEvaluator,
+    RuleManager,
+    configure_alert_engine,
+    create_alert_router,
+    create_default_rules,
+    get_alert_engine,
+)
 
 __all__ = [
     # Models
@@ -160,4 +181,23 @@ __all__ = [
     "get_stats_service",
     # API
     "create_tenant_stats_router",
+    # Alerts
+    "Alert",
+    "AlertCondition",
+    "AlertEngine",
+    "AlertNotification",
+    "AlertRule",
+    "AlertSeverity",
+    "AlertStats",
+    "AlertStatus",
+    "AlertStorage",
+    "AlertType",
+    "MemoryAlertStorage",
+    "NotificationService",
+    "RuleEvaluator",
+    "RuleManager",
+    "configure_alert_engine",
+    "create_alert_router",
+    "create_default_rules",
+    "get_alert_engine",
 ]
