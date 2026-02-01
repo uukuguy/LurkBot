@@ -130,6 +130,9 @@ class AgentContext:
     # Extra system prompt injection
     extra_system_prompt: str | None = None
 
+    # Tenant context (for multi-tenant support)
+    tenant_id: str | None = None
+
 
 @dataclass
 class AgentRunResult:

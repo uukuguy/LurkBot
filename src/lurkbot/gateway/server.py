@@ -44,6 +44,7 @@ class GatewayConnection:
         self.conn_id = conn_id
         self.client_info = None
         self.authenticated = False
+        self.tenant_id: str | None = None  # Tenant context for multi-tenant support
 
         # 批处理配置
         if enable_batching:
@@ -135,6 +136,37 @@ class GatewayServer:
         connect_params = ConnectParams(**hello_msg)
         connection.client_info = connect_params.client
 
+        # 提取并验证租户 (if provided)
+        tenant_id = connect_params.auth.get("tenant_id") if connect_params.auth else None
+        if tenant_id:
+            try:
+                from lurkbot.tenants import TenantManager
+                from lurkbot.tenants.storage import MemoryTenantStorage
+
+                # Get or create tenant manager (in production, use a shared instance)
+                tenant_manager = TenantManager(storage=MemoryTenantStorage())
+                tenant = await tenant_manager.get_tenant(tenant_id)
+
+                if not tenant:
+                    logger.warning(f"Tenant not found: {tenant_id}")
+                    raise ValueError(f"Invalid tenant: {tenant_id}")
+
+                if not tenant.is_active():
+                    logger.warning(f"Tenant inactive: {tenant_id}, status={tenant.status.value}")
+                    raise ValueError(f"Inactive tenant: {tenant_id}")
+
+                connection.tenant_id = tenant_id
+                logger.info(f"Tenant validated for connection {connection.conn_id}: {tenant_id}")
+
+            except ImportError:
+                # Tenant module not available, skip validation
+                logger.debug("Tenant module not available, skipping tenant validation")
+            except ValueError:
+                raise
+            except Exception as e:
+                logger.warning(f"Tenant validation failed: {e}")
+                # Continue without tenant context for backward compatibility
+
         # 发送 hello-ok 响应
         hello_ok = HelloOk(
             protocol=self.PROTOCOL_VERSION,
@@ -170,6 +202,36 @@ class GatewayServer:
         request = RequestFrame(**message)
 
         try:
+            # 策略评估 (if tenant context available)
+            if connection.tenant_id:
+                try:
+                    from lurkbot.tenants.guards import get_policy_guard
+
+                    policy_guard = get_policy_guard()
+                    await policy_guard.require_permission(
+                        principal=f"tenant:{connection.tenant_id}",
+                        resource=f"method:{request.method}",
+                        action="execute",
+                        tenant_id=connection.tenant_id,
+                    )
+                except ImportError:
+                    # Policy guard not available, skip evaluation
+                    pass
+                except Exception as e:
+                    from lurkbot.tenants.errors import PolicyDeniedError
+
+                    if isinstance(e, PolicyDeniedError):
+                        response = ResponseFrame(
+                            id=request.id,
+                            error=ErrorShape(
+                                code=ErrorCode.UNAVAILABLE,
+                                message=f"Policy denied: {e.message}",
+                            ),
+                        )
+                        await connection.send_json(response.model_dump(by_alias=True))
+                        return
+                    raise
+
             result = await self._method_registry.invoke(
                 request.method,
                 params=request.params,

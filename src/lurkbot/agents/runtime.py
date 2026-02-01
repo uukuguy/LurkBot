@@ -215,6 +215,28 @@ async def run_embedded_agent(
     """
     result = AgentRunResult(session_id_used=context.session_id)
 
+    # Step 0: Tenant validation and quota check (if tenant_id provided)
+    quota_guard = None
+    if context.tenant_id:
+        try:
+            from lurkbot.tenants.guards import get_quota_guard
+            from lurkbot.tenants.quota import QuotaType
+
+            quota_guard = get_quota_guard()
+
+            # Check rate limit
+            await quota_guard.check_rate_limit(context.tenant_id)
+
+            # Acquire concurrent slot
+            await quota_guard.acquire_concurrent_slot(context.tenant_id)
+
+            logger.debug(f"Tenant quota check passed: {context.tenant_id}")
+
+        except Exception as e:
+            logger.error(f"Tenant quota check failed: {e}")
+            result.prompt_error = e
+            return result
+
     try:
         logger.info(f"Running agent with provider={context.provider} model={context.model_id}")
 
@@ -392,12 +414,41 @@ async def run_embedded_agent(
             except Exception as e:
                 logger.warning(f"Failed to save interaction: {e}")
 
+        # Step 7: Record token usage (if tenant_id provided)
+        if context.tenant_id and quota_guard:
+            try:
+                # Extract token usage from run_result if available
+                # PydanticAI provides usage info in the result
+                input_tokens = 0
+                output_tokens = 0
+
+                # Try to get usage from the result
+                if hasattr(run_result, "usage") and run_result.usage:
+                    input_tokens = getattr(run_result.usage, "request_tokens", 0) or 0
+                    output_tokens = getattr(run_result.usage, "response_tokens", 0) or 0
+
+                if input_tokens > 0 or output_tokens > 0:
+                    await quota_guard.record_token_usage(
+                        context.tenant_id,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to record token usage: {e}")
+
     except TimeoutError:
         result.timed_out = True
         logger.error("Agent run timed out")
     except Exception as e:
         result.prompt_error = e
         logger.error(f"Agent run failed: {e}")
+    finally:
+        # Release concurrent slot (if tenant_id provided)
+        if context.tenant_id and quota_guard:
+            try:
+                await quota_guard.release_concurrent_slot(context.tenant_id)
+            except Exception as e:
+                logger.warning(f"Failed to release concurrent slot: {e}")
 
     return result
 
